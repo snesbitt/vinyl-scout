@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 6
+// version: 7
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -91,7 +91,10 @@ function renderCards() {
     return searchable.includes(filter);
   });
 
-  document.getElementById('filter-count').textContent = filtered.length ? `${filtered.length}` : '';
+  // Filter out records with missing artist (invalid data)
+  const validRecords = filtered.filter(r => r.artist && r.artist.trim());
+
+  document.getElementById('filter-count').textContent = validRecords.length ? `${validRecords.length}` : '';
 
   if (!filtered.length) {
     stack.innerHTML = `
@@ -104,12 +107,22 @@ function renderCards() {
   }
 
   stack.className = `stack ${currentDisplay === DISPLAY_MODES.grid ? 'is-grid' : 'is-list'}`;
-  
+
+  if (!validRecords.length) {
+    stack.innerHTML = `
+      <div class="empty">
+        <p class="empty__big">${filtered.length ? 'No valid records' : 'No records yet'}</p>
+        ${filtered.length === 0 ? '<p style="color: var(--ink-soft);">Visit <code>/seed.html</code> to add records via JSON</p>' : ''}
+      </div>
+    `;
+    return;
+  }
+
   // LIST VIEW: text-only rows
   if (currentDisplay === DISPLAY_MODES.list) {
     stack.innerHTML = `
       <div style="width: 100%; font-size: 14px;">
-        ${filtered.map((record, idx) => `
+        ${validRecords.map((record, idx) => `
           <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 1rem;">
             <div style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</div>
             <div style="flex: 1; min-width: 0;">
@@ -131,7 +144,7 @@ function renderCards() {
   }
 
   // GALLERY VIEW: cards with thumbnails
-  stack.innerHTML = filtered.map((record, idx) => `
+  stack.innerHTML = validRecords.map((record, idx) => `
     <article class="card" data-id="${record.id}">
       <div class="card__index">
         <span class="card__num">${idx + 1}</span>

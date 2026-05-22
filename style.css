@@ -855,18 +855,20 @@ body {
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 3px;
-  padding: 22px 24px 18px;
+  padding: 0;
   display: grid;
-  grid-template-columns: 90px 1fr 140px;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto;
   grid-template-areas:
-    "index   photos   actions"
-    "index   body     actions";
-  gap: 18px 24px;
+    "index"
+    "photos"
+    "body";
   box-shadow:
     0 1px 0 rgba(28,32,24,0.04),
     0 8px 24px -16px rgba(28,32,24,0.18);
   position: relative;
   transition: opacity 200ms, transform 200ms;
+  overflow: hidden;
 }
 .card.is-accepted { background: #f6f9ed; }
 .card.is-passed   { opacity: 0.55; }
@@ -874,25 +876,61 @@ body {
 
 .card__index {
   grid-area: index;
-  border-right: 1px solid var(--rule-soft);
-  padding-right: 18px;
+  padding: 12px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
   align-items: flex-start;
+  justify-content: flex-start;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--rule);
 }
 .card__num {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--accent);
   border: 1px solid var(--accent);
-  padding: 5px 7px;
+  padding: 5px 8px;
   border-radius: 2px;
+}
+.card__photos {
+  grid-area: photos;
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.card__photos img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card__body {
+  grid-area: body;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  align-items: flex-start;
+  gap: 6px;
+}
+.card__body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.card__body p {
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--ink-soft);
+}
+.card__actions {
+  padding: 8px 12px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: flex-end;
 }
 .card__num-label {
   font-size: 8px;
@@ -924,12 +962,6 @@ body {
   border: 1px solid var(--accent);
 }
 
-.card__photos {
-  grid-area: photos;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 .thumb {
   display: block;
   width: 110px;
@@ -951,7 +983,6 @@ body {
   display: block;
 }
 
-.card__body { grid-area: body; }
 
 .meta__artist {
   font-family: var(--mono);
