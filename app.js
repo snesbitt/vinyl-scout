@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 3
+// version: 4
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -108,26 +108,24 @@ function renderCards() {
   // LIST VIEW: text-only rows
   if (currentDisplay === DISPLAY_MODES.list) {
     stack.innerHTML = `
-      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tbody>
-          ${filtered.map((record, idx) => `
-            <tr data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 1rem;">
-              <td style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</td>
-              <td style="flex: 1; min-width: 0;">
-                <div style="font-weight: 600; color: var(--ink);">${escapeHtml(record.artist)}</div>
-                <div style="color: var(--ink-soft); font-size: 13px;">${escapeHtml(record.title)}</div>
-              </td>
-              <td style="flex: 0 0 12rem; color: var(--ink-faint); font-size: 13px; text-align: right;">
-                ${record.year ? `${record.year}` : ''}
-                ${record.genre ? `<br>${escapeHtml(record.genre)}` : ''}
-              </td>
-              <td style="flex: 0 0 auto;">
-                <button class="btn btn--ghost btn--sm" onclick="deleteRecord('${record.id}')">Delete</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <div style="width: 100%; font-size: 14px;">
+        ${filtered.map((record, idx) => `
+          <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 1rem;">
+            <div style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 600; color: var(--ink);">${escapeHtml(record.artist)}</div>
+              <div style="color: var(--ink-soft); font-size: 13px;">${escapeHtml(record.title)}</div>
+            </div>
+            <div style="flex: 0 0 12rem; color: var(--ink-faint); font-size: 13px; text-align: right;">
+              ${record.year ? `${record.year}` : ''}
+              ${record.genre ? `<br>${escapeHtml(record.genre)}` : ''}
+            </div>
+            <div style="flex: 0 0 auto;">
+              <button class="btn btn--ghost btn--sm" onclick="deleteRecord('${record.id}')">Delete</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
     `;
     return;
   }
