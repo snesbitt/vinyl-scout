@@ -92,7 +92,11 @@ function renderCards() {
   });
 
   // Filter out records with missing artist (invalid data)
-  const validRecords = filtered.filter(r => r.artist && r.artist.trim());
+  const validRecords = filtered.filter(r => {
+    const artist = (r.artist || '').trim();
+    const title = (r.title || '').trim();
+    return artist || title; // Keep if either artist OR title is present
+  });
 
   document.getElementById('filter-count').textContent = validRecords.length ? `${validRecords.length}` : '';
 
