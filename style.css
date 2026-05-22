@@ -590,6 +590,12 @@ body {
 /* ============================================================
    Gallery view — grid of album covers
    ============================================================ */
+.stack.is-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .stack.is-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
