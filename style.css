@@ -595,7 +595,6 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 24px;
 }
-.stack.is-grid .card { display: none; }
 
 /* Genre headings span the full row of the gallery grid */
 .stack.is-grid .genre-header {

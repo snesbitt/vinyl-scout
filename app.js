@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 2
+// version: 3
 
 const DISPLAY_MODES = {
   list: 'list',
