@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 5
+// version: 6
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -192,4 +192,7 @@ function escapeHtml(text) {
   // Hide add bar (no photo upload in Phase 1)
   const addBar = document.querySelector('.add-bar');
   if (addBar) addBar.style.display = 'none';
+
+  // INITIAL RENDER
+  renderCards();
 })();
