@@ -8,7 +8,7 @@ const DISPLAY_MODES = {
 };
 
 let allRecords = [];
-let currentDisplay = DISPLAY_MODES.grid;
+let currentDisplay = DISPLAY_MODES.list;
 
 // ============================================================
 // Toast notifications
