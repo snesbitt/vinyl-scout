@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vinyl Scout · Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="login-page">
+
+<main class="login-shell">
+  <div class="login-card">
+    <div class="brand brand--login">
+      <span class="brand__mark">⦿</span>
+      <div>
+        <h1>Vinyl Scout</h1>
+        <p class="brand__sub">Catalog · Grade · Price</p>
+      </div>
+    </div>
+
+    <form id="login-form" class="login-form">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        autofocus
+        required />
+      <button type="submit">Enter</button>
+      <p class="login-error" id="login-error"></p>
+    </form>
+
+    <p class="login-foot">
+      Personal vinyl agent · runs on Netlify · single-user
+    </p>
+  </div>
+</main>
+
+<script>
+  // If the site is public (no AUTH_PASSWORD set on the server), skip login.
+  fetch('/api/auth', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d && d.auth_required === false) {
+        location.replace('/');
+      }
+    })
+    .catch(() => {});
+
+  const form = document.getElementById('login-form');
+  const err = document.getElementById('login-error');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.textContent = '';
+    const password = document.getElementById('password').value;
+    try {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (r.ok) {
+        location.href = '/';
+      } else {
+        const data = await r.json().catch(() => ({}));
+        err.textContent = data.error || `Sign-in failed (${r.status})`;
+      }
+    } catch (e) {
+      err.textContent = `Network error: ${e.message}`;
+    }
+  });
+</script>
+</body>
+</html>

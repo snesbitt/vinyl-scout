@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vinyl Scout · Seed Records</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .seed-shell {
+      max-width: 900px;
+      margin: 3rem auto;
+      padding: 2rem;
+    }
+    .seed-heading {
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      color: var(--ink);
+    }
+    .seed-intro {
+      color: var(--ink-soft);
+      margin: 0 0 2rem 0;
+    }
+    .seed-textarea {
+      width: 100%;
+      min-height: 400px;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--ink);
+      resize: vertical;
+      margin-bottom: 1.5rem;
+    }
+    .seed-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .seed-btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .seed-btn--primary {
+      background: var(--accent);
+      color: white;
+    }
+    .seed-btn--primary:hover {
+      background: var(--accent-deep);
+    }
+    .seed-btn--secondary {
+      background: var(--rule);
+      color: var(--ink);
+    }
+    .seed-btn--secondary:hover {
+      background: var(--rule-soft);
+    }
+    .seed-status {
+      font-size: 14px;
+      color: var(--ink-faint);
+    }
+    .seed-status.is-loading {
+      color: var(--ink);
+    }
+    .seed-status.is-success {
+      color: var(--good);
+    }
+    .seed-status.is-error {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+<div class="seed-shell">
+  <h1 class="seed-heading">Add Records via JSON</h1>
+  <p class="seed-intro">
+    Paste the JSON array from Claude below. Each object becomes one record in your collection.
+  </p>
+
+  <textarea id="seed-input" class="seed-textarea" placeholder='[{"id":"rec_123", "artist":"...", "title":"...", ...}]'></textarea>
+
+  <div class="seed-actions">
+    <button class="seed-btn seed-btn--primary" id="seed-add-btn">Add Records</button>
+    <button class="seed-btn seed-btn--secondary" id="seed-clear-btn">Clear</button>
+    <div class="seed-status" id="seed-status"></div>
+  </div>
+
+  <p style="margin-top: 2rem; color: var(--ink-soft); font-size: 13px;">
+    ← <a href="/" style="color: var(--accent);">Back to gallery</a>
+  </p>
+</div>
+
+<script>
+  const input = document.getElementById('seed-input');
+  const addBtn = document.getElementById('seed-add-btn');
+  const clearBtn = document.getElementById('seed-clear-btn');
+  const status = document.getElementById('seed-status');
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    status.textContent = '';
+  });
+
+  addBtn.addEventListener('click', async () => {
+    status.textContent = '';
+    const text = input.value.trim();
+
+    if (!text) {
+      status.textContent = 'Paste JSON first';
+      status.classList.add('is-error');
+      return;
+    }
+
+    try {
+      const records = JSON.parse(text);
+      if (!Array.isArray(records)) {
+        throw new Error('JSON must be an array');
+      }
+
+      status.textContent = `Adding ${records.length} record${records.length === 1 ? '' : 's'}…`;
+      status.classList.remove('is-error', 'is-success');
+      status.classList.add('is-loading');
+
+      let added = 0;
+      let failed = 0;
+      let lastError = '';
+
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        const idx = i + 1;
+        
+        status.textContent = `Adding ${records.length} records… [${idx}/${records.length}]`;
+        
+        try {
+          // 10-second timeout per fetch
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          
+          const r = await fetch('/api/records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          
+          if (r.ok) {
+            added++;
+          } else {
+            failed++;
+            const errText = await r.text();
+            lastError = `${record.id}: ${r.status} ${errText}`;
+            console.error('Failed:', lastError);
+          }
+        } catch (e) {
+          failed++;
+          lastError = `${record.id}: ${e.message}`;
+          console.error('Error:', lastError);
+        }
+      }
+
+      if (added > 0) {
+        status.textContent = `✓ Added ${added}/${records.length}`;
+        status.classList.remove('is-loading', 'is-error');
+        status.classList.add('is-success');
+        
+        if (failed > 0) {
+          status.textContent += ` (${failed} failed. Last: ${lastError})`;
+        }
+
+        input.value = '';
+
+        // Refresh gallery after 2 seconds
+        setTimeout(() => {
+          location.href = '/';
+        }, 2000);
+      } else {
+        status.textContent = `✗ All failed. ${lastError}`;
+        status.classList.remove('is-loading');
+        status.classList.add('is-error');
+      }
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.classList.add('is-error');
+      status.classList.remove('is-loading');
+    }
+  });
+</script>
+
+</body>
+</html>

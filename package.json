@@ -1,0 +1,10 @@
+{
+  "name": "vinyl-scout",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal vinyl cataloging agent — single-user, Netlify-hosted.",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
