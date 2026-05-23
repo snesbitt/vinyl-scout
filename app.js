@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 + Phase 3 — Discogs pricing display
 // Gallery + search + delete + live Discogs prices
-// version: 11
+// version: 12
 
 const DISPLAY_MODES = {
   list: 'list',
