@@ -1,3 +1,5 @@
+import { getStore } from '@netlify/blobs';
+
 // TEMPORARY: One-time admin endpoint to clear all records
 // Usage: POST /api/admin-clear with body { "confirm": true }
 // DELETE THIS AFTER USE
@@ -18,13 +20,12 @@ export default async (req, context) => {
     }
 
     // Get Netlify Blobs store and list all records
-    const { Blob } = await import('@netlify/blobs');
-    const store = new Blob({ name: 'records' });
-    const allKeys = await store.list();
+    const store = getStore('records');
+    const { blobs } = await store.list();
 
     let deleted = 0;
-    for (const item of allKeys.blobs) {
-      await store.delete(item.key);
+    for (const blob of blobs) {
+      await store.delete(blob.key);
       deleted++;
     }
 
