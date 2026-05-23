@@ -78,12 +78,20 @@ export default async (req, context) => {
 
     const details = await detailsRes.json();
 
+    // Extract cover image (check both field names)
+    let coverUrl = null;
+    if (details.cover_image) {
+      coverUrl = details.cover_image;
+    } else if (details.images && details.images.length > 0) {
+      coverUrl = details.images[0].uri;
+    }
+
     // Extract enrichment data
     return new Response(
       JSON.stringify({
         discogs_id: details.id,
         discogs_url: details.uri,
-        cover_url: details.cover_image || null,
+        cover_url: coverUrl,
         year: details.year || null,
         label: details.labels?.[0]?.name || null,
         catno: details.catalog_number || null,
