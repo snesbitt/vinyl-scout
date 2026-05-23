@@ -142,8 +142,8 @@
         const record = records[i];
         const idx = i + 1;
         
-        // Phase 2: Try to enrich with Discogs cover art
-        if (record.artist && record.title) {
+        // Phase 2: Try to enrich with Discogs cover art (skip if already has cover_url)
+        if (record.artist && record.title && !record.cover_url) {
           status.textContent = `Enriching ${records.length} records… [${idx}/${records.length}] (looking up cover art)`;
           try {
             const controller = new AbortController();
