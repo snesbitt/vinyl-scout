@@ -122,13 +122,16 @@ function renderCards() {
     return;
   }
 
-  // LIST VIEW: text-only rows
+  // LIST VIEW: rows with thumbnails
   if (currentDisplay === DISPLAY_MODES.list) {
     stack.innerHTML = `
       <div style="width: 100%; font-size: 14px;">
         ${validRecords.map((record, idx) => `
-          <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 1rem;">
+          <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 8px 0; gap: 1rem;">
             <div style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</div>
+            <div style="flex: 0 0 45px; width: 45px; height: 45px; background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+              ${record.cover_url ? `<img src="${record.cover_url}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : '<div style="font-size: 10px; color: var(--ink-faint); text-align: center; padding: 4px;">No art</div>'}
+            </div>
             <div style="flex: 1; min-width: 0;">
               <div style="font-weight: 600; color: var(--ink);">${escapeHtml(record.artist)}</div>
               <div style="color: var(--ink-soft); font-size: 13px;">${escapeHtml(record.title)}</div>
