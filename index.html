@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=2" />
 </head>
 <body>
 
@@ -16,43 +16,10 @@
     <span class="brand__mark">⦿</span>
     <div>
       <h1>The Vinyl Scout</h1>
-      <p class="brand__sub">Catalog · Grade · Price</p>
+      <p class="brand__sub">Catalog</p>
     </div>
   </a>
 </header>
-
-<section class="add-bar">
-  <div class="add-bar__head">
-    <h2>Add a record</h2>
-    <p>Snap a photo of any cover — we'll identify it. Or search Discogs.</p>
-  </div>
-
-  <label class="add-photo" for="photo-input">
-    <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
-    <span class="add-photo__icon" aria-hidden="true">📷</span>
-    <span class="add-photo__text">Snap albums to add</span>
-    <span class="add-photo__hint">Photograph 1–6 covers at once — vision identifies each</span>
-  </label>
-
-  <div class="quick-add">
-    <input
-      type="text"
-      id="quick-add-input"
-      class="quick-add__input"
-      placeholder="…or search artist + title (e.g. miles davis kind of blue)"
-      autocomplete="off"
-      spellcheck="false" />
-    <div id="quick-add-results" class="quick-add__results" hidden></div>
-  </div>
-
-  <div class="add-bar__alt">
-    <button class="btn btn--ghost btn--sm" id="logout-btn">Sign out</button>
-  </div>
-</section>
-
-<div id="upload-tray" class="upload-tray" hidden>
-  <!-- Populated dynamically during upload -->
-</div>
 
 <h2 class="collection-title">Susan's Collection</h2>
 
@@ -62,13 +29,13 @@
       type="search"
       id="filter-input"
       class="controls__search-input"
-      placeholder="Search artist, title, label, cat #…"
+      placeholder="Search artist, title, genre…"
       autocomplete="off"
       spellcheck="false" />
     <span class="controls__count" id="filter-count"></span>
   </div>
   <div class="controls__right">
-    <button class="btn btn--ghost" id="grading-help-btn" type="button">Grading guide</button>
+    <a class="btn btn--ghost btn--sm" href="/seed.html">Add via JSON</a>
     <div class="view-toggle" role="tablist">
       <button class="view-toggle__btn is-on" data-display="list" type="button" title="List view">
         <span class="view-toggle__icon">☰</span> List
@@ -80,69 +47,16 @@
   </div>
 </section>
 
+<div id="error-banner" class="error-banner" hidden></div>
+
 <main class="stack" id="card-stack">
   <div class="empty" id="empty-state">
     <p class="empty__big">Loading…</p>
   </div>
 </main>
 
-<div class="modal" id="grading-modal" hidden>
-  <div class="modal__backdrop" data-action="close-modal"></div>
-  <div class="modal__card" role="dialog" aria-labelledby="grading-modal-title">
-    <button class="modal__close" type="button" data-action="close-modal" aria-label="Close">×</button>
-    <h2 id="grading-modal-title">Goldmine Grading Standard</h2>
-    <p class="modal__intro">
-      The industry-standard scale for vinyl. Records get two grades — one for the <em>media</em> (the disc itself)
-      and one for the <em>sleeve</em> (the cover and inserts). They often differ. When in doubt, grade conservatively.
-    </p>
-    <dl class="grading-guide">
-      <dt><span class="pill pill--static">M</span> Mint</dt>
-      <dd>Still factory sealed, never played, perfect in every way. The grade most sellers should avoid claiming.</dd>
-
-      <dt><span class="pill pill--static">NM</span> Near Mint</dt>
-      <dd>Looks unplayed, plays perfectly. Sleeve has no marks, splits, ring wear, or writing. The realistic top grade.</dd>
-
-      <dt><span class="pill pill--static">VG+</span> Very Good Plus</dt>
-      <dd>Light surface marks visible under bright light, plays great with no audible noise. Sleeve may have very minor signs of handling. Default for most "played but cared for" records.</dd>
-
-      <dt><span class="pill pill--static">VG</span> Very Good</dt>
-      <dd>Visible wear and marks, plays well with some light surface noise between tracks. Sleeve shows handling wear, light ring wear, or seam fraying.</dd>
-
-      <dt><span class="pill pill--static">G+</span> Good Plus</dt>
-      <dd>Well-worn but plays through with audible surface noise throughout. Sleeve may have splits, writing, or significant wear.</dd>
-
-      <dt><span class="pill pill--static">G</span> Good</dt>
-      <dd>Heavy wear, noticeable surface noise, possible light skips. Sleeve significantly damaged. Sells only for rare/scarce titles.</dd>
-
-      <dt><span class="pill pill--static">F</span> Fair</dt>
-      <dd>Significant noise, may skip. Sleeve heavily damaged. For completists chasing rare pressings only.</dd>
-
-      <dt><span class="pill pill--static">P</span> Poor</dt>
-      <dd>Barely plays. Severe damage, warps, or skips throughout. Essentially decorative.</dd>
-    </dl>
-    <p class="modal__foot muted">
-      Source: Goldmine Magazine grading guide. When listing, always state media and sleeve grades separately.
-    </p>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
-<!-- Card template -->
-<template id="tmpl-card">
-  <article class="card" data-id="">
-    <div class="card__index">
-      <span class="card__num"></span>
-      <span class="conf" hidden></span>
-    </div>
-    <div class="card__photos"></div>
-    <div class="card__body"></div>
-    <div class="card__actions"></div>
-  </article>
-</template>
-
-<!-- Tesseract.js for client-side OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script type="module" src="/app.js"></script>
+<script type="module" src="/app.js?v=2"></script>
 </body>
 </html>
