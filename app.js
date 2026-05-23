@@ -13,9 +13,10 @@ let currentDisplay = DISPLAY_MODES.list;
 // ============================================================
 // Pricing helpers
 // ============================================================
-function formatPrice(n) {
+function formatPrice(n, currency = 'USD') {
   if (n === null || n === undefined) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  const symbol = currency === 'EUR' ? '€' : '$';
+  return `${symbol}${Number(n).toFixed(2)}`;
 }
 
 // ============================================================
@@ -151,10 +152,10 @@ function renderCards() {
             <div style="flex: 0 0 auto; text-align: right; font-size: 12px; color: var(--ink-faint); white-space: nowrap;">
               ${record.price_low && record.price_high ? `
                 <div style="color: var(--ink-soft); font-weight: 500; margin-bottom: 2px;">
-                  ${formatPrice(record.price_low)} — ${formatPrice(record.price_high)}
+                  ${formatPrice(record.price_low, record.price_currency)} — ${formatPrice(record.price_high, record.price_currency)}
                 </div>
               ` : record.price_low ? `
-                <div style="color: var(--ink-soft);">${formatPrice(record.price_low)}</div>
+                <div style="color: var(--ink-soft);">${formatPrice(record.price_low, record.price_currency)}</div>
               ` : ''}
               ${record.demand_ratio ? `<div style="font-size: 11px; color: var(--ink-faint);">D: ${record.demand_ratio}</div>` : ''}
             </div>
@@ -186,8 +187,8 @@ function renderCards() {
         </div>
         ${record.price_low || record.price_high || record.demand_ratio ? `
           <div style="border-top: 1px solid var(--rule); padding-top: 0.5rem; margin-top: 0.5rem; font-size: 12px;">
-            ${record.price_low && record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">${formatPrice(record.price_low)} – ${formatPrice(record.price_high)}</div>` : ''}
-            ${record.price_low && !record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">Floor: ${formatPrice(record.price_low)}</div>` : ''}
+            ${record.price_low && record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">${formatPrice(record.price_low, record.price_currency)} – ${formatPrice(record.price_high, record.price_currency)}</div>` : ''}
+            ${record.price_low && !record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">Floor: ${formatPrice(record.price_low, record.price_currency)}</div>` : ''}
             ${record.demand_ratio ? `<div style="color: var(--ink-faint); font-size: 11px;">Demand: ${record.demand_ratio}</div>` : ''}
             ${record.num_for_sale ? `<div style="color: var(--ink-faint); font-size: 11px;">${record.num_for_sale} for sale</div>` : ''}
           </div>
