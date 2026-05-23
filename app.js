@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 + Phase 3 — Discogs pricing display
 // Gallery + search + delete + live Discogs prices
-// version: 14
+// version: 15
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -139,7 +139,7 @@ function renderCards() {
           <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 8px 0; gap: 1rem;">
             <div style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</div>
             <div style="flex: 0 0 45px; width: 45px; height: 45px; background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-              ${record.cover_url ? `<img src="${record.cover_url}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">` : ''}<div style="font-size: 9px; color: var(--ink-faint); text-align: center; padding: 2px;${record.cover_url ? 'display:none' : ''}">—</div>
+              <img src="/api/covers/${record.id}/image" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'"><div style="font-size: 9px; color: var(--ink-faint); text-align: center; padding: 2px; display: none;">—</div>
             </div>
             <div style="flex: 1; min-width: 0;">
               <div style="font-weight: 600; color: var(--ink);">${escapeHtml(record.artist)}</div>
@@ -176,7 +176,7 @@ function renderCards() {
         <span class="card__num">${idx + 1}</span>
       </div>
       <div class="card__photos">
-        ${record.cover_url ? `<img src="${record.cover_url}" alt="${record.artist} — ${record.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">` : '<div style="width: 100%; height: 100%; background: var(--rule); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 12px;">No cover</div>'}
+        ${record.cover_url ? `<img src="${record.cover_url}" alt="${record.artist} — ${record.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">` : `<img src="/api/covers/${record.id}/image" alt="${record.artist} — ${record.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">`}
       </div>
       <div class="card__body">
         <h3 style="margin: 0 0 0.25rem 0; font-size: 15px; line-height: 1.3;">${escapeHtml(record.artist)}</h3>

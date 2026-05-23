@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload Covers — Vinyl Scout</title>
+  <link rel="stylesheet" href="style.css?v=15">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-group">
+        <div class="logo">●</div>
+        <h1>Upload Covers</h1>
+      </div>
+      <p class="tagline">Add album artwork to your collection</p>
+    </header>
+
+    <main>
+      <section style="max-width: 600px; margin: 2rem auto;">
+        <div id="uploader" style="border: 2px dashed var(--rule); border-radius: 4px; padding: 2rem; text-align: center; cursor: pointer; background: var(--bg-soft);">
+          <p style="font-size: 48px; margin: 0 0 1rem 0;">📷</p>
+          <p style="margin: 0; color: var(--ink); font-weight: 600;">Drop images here</p>
+          <p style="margin: 0.5rem 0 0 0; color: var(--ink-faint); font-size: 14px;">or click to select (JPG, PNG, WebP)</p>
+          <input type="file" id="fileInput" style="display: none;" accept="image/jpeg,image/png,image/webp" multiple>
+        </div>
+
+        <div id="status" style="margin-top: 1rem; padding: 1rem; border-radius: 4px; display: none;"></div>
+
+        <div id="recordsList" style="margin-top: 2rem;"></div>
+
+        <div id="uploads" style="margin-top: 2rem;"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const uploader = document.getElementById('uploader');
+    const fileInput = document.getElementById('fileInput');
+    const status = document.getElementById('status');
+    const uploadsList = document.getElementById('uploads');
+    const recordsList = document.getElementById('recordsList');
+
+    // Load available records
+    async function loadRecords() {
+      try {
+        const res = await fetch('/api/records');
+        const records = await res.json();
+        
+        if (!records.length) {
+          recordsList.innerHTML = '<p style="color: var(--ink-faint);">No records in collection yet.</p>';
+          return;
+        }
+
+        recordsList.innerHTML = '<h3 style="margin-top: 0;">Your Records</h3><div style="display: grid; gap: 1rem;">' +
+          records.map(r => `
+            <div style="border: 1px solid var(--rule); padding: 1rem; border-radius: 4px; display: flex; align-items: center; gap: 1rem;">
+              <img src="/api/covers/${r.id}/image" alt="" style="width: 50px; height: 50px; object-fit: cover; border-radius: 2px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600;">${r.artist}</div>
+                <div style="color: var(--ink-faint); font-size: 13px;">${r.title}</div>
+              </div>
+              <label style="cursor: pointer;">
+                <input type="file" data-id="${r.id}" style="display: none;" accept="image/jpeg,image/png,image/webp">
+                <span style="padding: 0.5rem 1rem; border: 1px solid var(--rule); border-radius: 2px; display: inline-block; font-size: 13px;">Upload</span>
+              </label>
+            </div>
+          `).join('') + '</div>';
+        
+        // Add file upload handlers to individual record inputs
+        recordsList.querySelectorAll('input[type="file"]').forEach(input => {
+          input.addEventListener('change', (e) => handleFileSelect(e, input.dataset.id));
+        });
+      } catch (e) {
+        recordsList.innerHTML = `<p style="color: #b53026;">Error loading records: ${e.message}</p>`;
+      }
+    }
+
+    // Handle file selection
+    async function handleFileSelect(e, recordId) {
+      const files = e.target.files;
+      if (!files.length) return;
+
+      for (const file of files) {
+        await uploadFile(file, recordId || extractRecordId(file.name));
+      }
+    }
+
+    // Upload single file
+    async function uploadFile(file, recordId) {
+      if (!recordId) {
+        showStatus('error', 'Could not determine record ID from filename');
+        return;
+      }
+
+      showStatus('loading', `Uploading ${file.name} for ${recordId}…`);
+
+      try {
+        const res = await fetch(`/api/covers/${recordId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus('error', `Upload failed: ${data.error}`);
+          return;
+        }
+
+        showStatus('success', `✓ Cover uploaded for ${recordId} (${(file.size / 1024).toFixed(0)}KB)`);
+        setTimeout(() => loadRecords(), 500);
+      } catch (e) {
+        showStatus('error', `Upload error: ${e.message}`);
+      }
+    }
+
+    // Extract record ID from filename (e.g., "rec_moby_play.jpg")
+    function extractRecordId(filename) {
+      return filename.split('.')[0];
+    }
+
+    // Show status message
+    function showStatus(type, msg) {
+      status.textContent = msg;
+      status.style.display = 'block';
+      status.style.backgroundColor = type === 'error' ? '#ffebee' : type === 'success' ? '#e8f5e9' : '#f5f5f5';
+      status.style.color = type === 'error' ? '#b53026' : type === 'success' ? '#2e7d32' : '#666';
+      if (type === 'success') setTimeout(() => { status.style.display = 'none'; }, 3000);
+    }
+
+    // Drag and drop
+    uploader.addEventListener('click', () => fileInput.click());
+    uploader.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploader.style.backgroundColor = 'var(--rule)';
+    });
+    uploader.addEventListener('dragleave', () => {
+      uploader.style.backgroundColor = 'var(--bg-soft)';
+    });
+    uploader.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploader.style.backgroundColor = 'var(--bg-soft)';
+      handleFileSelect({ target: { files: e.dataTransfer.files } });
+    });
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // Load records on page load
+    loadRecords();
+  </script>
+</body>
+</html>
