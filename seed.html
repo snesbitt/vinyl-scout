@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=8" />
+  <link rel="stylesheet" href="/style.css?v=9" />
   <style>
     .seed-shell {
       max-width: 900px;
@@ -142,6 +142,38 @@
         const record = records[i];
         const idx = i + 1;
         
+        // Phase 2: Try to enrich with Discogs cover art
+        if (record.artist && record.title) {
+          status.textContent = `Enriching ${records.length} records… [${idx}/${records.length}] (looking up cover art)`;
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const enrichRes = await fetch('/api/discogs-enrich', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artist: record.artist,
+                title: record.title,
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            
+            if (enrichRes.ok) {
+              const enriched = await enrichRes.json();
+              if (enriched.cover_url) {
+                record.cover_url = enriched.cover_url;
+                record.discogs_id = enriched.discogs_id;
+              }
+            }
+          } catch (e) {
+            // Enrichment failed, continue without cover art
+            console.log(`Enrichment skipped for ${record.artist}: ${e.message}`);
+          }
+        }
+        
+        // Add record to database (with or without cover art)
         status.textContent = `Adding ${records.length} records… [${idx}/${records.length}]`;
         
         try {
