@@ -62,30 +62,22 @@ function generateSVG(id) {
 
 export const config = { path: "/api/placeholder/:id" };
 
-export default async (req, context) => {
-  const id = req.path.split('/').pop();
-  const meta = placeholders[id];
-  
-  if (!meta) {
-    return new Response('Not found', { status: 404 });
+export default async (req) => {
+  try {
+    let id = new URL(req.url).pathname.split('/').pop();
+    const meta = placeholders[id];
+    
+    if (!meta) {
+      return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+    }
+    
+    const svg = `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="300" fill="${meta.color}"/><rect width="300" height="300" fill="url(#noise)" opacity="0.1"/><defs><pattern id="noise" patternUnits="userSpaceOnUse" width="4" height="4"><rect width="4" height="4" fill="${meta.color}"/><circle cx="2" cy="2" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><text x="150" y="130" font-family="Georgia, serif" font-size="32" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">${meta.title}</text><text x="150" y="165" font-family="Georgia, serif" font-size="18" fill="white" text-anchor="middle" opacity="0.8">${meta.artist}</text><text x="150" y="280" font-family="monospace" font-size="12" fill="white" text-anchor="middle" opacity="0.6">${meta.year}</text></svg>`;
+    
+    return new Response(svg, { 
+      status: 200,
+      headers: { 'Content-Type': 'image/svg+xml' }
+    });
+  } catch (err) {
+    return new Response('Error: ' + err.message, { status: 500, headers: { 'Content-Type': 'text/plain' } });
   }
-  
-  const svg = `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
-    <rect width="300" height="300" fill="${meta.color}"/>
-    <rect width="300" height="300" fill="url(#noise)" opacity="0.1"/>
-    <defs>
-      <pattern id="noise" patternUnits="userSpaceOnUse" width="4" height="4">
-        <rect width="4" height="4" fill="${meta.color}"/>
-        <circle cx="2" cy="2" r="0.5" fill="rgba(255,255,255,0.1)"/>
-      </pattern>
-    </defs>
-    <text x="150" y="130" font-family="Georgia, serif" font-size="32" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">${meta.title}</text>
-    <text x="150" y="165" font-family="Georgia, serif" font-size="18" fill="white" text-anchor="middle" opacity="0.8">${meta.artist}</text>
-    <text x="150" y="280" font-family="monospace" font-size="12" fill="white" text-anchor="middle" opacity="0.6">${meta.year}</text>
-  </svg>`;
-  
-  return new Response(svg, { 
-    status: 200,
-    headers: { 'Content-Type': 'image/svg+xml; charset=utf-8' }
-  });
 };
