@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=2" />
   <style>
     .seed-shell {
       max-width: 900px;
@@ -172,24 +172,18 @@
         }
       }
 
-      if (added > 0) {
-        status.textContent = `✓ Added ${added}/${records.length}`;
+      if (added > 0 && failed === 0) {
+        status.textContent = `✓ Added ${added}/${records.length}. Open the gallery to review.`;
         status.classList.remove('is-loading', 'is-error');
         status.classList.add('is-success');
-        
-        if (failed > 0) {
-          status.textContent += ` (${failed} failed. Last: ${lastError})`;
-        }
-
         input.value = '';
-
-        // Refresh gallery after 2 seconds
-        setTimeout(() => {
-          location.href = '/';
-        }, 2000);
+      } else if (added > 0) {
+        status.textContent = `Added ${added}/${records.length} — ${failed} failed. Last error: ${lastError}`;
+        status.classList.remove('is-loading', 'is-success');
+        status.classList.add('is-error');
       } else {
         status.textContent = `✗ All failed. ${lastError}`;
-        status.classList.remove('is-loading');
+        status.classList.remove('is-loading', 'is-success');
         status.classList.add('is-error');
       }
     } catch (err) {
