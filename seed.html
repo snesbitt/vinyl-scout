@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=16" />
+  <link rel="stylesheet" href="/style.css?v=17" />
   <style>
     .seed-shell {
       max-width: 900px;
@@ -141,6 +141,39 @@
       for (let i = 0; i < records.length; i++) {
         const record = records[i];
         const idx = i + 1;
+        
+        // Enrich with Spotify artwork if missing
+        if (record.artist && record.title && !record.cover_url) {
+          status.textContent = `Adding ${records.length} records… [${idx}/${records.length}] (enriching from Spotify)`;
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const spotRes = await fetch('/api/spotify-art', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artist: record.artist,
+                title: record.title
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            
+            if (spotRes.ok) {
+              const spotData = await spotRes.json();
+              if (spotData.cover_url) {
+                record.cover_url = spotData.cover_url;
+              }
+              if (spotData.year && !record.year) {
+                record.year = parseInt(spotData.year);
+              }
+            }
+          } catch (e) {
+            // Spotify lookup failed, continue without artwork
+            console.log(`Spotify enrichment skipped for ${record.artist}: ${e.message}`);
+          }
+        }
         
         status.textContent = `Adding ${records.length} records… [${idx}/${records.length}]`;
         

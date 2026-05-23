@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 + Phase 3 — Gallery with hardcoded high-res artwork
 // Instant, visual, zero loading times
-// version: 16
+// version: 17
 
 // HARDCODED COVER_MAP: All album artwork (Wikipedia, high-res)
 // No external API calls, instant display
