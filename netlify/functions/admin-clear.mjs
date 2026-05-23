@@ -17,13 +17,14 @@ export default async (req, context) => {
       return new Response(JSON.stringify({ error: 'Must set confirm: true' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Get all records
-    const blob = context.env.RECORDS;
-    const allKeys = await blob.list();
+    // Get Netlify Blobs store and list all records
+    const { Blob } = await import('@netlify/blobs');
+    const store = new Blob({ name: 'records' });
+    const allKeys = await store.list();
 
     let deleted = 0;
-    for (const key of allKeys.objects) {
-      await blob.delete(key.key);
+    for (const item of allKeys.blobs) {
+      await store.delete(item.key);
       deleted++;
     }
 
