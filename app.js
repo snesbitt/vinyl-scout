@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 + Phase 3 — Discogs pricing display
 // Gallery + search + delete + live Discogs prices
-// version: 13
+// version: 14
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -138,8 +138,8 @@ function renderCards() {
         ${validRecords.map((record, idx) => `
           <div data-id="${record.id}" style="border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; padding: 8px 0; gap: 1rem;">
             <div style="flex: 0 0 3rem; color: var(--ink-faint); font-size: 12px; text-align: right;">${idx + 1}</div>
-            <div style="flex: 0 0 45px; width: 45px; height: 45px; background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-              ${record.cover_url ? `<img src="${record.cover_url}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : '<div style="font-size: 10px; color: var(--ink-faint); text-align: center; padding: 4px;">No art</div>'}
+            <div style="flex: 0 0 45px; width: 45px; height: 45px; background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              ${record.cover_url ? `<img src="${record.cover_url}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">` : ''}<div style="font-size: 9px; color: var(--ink-faint); text-align: center; padding: 2px;${record.cover_url ? 'display:none' : ''}">—</div>
             </div>
             <div style="flex: 1; min-width: 0;">
               <div style="font-weight: 600; color: var(--ink);">${escapeHtml(record.artist)}</div>
