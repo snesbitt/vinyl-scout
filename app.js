@@ -1,6 +1,6 @@
-// Vinyl Scout Phase 1 — barebones frontend
-// Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 9
+// Vinyl Scout Phase 1 + Phase 3 — Discogs pricing display
+// Gallery + search + delete + live Discogs prices
+// version: 10
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -9,6 +9,14 @@ const DISPLAY_MODES = {
 
 let allRecords = [];
 let currentDisplay = DISPLAY_MODES.list;
+
+// ============================================================
+// Pricing helpers
+// ============================================================
+function formatPrice(n) {
+  if (n === null || n === undefined) return '—';
+  return `$${Number(n).toFixed(2)}`;
+}
 
 // ============================================================
 // Toast notifications
@@ -140,6 +148,16 @@ function renderCards() {
               ${record.year ? `${record.year}` : ''}
               ${record.genre ? `<br>${escapeHtml(record.genre)}` : ''}
             </div>
+            <div style="flex: 0 0 auto; text-align: right; font-size: 12px; color: var(--ink-faint); white-space: nowrap;">
+              ${record.price_low && record.price_high ? `
+                <div style="color: var(--ink-soft); font-weight: 500; margin-bottom: 2px;">
+                  ${formatPrice(record.price_low)} — ${formatPrice(record.price_high)}
+                </div>
+              ` : record.price_low ? `
+                <div style="color: var(--ink-soft);">${formatPrice(record.price_low)}</div>
+              ` : ''}
+              ${record.demand_ratio ? `<div style="font-size: 11px; color: var(--ink-faint);">D: ${record.demand_ratio}</div>` : ''}
+            </div>
             <div style="flex: 0 0 auto;">
               <button class="btn btn--ghost btn--sm" onclick="deleteRecord('${record.id}')">Delete</button>
             </div>
@@ -162,10 +180,18 @@ function renderCards() {
       <div class="card__body">
         <h3 style="margin: 0 0 0.25rem 0; font-size: 15px; line-height: 1.3;">${escapeHtml(record.artist)}</h3>
         <p style="margin: 0 0 0.5rem 0; font-size: 14px; color: var(--ink-soft); line-height: 1.3;">${escapeHtml(record.title)}</p>
-        <div style="display: flex; gap: 0.5rem; font-size: 12px; color: var(--ink-faint);">
+        <div style="display: flex; gap: 0.5rem; font-size: 12px; color: var(--ink-faint); margin-bottom: 0.5rem;">
           ${record.year ? `<span>${record.year}</span>` : ''}
           ${record.genre ? `<span>${escapeHtml(record.genre)}</span>` : ''}
         </div>
+        ${record.price_low || record.price_high || record.demand_ratio ? `
+          <div style="border-top: 1px solid var(--rule); padding-top: 0.5rem; margin-top: 0.5rem; font-size: 12px;">
+            ${record.price_low && record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">${formatPrice(record.price_low)} – ${formatPrice(record.price_high)}</div>` : ''}
+            ${record.price_low && !record.price_high ? `<div style="color: var(--accent); font-weight: 600; margin-bottom: 0.25rem;">Floor: ${formatPrice(record.price_low)}</div>` : ''}
+            ${record.demand_ratio ? `<div style="color: var(--ink-faint); font-size: 11px;">Demand: ${record.demand_ratio}</div>` : ''}
+            ${record.num_for_sale ? `<div style="color: var(--ink-faint); font-size: 11px;">${record.num_for_sale} for sale</div>` : ''}
+          </div>
+        ` : ''}
         ${record.notes ? `<p style="margin: 0.5rem 0 0 0; font-size: 12px; color: var(--ink-soft);">${escapeHtml(record.notes)}</p>` : ''}
       </div>
       <div class="card__actions">
