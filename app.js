@@ -1,6 +1,6 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 1
+// version: 2
 
 const DISPLAY_MODES = {
   list: 'list',
@@ -11,7 +11,7 @@ let allRecords = [];
 let currentDisplay = DISPLAY_MODES.grid;
 
 // ============================================================
-// Toast notifications
+// Toast notifications (success only — errors use #error-banner)
 // ============================================================
 const toast = (msg, ms = 1800) => {
   const el = document.getElementById('toast');
@@ -20,6 +20,21 @@ const toast = (msg, ms = 1800) => {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove('is-visible'), ms);
 };
+
+// ============================================================
+// Persistent error banner (Hard Rule #4 — errors must not auto-dismiss)
+// ============================================================
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function clearError() {
+  const el = document.getElementById('error-banner');
+  el.textContent = '';
+  el.hidden = true;
+}
 
 // ============================================================
 // API helpers
@@ -55,11 +70,12 @@ async function loadRecords() {
     console.error('Failed to load records:', err);
     allRecords = [];
     document.getElementById('empty-state').textContent = `Error loading records: ${err.message}`;
+    showError(`Failed to load records: ${err.message}`);
   }
 }
 
 // ============================================================
-// Delete record
+// Delete record (single id, gated by confirm — Hard Rule #1)
 // ============================================================
 async function deleteRecord(id) {
   if (!confirm('Delete this record?')) return;
@@ -68,9 +84,10 @@ async function deleteRecord(id) {
     await api(`/api/records/${id}`, { method: 'DELETE' });
     allRecords = allRecords.filter(r => r.id !== id);
     renderCards();
+    clearError();
     toast('Record deleted');
   } catch (err) {
-    toast(`Delete failed: ${err.message}`);
+    showError(`Delete failed for ${id}: ${err.message}`);
   }
 }
 
@@ -81,7 +98,6 @@ function renderCards() {
   const stack = document.getElementById('card-stack');
   const filter = document.getElementById('filter-input').value.toLowerCase();
 
-  // Ensure allRecords is an array
   if (!Array.isArray(allRecords)) {
     allRecords = [];
   }
@@ -110,7 +126,7 @@ function renderCards() {
         <span class="card__num">${idx + 1}</span>
       </div>
       <div class="card__photos">
-        ${record.cover_url ? `<img src="${record.cover_url}" alt="${record.artist} — ${record.title}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">` : '<div style="width: 100%; height: 100%; background: var(--rule); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 12px;">No cover</div>'}
+        ${record.cover_url ? `<img src="${record.cover_url}" alt="${escapeHtml(record.artist)} — ${escapeHtml(record.title)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">` : '<div style="width: 100%; height: 100%; background: var(--rule); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 12px;">No cover</div>'}
       </div>
       <div class="card__body">
         <h3 style="margin: 0 0 0.25rem 0; font-size: 15px; line-height: 1.3;">${escapeHtml(record.artist)}</h3>
@@ -134,21 +150,20 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Expose deleteRecord for inline onclick handlers in rendered cards
+window.deleteRecord = deleteRecord;
+
 // ============================================================
-// Event listeners
+// Initialize
 // ============================================================
-// Initialize on page load
 (async () => {
-  // Load records
   await loadRecords();
 
-  // Filter input
   const filterInput = document.getElementById('filter-input');
   if (filterInput) {
     filterInput.addEventListener('input', renderCards);
   }
 
-  // View toggle
   document.querySelectorAll('.view-toggle__btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('is-on'));
@@ -157,12 +172,4 @@ function escapeHtml(text) {
       renderCards();
     });
   });
-
-  // Hide logout button (no auth in Phase 1)
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.style.display = 'none';
-
-  // Hide add bar (no photo upload in Phase 1)
-  const addBar = document.querySelector('.add-bar');
-  if (addBar) addBar.style.display = 'none';
 })();
