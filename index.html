@@ -2,33 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f1ebdc" />
   <title>The Vinyl Scout</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=6" />
+  <link rel="stylesheet" href="/style.css?v=7" />
 </head>
 <body data-view="list">
 
+<a class="sr-only sr-only-focusable" href="#main">Skip to records</a>
+
 <header class="masthead">
-  <a class="brand" href="/">
-    <span class="brand__mark">⦿</span>
+  <a class="brand" href="/" aria-label="The Vinyl Scout — home">
+    <span class="brand__mark" aria-hidden="true">⦿</span>
     <h1>The Vinyl Scout</h1>
   </a>
-  <nav class="masthead__nav">
+  <nav class="masthead__nav" aria-label="Primary">
     <a href="/seed.html">Add</a>
     <a href="/audit.html">Audit</a>
   </nav>
 </header>
 
-<section class="hero">
-  <h2 class="hero__title">Full Collection</h2>
-  <p class="hero__count" id="count">— records</p>
+<section class="pagehead">
+  <h2 class="pagehead__title">Full Collection</h2>
+  <p class="pagehead__count" id="count">— records</p>
 </section>
 
-<section class="controls">
+<section class="controls" aria-label="Filters">
   <div class="controls__search">
+    <label for="search" class="sr-only">Search the collection</label>
     <input
       id="search"
       type="search"
@@ -36,19 +40,19 @@
       autocomplete="off"
       spellcheck="false" />
   </div>
-  <div class="controls__chips" id="chips"></div>
-  <div class="controls__view" role="tablist" aria-label="View">
+  <div class="controls__chips" id="chips" role="group" aria-label="Filter by genre"></div>
+  <div class="controls__view" role="group" aria-label="View mode">
     <button id="view-list" class="vbtn is-on" type="button" aria-pressed="true">List</button>
     <button id="view-gallery" class="vbtn" type="button" aria-pressed="false">Gallery</button>
   </div>
 </section>
 
-<div id="error-banner" class="error-banner" hidden></div>
+<div id="error-banner" class="error-banner" hidden role="alert"></div>
 
-<main id="main" class="list">
+<main id="main" class="list" tabindex="-1" aria-label="Records">
   <div class="empty">Loading…</div>
 </main>
 
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=7"></script>
 </body>
 </html>

@@ -1,17 +1,16 @@
 // Vinyl Scout — app.js
-// version: 6
-// Editorial redesign. List = text only. Gallery = thumb grid. Genre chips for browsing.
+// version: 7
+// Editorial. List = text only. Gallery = thumb grid. Genre chips.
+// New: row/tile are <button>s; clicking cross-navigates between views with scroll+flash.
 // No destructive ops on this page — those live on /audit.html.
 
 (function () {
   'use strict';
 
   var allRecords = [];
-  var currentView = 'list';    // 'list' | 'gallery'
-  var currentGenre = null;     // null = all
+  var currentView = 'list';
+  var currentGenre = null;
   var currentSearch = '';
-
-  // --- DOM helpers ---
 
   function $(id) { return document.getElementById(id); }
 
@@ -20,6 +19,13 @@
     var d = document.createElement('div');
     d.textContent = String(s);
     return d.innerHTML;
+  }
+
+  function escapeAttr(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
 
   function showError(msg) {
@@ -32,8 +38,6 @@
     el.textContent = '';
     el.hidden = true;
   }
-
-  // --- Data ---
 
   function normalizeGenre(g) {
     if (!g) return '';
@@ -60,8 +64,6 @@
     }
   }
 
-  // --- Filter + sort ---
-
   function filtered() {
     var q = currentSearch.toLowerCase().trim();
     var out = allRecords.filter(function (r) {
@@ -84,8 +86,6 @@
     return out;
   }
 
-  // --- Chips ---
-
   function renderChips() {
     var counts = new Map();
     for (var i = 0; i < allRecords.length; i++) {
@@ -99,7 +99,8 @@
     });
 
     var html = ''
-      + '<button type="button" class="chip' + (currentGenre === null ? ' is-on' : '') + '" data-g="">'
+      + '<button type="button" class="chip' + (currentGenre === null ? ' is-on' : '') + '" '
+      +   'data-g="" aria-pressed="' + (currentGenre === null ? 'true' : 'false') + '">'
       +   'All <span class="chip__n">' + allRecords.length + '</span>'
       + '</button>';
 
@@ -108,7 +109,9 @@
       var n = entries[j][1];
       var on = currentGenre === key;
       html += ''
-        + '<button type="button" class="chip' + (on ? ' is-on' : '') + '" data-g="' + escapeHtml(key) + '">'
+        + '<button type="button" class="chip' + (on ? ' is-on' : '') + '" '
+        +   'data-g="' + escapeAttr(key) + '" '
+        +   'aria-pressed="' + (on ? 'true' : 'false') + '">'
         +   escapeHtml(genreLabel(key))
         +   ' <span class="chip__n">' + n + '</span>'
         + '</button>';
@@ -116,8 +119,6 @@
 
     $('chips').innerHTML = html;
   }
-
-  // --- Render ---
 
   function render() {
     document.body.dataset.view = currentView;
@@ -142,43 +143,48 @@
     if (currentView === 'list') {
       main.className = 'list';
       main.innerHTML = records.map(function (r) {
+        var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
         return ''
-          + '<div class="row">'
-          +   '<div class="row__artist">' + escapeHtml(r.artist || '—') + '</div>'
-          +   '<div class="row__title">'  + escapeHtml(r.title  || '—') + '</div>'
-          +   '<div class="row__year">'   + (r.year != null ? r.year : '') + '</div>'
-          +   '<div class="row__genre">'  + escapeHtml(r.genre || '') + '</div>'
-          + '</div>';
+          + '<button type="button" class="row" '
+          +   'data-id="' + escapeAttr(r.id) + '" '
+          +   'aria-label="' + escapeAttr(label) + '. Show in gallery.">'
+          +   '<span class="row__artist">' + escapeHtml(r.artist || '—') + '</span>'
+          +   '<span class="row__title">'  + escapeHtml(r.title  || '—') + '</span>'
+          +   '<span class="row__year">'   + (r.year != null ? r.year : '') + '</span>'
+          +   '<span class="row__genre">'  + escapeHtml(r.genre || '') + '</span>'
+          + '</button>';
       }).join('');
     } else {
       main.className = 'gallery';
       main.innerHTML = records.map(function (r) {
-        var initial = (r.artist || '?').trim().charAt(0).toUpperCase();
+        var initial = (r.artist || '?').trim().charAt(0).toUpperCase() || '?';
         var cover = r.cover_url
-          ? '<img src="' + escapeHtml(r.cover_url) + '" alt="" loading="lazy">'
-          : '<div class="tile__nocover">' + escapeHtml(initial) + '</div>';
+          ? '<img src="' + escapeAttr(r.cover_url) + '" alt="" loading="lazy">'
+          : '<div class="tile__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
         var metaParts = [];
         if (r.year != null) metaParts.push(r.year);
         if (r.genre) metaParts.push(r.genre);
         var meta = metaParts.length
           ? '<div class="tile__meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
           : '';
+        var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
         return ''
-          + '<div class="tile">'
-          +   '<div class="tile__cover">' + cover + '</div>'
-          +   '<div class="tile__text">'
-          +     '<div class="tile__artist">' + escapeHtml(r.artist || '—') + '</div>'
-          +     '<div class="tile__title">'  + escapeHtml(r.title  || '—') + '</div>'
+          + '<button type="button" class="tile" '
+          +   'data-id="' + escapeAttr(r.id) + '" '
+          +   'aria-label="' + escapeAttr(label) + '. Show in list.">'
+          +   '<span class="tile__cover">' + cover + '</span>'
+          +   '<span class="tile__text">'
+          +     '<span class="tile__artist">' + escapeHtml(r.artist || '—') + '</span>'
+          +     '<span class="tile__title">'  + escapeHtml(r.title  || '—') + '</span>'
           +     meta
-          +   '</div>'
-          + '</div>';
+          +   '</span>'
+          + '</button>';
       }).join('');
     }
   }
 
-  // --- Wiring ---
-
   function setView(v) {
+    if (v !== 'list' && v !== 'gallery') return;
     currentView = v;
     var listBtn = $('view-list');
     var galBtn = $('view-gallery');
@@ -187,6 +193,33 @@
     listBtn.setAttribute('aria-pressed', v === 'list' ? 'true' : 'false');
     galBtn.setAttribute('aria-pressed',  v === 'gallery' ? 'true' : 'false');
     render();
+  }
+
+  // Cross-view: click row → gallery@id, click tile → list@id. Scroll + flash + focus.
+  function crossNav(id, toView) {
+    if (!id) return;
+    setView(toView);
+    // After render, find the corresponding element and scroll/flash.
+    requestAnimationFrame(function () {
+      var sel = (toView === 'gallery' ? '.tile' : '.row') + '[data-id="' + cssEscape(id) + '"]';
+      var target = $('main').querySelector(sel);
+      if (!target) return;
+      try {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (e) {
+        target.scrollIntoView();
+      }
+      target.classList.add('is-flash');
+      // Move keyboard focus to the new element without re-scrolling.
+      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+      setTimeout(function () { target.classList.remove('is-flash'); }, 1400);
+    });
+  }
+
+  function cssEscape(s) {
+    // Record IDs are rec_<hex> so simple, but escape just in case.
+    if (window.CSS && window.CSS.escape) return window.CSS.escape(s);
+    return String(s).replace(/["\\]/g, '\\$&');
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -206,6 +239,14 @@
 
     $('view-list').addEventListener('click',    function () { setView('list'); });
     $('view-gallery').addEventListener('click', function () { setView('gallery'); });
+
+    // Delegated cross-view click on main
+    $('main').addEventListener('click', function (e) {
+      var row = e.target.closest && e.target.closest('.row');
+      if (row) { crossNav(row.dataset.id, 'gallery'); return; }
+      var tile = e.target.closest && e.target.closest('.tile');
+      if (tile) { crossNav(tile.dataset.id, 'list'); return; }
+    });
 
     load();
   });
