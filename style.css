@@ -474,3 +474,43 @@ body {
     border-bottom: 1px solid var(--rule-soft);
   }
 }
+
+/* ============================================================
+   Genre subheaders (added v4) — editorial italic, with count chip
+   ============================================================ */
+.genre-heading {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 26px;
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 28px 0 4px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.genre-heading:first-child { margin-top: 0; }
+.genre-heading__name { flex: 0 1 auto; }
+.genre-heading__count {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.stack.is-grid .genre-heading {
+  grid-column: 1 / -1;
+}
+@media (max-width: 640px) {
+  .genre-heading {
+    font-size: 22px;
+    margin: 22px 0 2px 0;
+  }
+}

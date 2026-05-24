@@ -1,5 +1,5 @@
 // Vinyl Scout Phase 1 — barebones frontend
-// version: 3
+// version: 4
 
 let allRecords = [];
 let currentDisplay = 'list';
@@ -100,34 +100,66 @@ function renderCards() {
     return;
   }
 
+  // Group by genre. Genres sorted alphabetically; "Uncategorized" last.
+  // Within each genre: sort by artist, then title.
+  const groups = {};
+  for (let i = 0; i < visible.length; i++) {
+    const r = visible[i];
+    const g = (r.genre && String(r.genre).trim()) || 'Uncategorized';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(r);
+  }
+  const genreNames = Object.keys(groups).sort(function(a, b) {
+    if (a === 'Uncategorized' && b !== 'Uncategorized') return 1;
+    if (b === 'Uncategorized' && a !== 'Uncategorized') return -1;
+    return a.toLowerCase().localeCompare(b.toLowerCase());
+  });
+  for (let g = 0; g < genreNames.length; g++) {
+    groups[genreNames[g]].sort(function(x, y) {
+      const ax = (x.artist || '').toLowerCase();
+      const ay = (y.artist || '').toLowerCase();
+      if (ax !== ay) return ax.localeCompare(ay);
+      return (x.title || '').toLowerCase().localeCompare((y.title || '').toLowerCase());
+    });
+  }
+
   const ph = 'width:100%;height:100%;background:var(--rule);border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;';
   const imgSt = 'width:100%;height:100%;object-fit:cover;border-radius:2px;';
 
   let html = '';
-  for (let i = 0; i < visible.length; i++) {
-    const r = visible[i];
-    const id = escapeHtml(r.id);
-    const artist = escapeHtml(r.artist);
-    const title = escapeHtml(r.title);
-    const metaParts = [];
-    if (r.year) metaParts.push(escapeHtml(r.year));
-    if (r.genre) metaParts.push(escapeHtml(r.genre));
-    const meta = metaParts.join('  ');
-    const cover = r.cover_url
-      ? '<img src="' + escapeHtml(r.cover_url) + '" alt="' + artist + ' — ' + title + '" loading="lazy" style="' + imgSt + '">'
-      : '<div style="' + ph + '">No cover</div>';
-    html += '<article class="card" data-record-id="' + id + '">';
-    html += '<div class="card__index"><span class="card__num">' + (i + 1) + '</span></div>';
-    html += '<div class="card__photos">' + cover + '</div>';
-    html += '<div class="card__body">';
-    html += '<h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">' + artist + '</h3>';
-    html += '<p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">' + title + '</p>';
-    if (meta) html += '<p style="margin:0;font-size:12px;color:var(--ink-faint);">' + meta + '</p>';
-    html += '</div>';
-    html += '<div class="card__actions">';
-    html += '<button type="button" class="btn btn--ghost btn--sm js-delete" data-id="' + id + '">Delete</button>';
-    html += '</div>';
-    html += '</article>';
+  let cardNum = 0;
+  for (let g = 0; g < genreNames.length; g++) {
+    const genreName = genreNames[g];
+    const list = groups[genreName];
+    html += '<h2 class="genre-heading">';
+    html += '<span class="genre-heading__name">' + escapeHtml(genreName) + '</span>';
+    html += '<span class="genre-heading__count">' + list.length + '</span>';
+    html += '</h2>';
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      cardNum++;
+      const id = escapeHtml(r.id);
+      const artist = escapeHtml(r.artist);
+      const title = escapeHtml(r.title);
+      const metaParts = [];
+      if (r.year) metaParts.push(escapeHtml(r.year));
+      const meta = metaParts.join('  ');
+      const cover = r.cover_url
+        ? '<img src="' + escapeHtml(r.cover_url) + '" alt="' + artist + ' — ' + title + '" loading="lazy" style="' + imgSt + '">'
+        : '<div style="' + ph + '">No cover</div>';
+      html += '<article class="card" data-record-id="' + id + '">';
+      html += '<div class="card__index"><span class="card__num">' + cardNum + '</span></div>';
+      html += '<div class="card__photos">' + cover + '</div>';
+      html += '<div class="card__body">';
+      html += '<h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">' + artist + '</h3>';
+      html += '<p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">' + title + '</p>';
+      if (meta) html += '<p style="margin:0;font-size:12px;color:var(--ink-faint);">' + meta + '</p>';
+      html += '</div>';
+      html += '<div class="card__actions">';
+      html += '<button type="button" class="btn btn--ghost btn--sm js-delete" data-id="' + id + '">Delete</button>';
+      html += '</div>';
+      html += '</article>';
+    }
   }
   stack.innerHTML = html;
 }
@@ -155,4 +187,3 @@ function renderCards() {
     });
   }
 })();
-
