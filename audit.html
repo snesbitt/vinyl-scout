@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vinyl Scout · Audit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v=4" />
+  <style>
+    .audit-toolbar {
+      max-width: 1100px;
+      margin: 24px auto 0;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .audit-toolbar__search {
+      flex: 1;
+      min-width: 240px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+      border-radius: 2px;
+    }
+    .audit-toolbar__search:focus { outline: none; border-color: var(--accent); }
+    .audit-toolbar__count {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .audit-help {
+      max-width: 1100px;
+      margin: 12px auto 0;
+      padding: 12px 32px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      line-height: 1.7;
+    }
+    .audit-help kbd {
+      background: var(--bg-soft);
+      border: 1px solid var(--rule);
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 10px;
+    }
+    .audit-list {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px 32px 80px;
+    }
+    .audit-row {
+      display: grid;
+      grid-template-columns: 96px 1fr auto;
+      grid-template-areas: "cover meta actions";
+      gap: 20px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--rule-soft);
+      align-items: center;
+    }
+    .audit-row__cover {
+      grid-area: cover;
+      position: relative;
+      cursor: pointer;
+      width: 96px;
+      height: 96px;
+      display: block;
+    }
+    .audit-row__cover img,
+    .audit-row__cover .nocover {
+      width: 96px;
+      height: 96px;
+      border-radius: 2px;
+      display: block;
+    }
+    .audit-row__cover img { object-fit: cover; background: var(--rule); }
+    .audit-row__cover .nocover {
+      background: var(--rule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-faint);
+      font-size: 9px;
+      font-family: var(--mono);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .audit-row__cover input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0;
+    }
+    .audit-row__cover::after {
+      content: 'replace';
+      position: absolute;
+      inset: 0;
+      background: rgba(28,32,24,0.7);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 120ms;
+      pointer-events: none;
+      border-radius: 2px;
+    }
+    .audit-row__cover:hover::after { opacity: 1; }
+    .audit-row__cover.is-uploading::after {
+      content: 'uploading';
+      opacity: 1;
+      background: rgba(168,128,28,0.85);
+    }
+    .audit-row__meta {
+      grid-area: meta;
+      display: grid;
+      gap: 4px;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "artist artist"
+        "title title"
+        "year genre";
+    }
+    .audit-input {
+      font-family: var(--sans);
+      font-size: 14px;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 2px;
+      color: var(--ink);
+      transition: border-color 120ms, background 120ms;
+      width: 100%;
+      min-height: 36px;
+      -webkit-appearance: none;
+    }
+    .audit-input:hover { background: var(--bg-soft); }
+    .audit-input:focus { background: var(--bg-soft); border-color: var(--rule); outline: none; }
+    .audit-input.is-saving { border-color: var(--gold); }
+    .audit-input.is-saved { border-color: var(--good); }
+    .audit-input.is-error { border-color: var(--accent); background: rgba(181,48,38,0.06); }
+    .audit-input.js-artist { grid-area: artist; font-weight: 600; font-size: 15px; }
+    .audit-input.js-title { grid-area: title; color: var(--ink-soft); font-style: italic; }
+    .audit-input.js-year { grid-area: year; font-family: var(--mono); font-size: 12px; }
+    .audit-input.js-genre { grid-area: genre; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+    .audit-row__actions { grid-area: actions; }
+    .audit-row__delete {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--ink-soft);
+      cursor: pointer;
+      border-radius: 2px;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .audit-row__delete:hover { border-color: var(--accent); color: var(--accent); }
+    .audit-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--ink);
+      color: var(--bg);
+      padding: 12px 18px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      opacity: 0;
+      transition: opacity 200ms, transform 200ms;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .audit-toast.is-on {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .audit-toast.is-error { background: var(--accent); }
+    .audit-empty {
+      text-align: center;
+      color: var(--ink-faint);
+      padding: 80px 0;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+    }
+    @media (max-width: 640px) {
+      .audit-toolbar { padding: 0 18px; }
+      .audit-help { padding: 10px 18px; font-size: 10px; }
+      .audit-list { padding: 12px 18px 60px; }
+      .audit-row {
+        grid-template-columns: 80px 1fr;
+        grid-template-areas:
+          "cover meta"
+          "actions actions";
+        gap: 14px;
+        padding: 16px 0;
+      }
+      .audit-row__cover,
+      .audit-row__cover img,
+      .audit-row__cover .nocover {
+        width: 80px;
+        height: 80px;
+      }
+      .audit-row__meta {
+        grid-template-areas:
+          "artist artist"
+          "title title"
+          "year genre";
+        gap: 2px;
+      }
+      .audit-row__actions { justify-self: end; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="masthead">
+  <a class="brand" href="/">
+    <span class="brand__mark">⦿</span>
+    <div>
+      <h1>The Vinyl Scout</h1>
+      <p class="brand__sub">Audit</p>
+    </div>
+  </a>
+</header>
+
+<h2 class="collection-title">Audit · Full Collection</h2>
+
+<section class="audit-toolbar">
+  <input
+    type="search"
+    id="filter-input"
+    class="audit-toolbar__search"
+    placeholder="Search artist, title, genre…"
+    autocomplete="off"
+    spellcheck="false" />
+  <span class="audit-toolbar__count" id="filter-count">—</span>
+  <a class="btn btn--ghost btn--sm" href="/">← Gallery</a>
+</section>
+
+<div class="audit-help">
+  Tap any text field to edit — saves automatically when you tab away or press <kbd>Enter</kbd>. Tap a cover to upload a replacement (image is auto-resized). Delete is permanent.
+</div>
+
+<div id="error-banner" class="error-banner" hidden></div>
+
+<main class="audit-list" id="audit-list">
+  <div class="audit-empty">Loading…</div>
+</main>
+
+<div class="audit-toast" id="toast"></div>
+
+<script>
+// Vinyl Scout — Audit page
+// version: 1
+// Single-record ops only. No bulk delete, no auto-dedup, no background mutation.
+
+let allRecords = [];
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('is-error', !!isError);
+  el.classList.add('is-on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { el.classList.remove('is-on'); }, 2200);
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.hidden = false;
+}
+function clearError() {
+  const el = document.getElementById('error-banner');
+  el.textContent = '';
+  el.hidden = true;
+}
+
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = { 'Content-Type': 'application/json' };
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).error || ''; } catch (e) {}
+    throw new Error('HTTP ' + res.status + (detail ? ' — ' + detail : ''));
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function loadRecords() {
+  try {
+    const data = await api('/api/records?bust=' + Date.now());
+    allRecords = Array.isArray(data) ? data : [];
+    clearError();
+    render();
+  } catch (err) {
+    showError('Failed to load: ' + err.message);
+    document.getElementById('audit-list').innerHTML = '<div class="audit-empty">Failed to load. Check error banner above.</div>';
+  }
+}
+
+function render() {
+  const list = document.getElementById('audit-list');
+  const filterEl = document.getElementById('filter-input');
+  const countEl = document.getElementById('filter-count');
+  const filter = (filterEl.value || '').toLowerCase().trim();
+
+  const sorted = allRecords.slice().sort(function (a, b) {
+    const ax = (a.artist || '').toLowerCase();
+    const bx = (b.artist || '').toLowerCase();
+    if (ax !== bx) return ax.localeCompare(bx);
+    return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+  });
+
+  const visible = sorted.filter(function (r) {
+    if (!filter) return true;
+    const hay = [r.artist, r.title, r.genre, r.year].filter(Boolean).join(' ').toLowerCase();
+    return hay.indexOf(filter) !== -1;
+  });
+
+  countEl.textContent = visible.length + ' / ' + allRecords.length;
+
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="audit-empty">' + (allRecords.length === 0 ? 'No records.' : 'No matches.') + '</div>';
+    return;
+  }
+
+  list.innerHTML = visible.map(function (r) {
+    const cover = r.cover_url
+      ? '<img src="' + escapeHtml(r.cover_url) + '" alt="">'
+      : '<div class="nocover">no cover</div>';
+    return ''
+      + '<div class="audit-row" data-id="' + escapeHtml(r.id) + '">'
+      +   '<label class="audit-row__cover">' + cover
+      +     '<input type="file" accept="image/*" class="js-cover-upload">'
+      +   '</label>'
+      +   '<div class="audit-row__meta">'
+      +     '<input class="audit-input js-artist" data-field="artist" value="' + escapeHtml(r.artist) + '" placeholder="artist" autocomplete="off" spellcheck="false">'
+      +     '<input class="audit-input js-title" data-field="title" value="' + escapeHtml(r.title) + '" placeholder="title" autocomplete="off" spellcheck="false">'
+      +     '<input class="audit-input js-year" data-field="year" value="' + (r.year != null ? r.year : '') + '" placeholder="year" autocomplete="off" spellcheck="false" inputmode="numeric">'
+      +     '<input class="audit-input js-genre" data-field="genre" value="' + escapeHtml(r.genre || '') + '" placeholder="genre" autocomplete="off" spellcheck="false">'
+      +   '</div>'
+      +   '<div class="audit-row__actions">'
+      +     '<button type="button" class="audit-row__delete js-delete">Delete</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function saveField(id, field, raw, inputEl) {
+  const existing = allRecords.find(function (r) { return r.id === id; });
+  if (!existing) return;
+
+  let value = raw;
+  if (field === 'year') {
+    if (raw.trim() === '') {
+      value = null;
+    } else {
+      const n = parseInt(raw, 10);
+      if (isNaN(n) || n < 1900 || n > 2100) {
+        inputEl.classList.remove('is-saving', 'is-saved');
+        inputEl.classList.add('is-error');
+        toast('Year must be 1900–2100', true);
+        return;
+      }
+      value = n;
+    }
+  }
+  if (field === 'genre' && raw.trim() === '') value = null;
+  if (field === 'artist' && raw.trim() === '') {
+    inputEl.classList.add('is-error');
+    toast('Artist cannot be empty', true);
+    return;
+  }
+  if (field === 'title' && raw.trim() === '') {
+    inputEl.classList.add('is-error');
+    toast('Title cannot be empty', true);
+    return;
+  }
+
+  if (existing[field] === value) return;
+
+  const merged = Object.assign({}, existing, {});
+  merged[field] = value;
+
+  inputEl.classList.remove('is-error', 'is-saved');
+  inputEl.classList.add('is-saving');
+  try {
+    await api('/api/records', { method: 'POST', body: JSON.stringify(merged) });
+    existing[field] = value;
+    inputEl.classList.remove('is-saving');
+    inputEl.classList.add('is-saved');
+    setTimeout(function () { inputEl.classList.remove('is-saved'); }, 1600);
+  } catch (err) {
+    inputEl.classList.remove('is-saving');
+    inputEl.classList.add('is-error');
+    toast('Save failed: ' + err.message, true);
+  }
+}
+
+async function deleteRecord(id) {
+  const existing = allRecords.find(function (r) { return r.id === id; });
+  if (!existing) return;
+  const label = (existing.artist || '?') + ' — ' + (existing.title || '?');
+  if (!confirm('Delete this record?\n\n' + label + '\n\nID: ' + id)) return;
+  try {
+    await api('/api/records/' + encodeURIComponent(id), { method: 'DELETE' });
+    allRecords = allRecords.filter(function (r) { return r.id !== id; });
+    render();
+    toast('Deleted');
+  } catch (err) {
+    toast('Delete failed: ' + err.message, true);
+  }
+}
+
+function compressImage(file, maxDim, quality) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round(h * maxDim / w);
+            w = maxDim;
+          } else {
+            w = Math.round(w * maxDim / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = function () { reject(new Error('Could not decode image')); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function () { reject(new Error('Could not read file')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCover(id, file, coverEl) {
+  const existing = allRecords.find(function (r) { return r.id === id; });
+  if (!existing) return;
+  if (!file.type.startsWith('image/')) {
+    toast('Not an image file', true);
+    return;
+  }
+  coverEl.classList.add('is-uploading');
+  try {
+    const dataUrl = await compressImage(file, 600, 0.82);
+    // Sanity check: data URLs above ~4MB will exceed our Blob value limit safely
+    if (dataUrl.length > 4 * 1024 * 1024) {
+      throw new Error('Compressed image still too large');
+    }
+    const merged = Object.assign({}, existing, { cover_url: dataUrl });
+    await api('/api/records', { method: 'POST', body: JSON.stringify(merged) });
+    existing.cover_url = dataUrl;
+    const img = coverEl.querySelector('img');
+    if (img) {
+      img.src = dataUrl;
+    } else {
+      const nc = coverEl.querySelector('.nocover');
+      if (nc) {
+        const newImg = document.createElement('img');
+        newImg.src = dataUrl;
+        newImg.alt = '';
+        coverEl.replaceChild(newImg, nc);
+      }
+    }
+    coverEl.classList.remove('is-uploading');
+    toast('Cover updated');
+  } catch (err) {
+    coverEl.classList.remove('is-uploading');
+    toast('Upload failed: ' + err.message, true);
+  }
+}
+
+(async function init() {
+  await loadRecords();
+  const list = document.getElementById('audit-list');
+  const filterInput = document.getElementById('filter-input');
+  filterInput.addEventListener('input', render);
+
+  // Save on blur (focusout bubbles)
+  list.addEventListener('focusout', function (e) {
+    const inp = e.target.closest('.audit-input');
+    if (!inp) return;
+    const row = inp.closest('.audit-row');
+    if (!row) return;
+    saveField(row.dataset.id, inp.dataset.field, inp.value, inp);
+  });
+
+  // Enter -> blur (which triggers save)
+  list.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.closest('.audit-input')) {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  // Delete
+  list.addEventListener('click', function (e) {
+    const btn = e.target.closest('.js-delete');
+    if (!btn) return;
+    const row = btn.closest('.audit-row');
+    if (!row) return;
+    deleteRecord(row.dataset.id);
+  });
+
+  // Cover upload
+  list.addEventListener('change', function (e) {
+    const inp = e.target.closest('.js-cover-upload');
+    if (!inp) return;
+    const file = inp.files && inp.files[0];
+    if (!file) return;
+    const row = inp.closest('.audit-row');
+    const coverEl = inp.closest('.audit-row__cover');
+    if (!row || !coverEl) return;
+    uploadCover(row.dataset.id, file, coverEl);
+    inp.value = '';
+  });
+})();
+</script>
+
+</body>
+</html>
