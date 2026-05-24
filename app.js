@@ -1,18 +1,15 @@
 // Vinyl Scout Phase 1 — barebones frontend
-// Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 3 — DELETE fixed via event delegation; no window-scope dependency
-
-const DISPLAY_MODES = { list: 'list', grid: 'grid' };
+// version: 3
 
 let allRecords = [];
-let currentDisplay = DISPLAY_MODES.list;
+let currentDisplay = 'list';
 
-function toast(msg, ms = 1800) {
+function toast(msg) {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = msg;
   el.classList.add('is-on');
-  setTimeout(() => el.classList.remove('is-on'), ms);
+  setTimeout(function() { el.classList.remove('is-on'); }, 1800);
 }
 
 function showError(msg) {
@@ -29,50 +26,14 @@ function clearError() {
   el.hidden = true;
 }
 
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type':
-cat > /Users/snesbitt/Downloads/vinyl-scout-deploy/app.js << 'APPJS_EOF'
-// Vinyl Scout Phase 1 — barebones frontend
-// Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 3 — DELETE fixed via event delegation; no window-scope dependency
-
-const DISPLAY_MODES = { list: 'list', grid: 'grid' };
-
-let allRecords = [];
-let currentDisplay = DISPLAY_MODES.list;
-
-function toast(msg, ms = 1800) {
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.add('is-on');
-  setTimeout(() => el.classList.remove('is-on'), ms);
-}
-
-function showError(msg) {
-  const el = document.getElementById('error-banner');
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
-}
-
-function clearError() {
-  const el = document.getElementById('error-banner');
-  if (!el) return;
-  el.textContent = '';
-  el.hidden = true;
-}
-
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...opts,
-  });
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = { 'Content-Type': 'application/json' };
+  const res = await fetch(path, opts);
   if (!res.ok) {
     let detail = '';
-    try { detail = (await res.json()).error || ''; } catch {}
-    throw new Error(`HTTP ${res.status}${detail ? ' — ' + detail : ''}`);
+    try { detail = (await res.json()).error || ''; } catch (e) {}
+    throw new Error('HTTP ' + res.status + (detail ? ' — ' + detail : ''));
   }
   if (res.status === 204) return null;
   return res.json();
@@ -87,28 +48,24 @@ async function loadRecords() {
   } catch (err) {
     console.error('Failed to load records:', err);
     allRecords = [];
-    document.getElementById('empty-state').textContent =
-      `Error loading records: ${err.message}`;
-    showError(`Failed to load records: ${err.message}`);
+    const empty = document.getElementById('empty-state');
+    if (empty) empty.textContent = 'Error loading records: ' + err.message;
+    showError('Failed to load records: ' + err.message);
   }
 }
 
 async function deleteRecord(id) {
-  if (!id) {
-    showError('Delete aborted: no id on this card.');
-    return;
-  }
-  if (!confirm(`Delete this record?\n\n${id}`)) return;
-
+  if (!id) { showError('Delete aborted: no id on this card.'); return; }
+  if (!confirm('Delete this record?\n\n' + id)) return;
   try {
-    await api(`/api/records/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    allRecords = allRecords.filter(r => r.id !== id);
+    await api('/api/records/' + encodeURIComponent(id), { method: 'DELETE' });
+    allRecords = allRecords.filter(function(r) { return r.id !== id; });
     renderCards();
     clearError();
     toast('Record deleted');
   } catch (err) {
     console.error('Delete failed:', err);
-    showError(`Delete failed for ${id}: ${err.message}`);
+    showError('Delete failed for ' + id + ': ' + err.message);
   }
 }
 
@@ -123,86 +80,79 @@ function renderCards() {
   const stack = document.getElementById('card-stack');
   const filterEl = document.getElementById('filter-input');
   const countEl = document.getElementById('filter-count');
-  const filter = (filterEl?.value || '').toLowerCase().trim();
+  const filter = (filterEl && filterEl.value ? filterEl.value : '').toLowerCase().trim();
 
   if (!Array.isArray(allRecords)) allRecords = [];
+  stack.classList.toggle('is-grid', currentDisplay === 'grid');
 
-  stack.classList.toggle('is-grid', currentDisplay === DISPLAY_MODES.grid);
-
-  const visible = allRecords.filter(r => {
+  const visible = allRecords.filter(function(r) {
     if (!filter) return true;
     const hay = [r.artist, r.title, r.genre, r.year].filter(Boolean).join(' ').toLowerCase();
-    return hay.includes(filter);
+    return hay.indexOf(filter) !== -1;
   });
 
   if (countEl) countEl.textContent = String(visible.length);
 
   if (visible.length === 0) {
-    stack.innerHTML = `
-      <div class="empty" id="empty-state">
-        <p class="empty__big">${allRecords.length === 0 ? 'No records yet.' : 'No matches.'}</p>
-        ${allRecords.length === 0
-          ? '<p>Add some via <a href="/seed.html">/seed.html</a>.</p>'
-          : ''}
-      </div>`;
+    const msg = allRecords.length === 0 ? 'No records yet.' : 'No matches.';
+    const sub = allRecords.length === 0 ? '<p>Add some via <a href="/seed.html">/seed.html</a>.</p>' : '';
+    stack.innerHTML = '<div class="empty" id="empty-state"><p class="empty__big">' + msg + '</p>' + sub + '</div>';
     return;
   }
 
-  const placeholderStyle = 'width:100%;height:100%;background:var(--rule);border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;';
-  const imgStyle = 'width:100%;height:100%;object-fit:cover;border-radius:2px;';
+  const ph = 'width:100%;height:100%;background:var(--rule);border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;';
+  const imgSt = 'width:100%;height:100%;object-fit:cover;border-radius:2px;';
 
-  stack.innerHTML = visible.map((record, idx) => {
-    const id = escapeHtml(record.id);
-    const artist = escapeHtml(record.artist);
-    const title = escapeHtml(record.title);
-    const meta = [record.year, record.genre].filter(Boolean).map(escapeHtml).join('  ');
-
-    const coverHtml = record.cover_url
-      ? `<img src="${escapeHtml(record.cover_url)}" alt="${artist} — ${title}" loading="lazy" style="${imgStyle}">`
-      : `<div style="${placeholderStyle}">No cover</div>`;
-
-    return `
-      <article class="card" data-record-id="${id}">
-        <div class="card__index"><span class="card__num">${idx + 1}</span></div>
-        <div class="card__photos">${coverHtml}</div>
-        <div class="card__body">
-          <h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">${artist}</h3>
-          <p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">${title}</p>
-          ${meta ? `<p style="margin:0;font-size:12px;color:var(--ink-faint);">${meta}</p>` : ''}
-        </div>
-        <div class="card__actions">
-          <button type="button" class="btn btn--ghost btn--sm js-delete" data-id="${id}">Delete</button>
-        </div>
-      </article>`;
-  }).join('');
+  let html = '';
+  for (let i = 0; i < visible.length; i++) {
+    const r = visible[i];
+    const id = escapeHtml(r.id);
+    const artist = escapeHtml(r.artist);
+    const title = escapeHtml(r.title);
+    const metaParts = [];
+    if (r.year) metaParts.push(escapeHtml(r.year));
+    if (r.genre) metaParts.push(escapeHtml(r.genre));
+    const meta = metaParts.join('  ');
+    const cover = r.cover_url
+      ? '<img src="' + escapeHtml(r.cover_url) + '" alt="' + artist + ' — ' + title + '" loading="lazy" style="' + imgSt + '">'
+      : '<div style="' + ph + '">No cover</div>';
+    html += '<article class="card" data-record-id="' + id + '">';
+    html += '<div class="card__index"><span class="card__num">' + (i + 1) + '</span></div>';
+    html += '<div class="card__photos">' + cover + '</div>';
+    html += '<div class="card__body">';
+    html += '<h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">' + artist + '</h3>';
+    html += '<p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">' + title + '</p>';
+    if (meta) html += '<p style="margin:0;font-size:12px;color:var(--ink-faint);">' + meta + '</p>';
+    html += '</div>';
+    html += '<div class="card__actions">';
+    html += '<button type="button" class="btn btn--ghost btn--sm js-delete" data-id="' + id + '">Delete</button>';
+    html += '</div>';
+    html += '</article>';
+  }
+  stack.innerHTML = html;
 }
 
-(async () => {
+(async function() {
   await loadRecords();
-
   const filterInput = document.getElementById('filter-input');
-  if (filterInput) {
-    filterInput.addEventListener('input', renderCards);
-  }
-
-  document.querySelectorAll('.view-toggle__btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('is-on'));
+  if (filterInput) filterInput.addEventListener('input', renderCards);
+  const toggleBtns = document.querySelectorAll('.view-toggle__btn');
+  toggleBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      toggleBtns.forEach(function(b) { b.classList.remove('is-on'); });
       btn.classList.add('is-on');
-      const mode = btn.dataset.display;
-      currentDisplay = mode === 'grid' ? DISPLAY_MODES.grid : DISPLAY_MODES.list;
+      currentDisplay = btn.dataset.display === 'grid' ? 'grid' : 'list';
       renderCards();
     });
   });
-
   const stack = document.getElementById('card-stack');
   if (stack) {
-    stack.addEventListener('click', (e) => {
+    stack.addEventListener('click', function(e) {
       const btn = e.target.closest('.js-delete');
       if (!btn) return;
       e.preventDefault();
-      const id = btn.dataset.id;
-      deleteRecord(id);
+      deleteRecord(btn.dataset.id);
     });
   }
 })();
+
