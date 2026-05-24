@@ -1,161 +1,182 @@
 // Vinyl Scout Phase 1 — barebones frontend
 // Gallery + search + delete. No photo upload, vision, or Discogs.
-// version: 2
+// version: 3 — DELETE fixed via event delegation; no window-scope dependency
 
-const DISPLAY_MODES = {
-  list: 'list',
-  grid: 'grid',
-};
+const DISPLAY_MODES = { list: 'list', grid: 'grid' };
 
 let allRecords = [];
-let currentDisplay = DISPLAY_MODES.grid;
+let currentDisplay = DISPLAY_MODES.list;
 
-// ============================================================
-// Toast notifications (success only — errors use #error-banner)
-// ============================================================
-const toast = (msg, ms = 1800) => {
+function toast(msg, ms = 1800) {
   const el = document.getElementById('toast');
+  if (!el) return;
   el.textContent = msg;
-  el.classList.add('is-visible');
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove('is-visible'), ms);
-};
+  el.classList.add('is-on');
+  setTimeout(() => el.classList.remove('is-on'), ms);
+}
 
-// ============================================================
-// Persistent error banner (Hard Rule #4 — errors must not auto-dismiss)
-// ============================================================
 function showError(msg) {
   const el = document.getElementById('error-banner');
+  if (!el) return;
   el.textContent = msg;
   el.hidden = false;
 }
 
 function clearError() {
   const el = document.getElementById('error-banner');
+  if (!el) return;
   el.textContent = '';
   el.hidden = true;
 }
 
-// ============================================================
-// API helpers
-// ============================================================
 async function api(path, opts = {}) {
-  const r = await fetch(path, {
-    ...opts,
-    credentials: 'same-origin',
-    headers: {
-      ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-      ...(opts.headers || {}),
-    },
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => '');
-    let msg = r.statusText;
-    try { msg = JSON.parse(txt).error || msg; } catch {}
-    throw new Error(msg);
-  }
-  const ct = r.headers.get('content-type') || '';
-  return ct.includes('application/json') ? r.json() : r.text();
+  const res = await fetch(path, {
+    headers: { 'Content-Type':
+cat > /Users/snesbitt/Downloads/vinyl-scout-deploy/app.js << 'APPJS_EOF'
+// Vinyl Scout Phase 1 — barebones frontend
+// Gallery + search + delete. No photo upload, vision, or Discogs.
+// version: 3 — DELETE fixed via event delegation; no window-scope dependency
+
+const DISPLAY_MODES = { list: 'list', grid: 'grid' };
+
+let allRecords = [];
+let currentDisplay = DISPLAY_MODES.list;
+
+function toast(msg, ms = 1800) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('is-on');
+  setTimeout(() => el.classList.remove('is-on'), ms);
 }
 
-// ============================================================
-// Load records
-// ============================================================
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function clearError() {
+  const el = document.getElementById('error-banner');
+  if (!el) return;
+  el.textContent = '';
+  el.hidden = true;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).error || ''; } catch {}
+    throw new Error(`HTTP ${res.status}${detail ? ' — ' + detail : ''}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 async function loadRecords() {
   try {
     const data = await api('/api/records');
     allRecords = Array.isArray(data) ? data : [];
+    clearError();
     renderCards();
   } catch (err) {
     console.error('Failed to load records:', err);
     allRecords = [];
-    document.getElementById('empty-state').textContent = `Error loading records: ${err.message}`;
+    document.getElementById('empty-state').textContent =
+      `Error loading records: ${err.message}`;
     showError(`Failed to load records: ${err.message}`);
   }
 }
 
-// ============================================================
-// Delete record (single id, gated by confirm — Hard Rule #1)
-// ============================================================
 async function deleteRecord(id) {
-  if (!confirm('Delete this record?')) return;
+  if (!id) {
+    showError('Delete aborted: no id on this card.');
+    return;
+  }
+  if (!confirm(`Delete this record?\n\n${id}`)) return;
 
   try {
-    await api(`/api/records/${id}`, { method: 'DELETE' });
+    await api(`/api/records/${encodeURIComponent(id)}`, { method: 'DELETE' });
     allRecords = allRecords.filter(r => r.id !== id);
     renderCards();
     clearError();
     toast('Record deleted');
   } catch (err) {
+    console.error('Delete failed:', err);
     showError(`Delete failed for ${id}: ${err.message}`);
   }
 }
 
-// ============================================================
-// Render cards (gallery or list)
-// ============================================================
-function renderCards() {
-  const stack = document.getElementById('card-stack');
-  const filter = document.getElementById('filter-input').value.toLowerCase();
-
-  if (!Array.isArray(allRecords)) {
-    allRecords = [];
-  }
-
-  const filtered = allRecords.filter(r => {
-    const searchable = `${r.artist} ${r.title} ${r.genre || ''} ${r.notes || ''}`.toLowerCase();
-    return searchable.includes(filter);
-  });
-
-  document.getElementById('filter-count').textContent = filtered.length ? `${filtered.length}` : '';
-
-  if (!filtered.length) {
-    stack.innerHTML = `
-      <div class="empty">
-        <p class="empty__big">${allRecords.length === 0 ? 'No records yet' : 'No matches'}</p>
-        ${allRecords.length === 0 ? '<p style="color: var(--ink-soft);">Visit <code>/seed.html</code> to add records via JSON</p>' : ''}
-      </div>
-    `;
-    return;
-  }
-
-  stack.className = `stack ${currentDisplay === DISPLAY_MODES.grid ? 'is-grid' : 'is-list'}`;
-  stack.innerHTML = filtered.map((record, idx) => `
-    <article class="card" data-id="${record.id}">
-      <div class="card__index">
-        <span class="card__num">${idx + 1}</span>
-      </div>
-      <div class="card__photos">
-        ${record.cover_url ? `<img src="${record.cover_url}" alt="${escapeHtml(record.artist)} — ${escapeHtml(record.title)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 2px;">` : '<div style="width: 100%; height: 100%; background: var(--rule); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 12px;">No cover</div>'}
-      </div>
-      <div class="card__body">
-        <h3 style="margin: 0 0 0.25rem 0; font-size: 15px; line-height: 1.3;">${escapeHtml(record.artist)}</h3>
-        <p style="margin: 0 0 0.5rem 0; font-size: 14px; color: var(--ink-soft); line-height: 1.3;">${escapeHtml(record.title)}</p>
-        <div style="display: flex; gap: 0.5rem; font-size: 12px; color: var(--ink-faint);">
-          ${record.year ? `<span>${record.year}</span>` : ''}
-          ${record.genre ? `<span>${escapeHtml(record.genre)}</span>` : ''}
-        </div>
-        ${record.notes ? `<p style="margin: 0.5rem 0 0 0; font-size: 12px; color: var(--ink-soft);">${escapeHtml(record.notes)}</p>` : ''}
-      </div>
-      <div class="card__actions">
-        <button class="btn btn--ghost btn--sm" onclick="deleteRecord('${record.id}')">Delete</button>
-      </div>
-    </article>
-  `).join('');
-}
-
-function escapeHtml(text) {
+function escapeHtml(str) {
+  if (str == null) return '';
   const div = document.createElement('div');
-  div.textContent = text;
+  div.textContent = String(str);
   return div.innerHTML;
 }
 
-// Expose deleteRecord for inline onclick handlers in rendered cards
-window.deleteRecord = deleteRecord;
+function renderCards() {
+  const stack = document.getElementById('card-stack');
+  const filterEl = document.getElementById('filter-input');
+  const countEl = document.getElementById('filter-count');
+  const filter = (filterEl?.value || '').toLowerCase().trim();
 
-// ============================================================
-// Initialize
-// ============================================================
+  if (!Array.isArray(allRecords)) allRecords = [];
+
+  stack.classList.toggle('is-grid', currentDisplay === DISPLAY_MODES.grid);
+
+  const visible = allRecords.filter(r => {
+    if (!filter) return true;
+    const hay = [r.artist, r.title, r.genre, r.year].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(filter);
+  });
+
+  if (countEl) countEl.textContent = String(visible.length);
+
+  if (visible.length === 0) {
+    stack.innerHTML = `
+      <div class="empty" id="empty-state">
+        <p class="empty__big">${allRecords.length === 0 ? 'No records yet.' : 'No matches.'}</p>
+        ${allRecords.length === 0
+          ? '<p>Add some via <a href="/seed.html">/seed.html</a>.</p>'
+          : ''}
+      </div>`;
+    return;
+  }
+
+  const placeholderStyle = 'width:100%;height:100%;background:var(--rule);border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;';
+  const imgStyle = 'width:100%;height:100%;object-fit:cover;border-radius:2px;';
+
+  stack.innerHTML = visible.map((record, idx) => {
+    const id = escapeHtml(record.id);
+    const artist = escapeHtml(record.artist);
+    const title = escapeHtml(record.title);
+    const meta = [record.year, record.genre].filter(Boolean).map(escapeHtml).join('  ');
+
+    const coverHtml = record.cover_url
+      ? `<img src="${escapeHtml(record.cover_url)}" alt="${artist} — ${title}" loading="lazy" style="${imgStyle}">`
+      : `<div style="${placeholderStyle}">No cover</div>`;
+
+    return `
+      <article class="card" data-record-id="${id}">
+        <div class="card__index"><span class="card__num">${idx + 1}</span></div>
+        <div class="card__photos">${coverHtml}</div>
+        <div class="card__body">
+          <h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">${artist}</h3>
+          <p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">${title}</p>
+          ${meta ? `<p style="margin:0;font-size:12px;color:var(--ink-faint);">${meta}</p>` : ''}
+        </div>
+        <div class="card__actions">
+          <button type="button" class="btn btn--ghost btn--sm js-delete" data-id="${id}">Delete</button>
+        </div>
+      </article>`;
+  }).join('');
+}
+
 (async () => {
   await loadRecords();
 
@@ -168,8 +189,20 @@ window.deleteRecord = deleteRecord;
     btn.addEventListener('click', () => {
       document.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('is-on'));
       btn.classList.add('is-on');
-      currentDisplay = btn.dataset.display;
+      const mode = btn.dataset.display;
+      currentDisplay = mode === 'grid' ? DISPLAY_MODES.grid : DISPLAY_MODES.list;
       renderCards();
     });
   });
+
+  const stack = document.getElementById('card-stack');
+  if (stack) {
+    stack.addEventListener('click', (e) => {
+      const btn = e.target.closest('.js-delete');
+      if (!btn) return;
+      e.preventDefault();
+      const id = btn.dataset.id;
+      deleteRecord(id);
+    });
+  }
 })();
