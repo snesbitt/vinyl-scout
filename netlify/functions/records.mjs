@@ -42,7 +42,7 @@ export default async (req, context) => {
     
     if (method === 'DELETE') {
       console.log('DELETE detected');
-      const id = req.path.split('/').pop();
+      const id = new URL(req.url).pathname.split('/').pop();
       if (!id || id === 'records') {
         return new Response(JSON.stringify({ error: 'ID required' }), { 
           status: 400,
