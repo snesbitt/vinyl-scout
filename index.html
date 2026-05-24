@@ -3,61 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vinyl Scout</title>
+  <title>The Vinyl Scout</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=5" />
+  <link rel="stylesheet" href="/style.css?v=6" />
 </head>
-<body>
+<body data-view="list">
 
 <header class="masthead">
   <a class="brand" href="/">
     <span class="brand__mark">⦿</span>
-    <div>
-      <h1>The Vinyl Scout</h1>
-      <p class="brand__sub">Catalog</p>
-    </div>
+    <h1>The Vinyl Scout</h1>
   </a>
+  <nav class="masthead__nav">
+    <a href="/seed.html">Add</a>
+    <a href="/audit.html">Audit</a>
+  </nav>
 </header>
 
-<h2 class="collection-title">Full Collection</h2>
+<section class="hero">
+  <h2 class="hero__title">Full Collection</h2>
+  <p class="hero__count" id="count">— records</p>
+</section>
 
 <section class="controls">
-  <div class="controls__left">
+  <div class="controls__search">
     <input
+      id="search"
       type="search"
-      id="filter-input"
-      class="controls__search-input"
-      placeholder="Search artist, title, genre…"
+      placeholder="Search artist, title, year…"
       autocomplete="off"
       spellcheck="false" />
-    <span class="controls__count" id="filter-count"></span>
   </div>
-  <div class="controls__right">
-    <a class="btn btn--ghost btn--sm" href="/seed.html">Add via JSON</a>
-    <a class="btn btn--ghost btn--sm" href="/audit.html">Audit</a>
-    <div class="view-toggle" role="tablist">
-      <button class="view-toggle__btn is-on" data-display="list" type="button" title="List view">
-        <span class="view-toggle__icon">☰</span> List
-      </button>
-      <button class="view-toggle__btn" data-display="grid" type="button" title="Gallery view">
-        <span class="view-toggle__icon">▦</span> Gallery
-      </button>
-    </div>
+  <div class="controls__chips" id="chips"></div>
+  <div class="controls__view" role="tablist" aria-label="View">
+    <button id="view-list" class="vbtn is-on" type="button" aria-pressed="true">List</button>
+    <button id="view-gallery" class="vbtn" type="button" aria-pressed="false">Gallery</button>
   </div>
 </section>
 
 <div id="error-banner" class="error-banner" hidden></div>
 
-<main class="stack" id="card-stack">
-  <div class="empty" id="empty-state">
-    <p class="empty__big">Loading…</p>
-  </div>
+<main id="main" class="list">
+  <div class="empty">Loading…</div>
 </main>
 
-<div class="toast" id="toast"></div>
-
-<script type="module" src="/app.js?v=5"></script>
+<script src="/app.js?v=6"></script>
 </body>
 </html>

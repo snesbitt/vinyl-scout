@@ -1,137 +1,212 @@
-// Vinyl Scout Phase 1 — barebones frontend
-// version: 5
-// v5: tighter UI — flat alpha sort, no genre headers, no card chrome,
-//     no delete button (use /audit.html for destructive ops).
+// Vinyl Scout — app.js
+// version: 6
+// Editorial redesign. List = text only. Gallery = thumb grid. Genre chips for browsing.
+// No destructive ops on this page — those live on /audit.html.
 
-let allRecords = [];
-let currentDisplay = 'list';
+(function () {
+  'use strict';
 
-function toast(msg) {
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.add('is-on');
-  setTimeout(function() { el.classList.remove('is-on'); }, 1800);
-}
+  var allRecords = [];
+  var currentView = 'list';    // 'list' | 'gallery'
+  var currentGenre = null;     // null = all
+  var currentSearch = '';
 
-function showError(msg) {
-  const el = document.getElementById('error-banner');
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
-}
+  // --- DOM helpers ---
 
-function clearError() {
-  const el = document.getElementById('error-banner');
-  if (!el) return;
-  el.textContent = '';
-  el.hidden = true;
-}
+  function $(id) { return document.getElementById(id); }
 
-async function api(path, opts) {
-  opts = opts || {};
-  opts.headers = { 'Content-Type': 'application/json' };
-  const res = await fetch(path, opts);
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json()).error || ''; } catch (e) {}
-    throw new Error('HTTP ' + res.status + (detail ? ' — ' + detail : ''));
-  }
-  if (res.status === 204) return null;
-  return res.json();
-}
-
-async function loadRecords() {
-  try {
-    const data = await api('/api/records');
-    allRecords = Array.isArray(data) ? data : [];
-    clearError();
-    renderCards();
-  } catch (err) {
-    console.error('Failed to load records:', err);
-    allRecords = [];
-    const empty = document.getElementById('empty-state');
-    if (empty) empty.textContent = 'Error loading records: ' + err.message;
-    showError('Failed to load records: ' + err.message);
-  }
-}
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
-}
-
-function renderCards() {
-  const stack = document.getElementById('card-stack');
-  const filterEl = document.getElementById('filter-input');
-  const countEl = document.getElementById('filter-count');
-  const filter = (filterEl && filterEl.value ? filterEl.value : '').toLowerCase().trim();
-
-  if (!Array.isArray(allRecords)) allRecords = [];
-  stack.classList.toggle('is-grid', currentDisplay === 'grid');
-
-  const visible = allRecords.filter(function(r) {
-    if (!filter) return true;
-    const hay = [r.artist, r.title, r.genre, r.year].filter(Boolean).join(' ').toLowerCase();
-    return hay.indexOf(filter) !== -1;
-  });
-
-  if (countEl) countEl.textContent = String(visible.length);
-
-  if (visible.length === 0) {
-    const msg = allRecords.length === 0 ? 'No records yet.' : 'No matches.';
-    const sub = allRecords.length === 0 ? '<p>Add some via <a href="/seed.html">/seed.html</a>.</p>' : '';
-    stack.innerHTML = '<div class="empty" id="empty-state"><p class="empty__big">' + msg + '</p>' + sub + '</div>';
-    return;
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
   }
 
-  // Flat alphabetical: artist, then title.
-  visible.sort(function(a, b) {
-    const ax = (a.artist || '').toLowerCase();
-    const bx = (b.artist || '').toLowerCase();
-    if (ax !== bx) return ax.localeCompare(bx);
-    return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
-  });
-
-  let html = '';
-  for (let i = 0; i < visible.length; i++) {
-    const r = visible[i];
-    const id = escapeHtml(r.id);
-    const artist = escapeHtml(r.artist);
-    const title = escapeHtml(r.title);
-    const year = r.year ? escapeHtml(r.year) : '';
-    const genre = r.genre ? escapeHtml(r.genre) : '';
-
-    const cover = r.cover_url
-      ? '<img src="' + escapeHtml(r.cover_url) + '" alt="" loading="lazy">'
-      : '<div class="row__nocover">no cover</div>';
-
-    html += '<article class="row" data-record-id="' + id + '">';
-    html +=   '<div class="row__cover">' + cover + '</div>';
-    html +=   '<div class="row__name">';
-    html +=     '<span class="row__artist">' + artist + '</span>';
-    html +=     '<span class="row__title">' + title + '</span>';
-    html +=   '</div>';
-    html +=   '<div class="row__year">' + year + '</div>';
-    html +=   '<div class="row__genre">' + genre + '</div>';
-    html += '</article>';
+  function showError(msg) {
+    var el = $('error-banner');
+    el.textContent = msg;
+    el.hidden = false;
   }
-  stack.innerHTML = html;
-}
+  function clearError() {
+    var el = $('error-banner');
+    el.textContent = '';
+    el.hidden = true;
+  }
 
-(async function() {
-  await loadRecords();
-  const filterInput = document.getElementById('filter-input');
-  if (filterInput) filterInput.addEventListener('input', renderCards);
-  const toggleBtns = document.querySelectorAll('.view-toggle__btn');
-  toggleBtns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      toggleBtns.forEach(function(b) { b.classList.remove('is-on'); });
-      btn.classList.add('is-on');
-      currentDisplay = btn.dataset.display === 'grid' ? 'grid' : 'list';
-      renderCards();
+  // --- Data ---
+
+  function normalizeGenre(g) {
+    if (!g) return '';
+    return String(g).toLowerCase().trim();
+  }
+
+  function genreLabel(g) {
+    if (!g) return '—';
+    return g.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  async function load() {
+    try {
+      var res = await fetch('/api/records?bust=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      allRecords = Array.isArray(data) ? data : [];
+      clearError();
+      renderChips();
+      render();
+    } catch (err) {
+      showError('Failed to load: ' + err.message);
+      $('main').innerHTML = '<div class="empty">Failed to load. Check banner above.</div>';
+    }
+  }
+
+  // --- Filter + sort ---
+
+  function filtered() {
+    var q = currentSearch.toLowerCase().trim();
+    var out = allRecords.filter(function (r) {
+      if (currentGenre !== null && normalizeGenre(r.genre) !== currentGenre) return false;
+      if (q) {
+        var hay = [r.artist, r.title, r.genre, r.year]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
     });
+    out.sort(function (a, b) {
+      var ax = (a.artist || '').toLowerCase();
+      var bx = (b.artist || '').toLowerCase();
+      if (ax !== bx) return ax.localeCompare(bx);
+      return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+    });
+    return out;
+  }
+
+  // --- Chips ---
+
+  function renderChips() {
+    var counts = new Map();
+    for (var i = 0; i < allRecords.length; i++) {
+      var g = normalizeGenre(allRecords[i].genre);
+      if (!g) continue;
+      counts.set(g, (counts.get(g) || 0) + 1);
+    }
+    var entries = Array.from(counts.entries()).sort(function (a, b) {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    });
+
+    var html = ''
+      + '<button type="button" class="chip' + (currentGenre === null ? ' is-on' : '') + '" data-g="">'
+      +   'All <span class="chip__n">' + allRecords.length + '</span>'
+      + '</button>';
+
+    for (var j = 0; j < entries.length; j++) {
+      var key = entries[j][0];
+      var n = entries[j][1];
+      var on = currentGenre === key;
+      html += ''
+        + '<button type="button" class="chip' + (on ? ' is-on' : '') + '" data-g="' + escapeHtml(key) + '">'
+        +   escapeHtml(genreLabel(key))
+        +   ' <span class="chip__n">' + n + '</span>'
+        + '</button>';
+    }
+
+    $('chips').innerHTML = html;
+  }
+
+  // --- Render ---
+
+  function render() {
+    document.body.dataset.view = currentView;
+
+    var records = filtered();
+    var total = allRecords.length;
+    var label;
+    if (records.length === total) {
+      label = total + (total === 1 ? ' record' : ' records');
+    } else {
+      label = records.length + ' of ' + total;
+    }
+    $('count').textContent = label;
+
+    var main = $('main');
+    if (records.length === 0) {
+      main.className = currentView;
+      main.innerHTML = '<div class="empty">No matches.</div>';
+      return;
+    }
+
+    if (currentView === 'list') {
+      main.className = 'list';
+      main.innerHTML = records.map(function (r) {
+        return ''
+          + '<div class="row">'
+          +   '<div class="row__artist">' + escapeHtml(r.artist || '—') + '</div>'
+          +   '<div class="row__title">'  + escapeHtml(r.title  || '—') + '</div>'
+          +   '<div class="row__year">'   + (r.year != null ? r.year : '') + '</div>'
+          +   '<div class="row__genre">'  + escapeHtml(r.genre || '') + '</div>'
+          + '</div>';
+      }).join('');
+    } else {
+      main.className = 'gallery';
+      main.innerHTML = records.map(function (r) {
+        var initial = (r.artist || '?').trim().charAt(0).toUpperCase();
+        var cover = r.cover_url
+          ? '<img src="' + escapeHtml(r.cover_url) + '" alt="" loading="lazy">'
+          : '<div class="tile__nocover">' + escapeHtml(initial) + '</div>';
+        var metaParts = [];
+        if (r.year != null) metaParts.push(r.year);
+        if (r.genre) metaParts.push(r.genre);
+        var meta = metaParts.length
+          ? '<div class="tile__meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
+          : '';
+        return ''
+          + '<div class="tile">'
+          +   '<div class="tile__cover">' + cover + '</div>'
+          +   '<div class="tile__text">'
+          +     '<div class="tile__artist">' + escapeHtml(r.artist || '—') + '</div>'
+          +     '<div class="tile__title">'  + escapeHtml(r.title  || '—') + '</div>'
+          +     meta
+          +   '</div>'
+          + '</div>';
+      }).join('');
+    }
+  }
+
+  // --- Wiring ---
+
+  function setView(v) {
+    currentView = v;
+    var listBtn = $('view-list');
+    var galBtn = $('view-gallery');
+    listBtn.classList.toggle('is-on', v === 'list');
+    galBtn.classList.toggle('is-on',  v === 'gallery');
+    listBtn.setAttribute('aria-pressed', v === 'list' ? 'true' : 'false');
+    galBtn.setAttribute('aria-pressed',  v === 'gallery' ? 'true' : 'false');
+    render();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    $('search').addEventListener('input', function (e) {
+      currentSearch = e.target.value;
+      render();
+    });
+
+    $('chips').addEventListener('click', function (e) {
+      var chip = e.target.closest && e.target.closest('.chip');
+      if (!chip) return;
+      var g = chip.dataset.g || '';
+      currentGenre = g === '' ? null : g;
+      renderChips();
+      render();
+    });
+
+    $('view-list').addEventListener('click',    function () { setView('list'); });
+    $('view-gallery').addEventListener('click', function () { setView('gallery'); });
+
+    load();
   });
 })();
