@@ -514,3 +514,216 @@ body {
     margin: 22px 0 2px 0;
   }
 }
+
+
+/* v5: declutter — flat alpha sort, no card chrome, no genre headers, tighter rows.
+   These rules COEXIST with v4 .card/.genre-heading rules (which are now dead but harmless). */
+
+/* List mode (default) — dense rows, no thumbnails, no white card. */
+.card-stack {
+  display: flex;
+  flex-direction: column;
+  max-width: 1100px;
+  margin: 8px auto 80px;
+  padding: 0 32px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.card-stack > .row {
+  display: grid;
+  grid-template-columns: 1fr auto 160px;
+  grid-template-areas: "name year genre";
+  align-items: baseline;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  background: transparent;
+}
+.card-stack > .row:first-child { border-top: 1px solid var(--rule-soft); }
+.card-stack > .row:hover { background: rgba(28, 32, 24, 0.025); }
+
+.card-stack > .row .row__cover { display: none; } /* hidden in list mode */
+.card-stack > .row .row__name {
+  grid-area: name;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.card-stack > .row .row__artist {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+.card-stack > .row .row__title {
+  font-family: var(--serif, var(--sans));
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.card-stack > .row .row__year {
+  grid-area: year;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.card-stack > .row .row__genre {
+  grid-area: genre;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Grid (gallery) mode — covers on cream, no white cards. */
+.card-stack.is-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 32px 18px;
+  padding: 8px 32px 80px;
+}
+.card-stack.is-grid > .row {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: none;
+  background: transparent;
+  align-items: stretch;
+}
+.card-stack.is-grid > .row:first-child { border-top: none; }
+.card-stack.is-grid > .row:hover { background: transparent; }
+
+.card-stack.is-grid .row__cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--rule);
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 1px;
+}
+.card-stack.is-grid .row__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-stack.is-grid .row__nocover {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.card-stack.is-grid .row__name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.card-stack.is-grid .row__artist {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.card-stack.is-grid .row__title {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.card-stack.is-grid .row__year,
+.card-stack.is-grid .row__genre {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-transform: lowercase;
+}
+.card-stack.is-grid .row__year { margin-top: 4px; }
+.card-stack.is-grid .row__year:empty { margin-top: 0; }
+.card-stack.is-grid .row__year:not(:empty) + .row__genre:not(:empty)::before {
+  content: "·";
+  margin: 0 5px 0 0;
+  color: var(--ink-faint);
+}
+.card-stack.is-grid .row__year:empty + .row__genre {
+  margin-top: 4px;
+}
+
+/* Mobile list — keep dense, drop the year column, stack artist/title */
+@media (max-width: 640px) {
+  .card-stack {
+    padding: 0 18px;
+  }
+  .card-stack > .row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name year"
+      "genre genre";
+    gap: 2px 12px;
+    padding: 10px 0;
+  }
+  .card-stack > .row .row__name {
+    flex-direction: column;
+    gap: 1px;
+    align-items: flex-start;
+  }
+  .card-stack > .row .row__artist {
+    max-width: 100%;
+    font-size: 14px;
+  }
+  .card-stack > .row .row__title {
+    font-size: 13px;
+  }
+  .card-stack > .row .row__genre {
+    text-align: left;
+    padding-top: 1px;
+  }
+  .card-stack.is-grid {
+    padding: 8px 18px 60px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 24px 14px;
+  }
+}
+
+/* Hide v4 genre-heading if any stragglers render (defensive). */
+.card-stack .genre-heading { display: none; }
+

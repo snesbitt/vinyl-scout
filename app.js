@@ -1,5 +1,7 @@
 // Vinyl Scout Phase 1 — barebones frontend
-// version: 4
+// version: 5
+// v5: tighter UI — flat alpha sort, no genre headers, no card chrome,
+//     no delete button (use /audit.html for destructive ops).
 
 let allRecords = [];
 let currentDisplay = 'list';
@@ -54,21 +56,6 @@ async function loadRecords() {
   }
 }
 
-async function deleteRecord(id) {
-  if (!id) { showError('Delete aborted: no id on this card.'); return; }
-  if (!confirm('Delete this record?\n\n' + id)) return;
-  try {
-    await api('/api/records/' + encodeURIComponent(id), { method: 'DELETE' });
-    allRecords = allRecords.filter(function(r) { return r.id !== id; });
-    renderCards();
-    clearError();
-    toast('Record deleted');
-  } catch (err) {
-    console.error('Delete failed:', err);
-    showError('Delete failed for ' + id + ': ' + err.message);
-  }
-}
-
 function escapeHtml(str) {
   if (str == null) return '';
   const div = document.createElement('div');
@@ -100,66 +87,36 @@ function renderCards() {
     return;
   }
 
-  // Group by genre. Genres sorted alphabetically; "Uncategorized" last.
-  // Within each genre: sort by artist, then title.
-  const groups = {};
-  for (let i = 0; i < visible.length; i++) {
-    const r = visible[i];
-    const g = (r.genre && String(r.genre).trim()) || 'Uncategorized';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(r);
-  }
-  const genreNames = Object.keys(groups).sort(function(a, b) {
-    if (a === 'Uncategorized' && b !== 'Uncategorized') return 1;
-    if (b === 'Uncategorized' && a !== 'Uncategorized') return -1;
-    return a.toLowerCase().localeCompare(b.toLowerCase());
+  // Flat alphabetical: artist, then title.
+  visible.sort(function(a, b) {
+    const ax = (a.artist || '').toLowerCase();
+    const bx = (b.artist || '').toLowerCase();
+    if (ax !== bx) return ax.localeCompare(bx);
+    return (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
   });
-  for (let g = 0; g < genreNames.length; g++) {
-    groups[genreNames[g]].sort(function(x, y) {
-      const ax = (x.artist || '').toLowerCase();
-      const ay = (y.artist || '').toLowerCase();
-      if (ax !== ay) return ax.localeCompare(ay);
-      return (x.title || '').toLowerCase().localeCompare((y.title || '').toLowerCase());
-    });
-  }
-
-  const ph = 'width:100%;height:100%;background:var(--rule);border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;';
-  const imgSt = 'width:100%;height:100%;object-fit:cover;border-radius:2px;';
 
   let html = '';
-  let cardNum = 0;
-  for (let g = 0; g < genreNames.length; g++) {
-    const genreName = genreNames[g];
-    const list = groups[genreName];
-    html += '<h2 class="genre-heading">';
-    html += '<span class="genre-heading__name">' + escapeHtml(genreName) + '</span>';
-    html += '<span class="genre-heading__count">' + list.length + '</span>';
-    html += '</h2>';
-    for (let i = 0; i < list.length; i++) {
-      const r = list[i];
-      cardNum++;
-      const id = escapeHtml(r.id);
-      const artist = escapeHtml(r.artist);
-      const title = escapeHtml(r.title);
-      const metaParts = [];
-      if (r.year) metaParts.push(escapeHtml(r.year));
-      const meta = metaParts.join('  ');
-      const cover = r.cover_url
-        ? '<img src="' + escapeHtml(r.cover_url) + '" alt="' + artist + ' — ' + title + '" loading="lazy" style="' + imgSt + '">'
-        : '<div style="' + ph + '">No cover</div>';
-      html += '<article class="card" data-record-id="' + id + '">';
-      html += '<div class="card__index"><span class="card__num">' + cardNum + '</span></div>';
-      html += '<div class="card__photos">' + cover + '</div>';
-      html += '<div class="card__body">';
-      html += '<h3 style="margin:0 0 0.25rem 0;font-size:15px;line-height:1.3;">' + artist + '</h3>';
-      html += '<p style="margin:0 0 0.5rem 0;color:var(--ink-soft);">' + title + '</p>';
-      if (meta) html += '<p style="margin:0;font-size:12px;color:var(--ink-faint);">' + meta + '</p>';
-      html += '</div>';
-      html += '<div class="card__actions">';
-      html += '<button type="button" class="btn btn--ghost btn--sm js-delete" data-id="' + id + '">Delete</button>';
-      html += '</div>';
-      html += '</article>';
-    }
+  for (let i = 0; i < visible.length; i++) {
+    const r = visible[i];
+    const id = escapeHtml(r.id);
+    const artist = escapeHtml(r.artist);
+    const title = escapeHtml(r.title);
+    const year = r.year ? escapeHtml(r.year) : '';
+    const genre = r.genre ? escapeHtml(r.genre) : '';
+
+    const cover = r.cover_url
+      ? '<img src="' + escapeHtml(r.cover_url) + '" alt="" loading="lazy">'
+      : '<div class="row__nocover">no cover</div>';
+
+    html += '<article class="row" data-record-id="' + id + '">';
+    html +=   '<div class="row__cover">' + cover + '</div>';
+    html +=   '<div class="row__name">';
+    html +=     '<span class="row__artist">' + artist + '</span>';
+    html +=     '<span class="row__title">' + title + '</span>';
+    html +=   '</div>';
+    html +=   '<div class="row__year">' + year + '</div>';
+    html +=   '<div class="row__genre">' + genre + '</div>';
+    html += '</article>';
   }
   stack.innerHTML = html;
 }
@@ -177,13 +134,4 @@ function renderCards() {
       renderCards();
     });
   });
-  const stack = document.getElementById('card-stack');
-  if (stack) {
-    stack.addEventListener('click', function(e) {
-      const btn = e.target.closest('.js-delete');
-      if (!btn) return;
-      e.preventDefault();
-      deleteRecord(btn.dataset.id);
-    });
-  }
 })();
