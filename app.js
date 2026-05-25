@@ -1,7 +1,7 @@
 // Vinyl Scout — app.js
-// version: 13
-// v13: Goldmine grades are spelled out in the detail modal ("Very Good"
-// instead of a "VG" pill + Legend link). Storage value stays the short code.
+// version: 14
+// v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).
+// v13: Goldmine grades are spelled out in the detail modal.
 
 (function () {
   'use strict';
@@ -330,8 +330,9 @@
     var condition = normalizeCondition(r.condition);
     var conditionText = conditionLabel(condition);
 
-    // Combined meta line: "Very Good · 1976 · Reggae / Roots"
-    var metaParts = [escapeHtml(conditionText)];
+    // v14: prefix grade with "CONDITION:" so the meta reads as labeled.
+    // Combined meta line: "CONDITION: VERY GOOD · 1976 · REGGAE / ROOTS"
+    var metaParts = ['CONDITION: ' + escapeHtml(conditionText)];
     if (r.year != null) metaParts.push(escapeHtml(r.year));
     if (r.genre) metaParts.push(escapeHtml(r.genre));
     var meta = '<p class="detail__meta">' + metaParts.join(' &middot; ') + '</p>';

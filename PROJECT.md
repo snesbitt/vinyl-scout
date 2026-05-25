@@ -98,7 +98,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=13**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=14**.
 
 ### 4. No silent failures
 

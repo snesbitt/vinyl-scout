@@ -1,19 +1,21 @@
 // netlify/functions/discogs-pricing.mjs
 // Vinyl Scout — Phase 3.1: on-demand market pricing from Discogs.
 //
-// v13 fixes vs v12:
-//   - Token is .trim()'d. Surrounding quotes stripped (paste artifacts).
+// v14: when Discogs returns 401, the error now includes a SAFE description
+//      of the token's shape — length and alphanumeric flag, NO actual chars —
+//      so we can tell from the client whether the value in DISCOGS_TOKEN even
+//      looks like a Personal Access Token (which are 40 alphanumeric chars)
+//      vs. a Consumer Key (typically much shorter, sometimes with non-alnum).
+//
+// v13 fixes still in place:
+//   - Token is .trim()'d. Surrounding quotes stripped.
 //   - After trim, an empty token short-circuits to a clear 503.
-//   - Auth via query string (?token=...) instead of Authorization header.
-//     Sidesteps any header parsing weirdness across Netlify edge / Discogs.
-//   - 401 from Discogs now returns a precise error about the token's
-//     identity (must be a Personal Access Token, not a Consumer Key).
+//   - Auth via query string (?token=...).
 //   - 429 (rate limit) returns a friendly retry message.
 //
 // Hard rules (unchanged):
 //   - On-demand only. No cron, no polling, no batch. One record per call.
 //   - Upserts the existing record. Never replaces; never bulk-deletes.
-//   - If DISCOGS_TOKEN is missing, returns a helpful 503. Never crashes.
 
 import { getStore } from '@netlify/blobs';
 
@@ -26,13 +28,34 @@ function jsonResponse(payload, status = 200) {
   });
 }
 
-// Build a Discogs URL with auth in the query string. URLSearchParams handles
-// encoding for us. The token is included as ?token=... — Discogs's documented
+// Build a Discogs URL with auth in the query string. Discogs's documented
 // alternative to the Authorization header for Personal Access Tokens.
 function discogsUrl(path, extraParams, token) {
   const params = new URLSearchParams(extraParams || {});
   params.set('token', token);
   return `https://api.discogs.com${path}?${params.toString()}`;
+}
+
+// Safe shape description — emits LENGTH and CLASSIFICATION only.
+// Never returns any actual characters of the token. Public-endpoint-safe.
+function describeTokenShape(token) {
+  const len = token.length;
+  const isAlnum = /^[A-Za-z0-9]+$/.test(token);
+  let likely;
+  if (len === 40 && isAlnum) {
+    likely = 'looks like a Personal Access Token (40 alphanumeric chars)';
+  } else if (len >= 8 && len <= 16 && isAlnum) {
+    likely = 'looks like a Consumer Key (too short for a Personal Access Token)';
+  } else if (!isAlnum) {
+    likely = 'contains non-alphanumeric chars (Personal Access Tokens are alphanumeric only)';
+  } else if (len > 0 && len < 40) {
+    likely = `is ${len} chars (Personal Access Tokens are 40 chars)`;
+  } else if (len > 40) {
+    likely = `is ${len} chars — longer than a Personal Access Token; may include extra wrapping`;
+  } else {
+    likely = 'is empty';
+  }
+  return { length: len, isAlphanumeric: isAlnum, classification: likely };
 }
 
 async function discogsFetch(url) {
@@ -46,12 +69,11 @@ async function discogsFetch(url) {
     let body = '';
     try { body = (await res.text()).slice(0, 300); } catch (_) {}
 
-    // Translate the most common failures into actionable messages.
     if (res.status === 401) {
       const err = new Error(
-        'Discogs rejected the token. Make sure DISCOGS_TOKEN on Netlify is a ' +
+        'Discogs rejected the token (401). Set DISCOGS_TOKEN on Netlify to a ' +
         'Personal Access Token from https://www.discogs.com/settings/developers ' +
-        '(NOT a Consumer Key/Secret), with no trailing whitespace.'
+        '— click "Generate new token" under your account.'
       );
       err.status = 401;
       err.discogsBody = body;
@@ -74,19 +96,20 @@ export default async (req, context) => {
     return jsonResponse({ error: 'POST only' }, 405);
   }
 
-  // 1. Read env var. Trim. Strip accidental wrapping quotes (paste artifact).
   let rawToken = null;
+  let tokenSource = null;
   try {
     if (typeof Netlify !== 'undefined' && Netlify.env && Netlify.env.get) {
       rawToken = Netlify.env.get('DISCOGS_TOKEN');
+      if (rawToken) tokenSource = 'Netlify.env';
     }
   } catch (_) { /* fall through */ }
   if (!rawToken && typeof process !== 'undefined' && process.env) {
     rawToken = process.env.DISCOGS_TOKEN;
+    if (rawToken) tokenSource = 'process.env';
   }
 
   let token = (rawToken || '').trim();
-  // Strip surrounding single or double quotes if someone pasted them in.
   if (
     token.length >= 2 &&
     ((token.startsWith('"') && token.endsWith('"')) ||
@@ -102,7 +125,9 @@ export default async (req, context) => {
     }, 503);
   }
 
-  // 2. Parse body.
+  // Pre-compute token shape so the 401 path can include it without re-reading.
+  const tokenShape = describeTokenShape(token);
+
   let body;
   try {
     body = await req.json();
@@ -114,7 +139,6 @@ export default async (req, context) => {
     return jsonResponse({ error: 'recordId (string) is required' }, 400);
   }
 
-  // 3. Load the record. Bail if missing.
   const store = getStore('records');
   let recordJson;
   try {
@@ -135,8 +159,22 @@ export default async (req, context) => {
     return jsonResponse({ error: 'Record is missing artist or title' }, 400);
   }
 
-  // 4. Resolve a Discogs release_id.
-  //    Prefer a stored discogs_release_id if we already have one.
+  // Helper to build a 401 payload — used in any of the three downstream calls.
+  function badTokenResponse(underlying) {
+    return jsonResponse({
+      error: underlying.message +
+             ' Token currently in DISCOGS_TOKEN: ' + tokenShape.classification +
+             ' (source: ' + tokenSource + ', length: ' + tokenShape.length + ').',
+      code: 'BAD_TOKEN',
+      tokenInfo: {
+        length: tokenShape.length,
+        isAlphanumeric: tokenShape.isAlphanumeric,
+        classification: tokenShape.classification,
+        source: tokenSource
+      }
+    }, 401);
+  }
+
   let releaseId = record.discogs_release_id || null;
   let releaseTitle = null;
 
@@ -152,10 +190,11 @@ export default async (req, context) => {
     try {
       search = await discogsFetch(url);
     } catch (err) {
+      if (err.status === 401) return badTokenResponse(err);
       return jsonResponse({
         error: 'Discogs search failed: ' + err.message,
-        code: err.status === 401 ? 'BAD_TOKEN' : 'SEARCH_FAILED'
-      }, err.status === 401 ? 401 : 502);
+        code: 'SEARCH_FAILED'
+      }, 502);
     }
     const results = (search && search.results) || [];
     if (results.length === 0) {
@@ -168,7 +207,6 @@ export default async (req, context) => {
     releaseTitle = results[0].title || null;
   }
 
-  // 5. Fetch stats and price suggestions in parallel.
   const statsUrl = discogsUrl(`/marketplace/stats/${releaseId}`, {}, token);
   const suggestUrl = discogsUrl(`/marketplace/price_suggestions/${releaseId}`, {}, token);
   const [statsResult, suggestResult] = await Promise.allSettled([
@@ -200,16 +238,11 @@ export default async (req, context) => {
     }
   }
 
-  // If we got nothing useful at all, report instead of writing nulls.
   if (priceLow == null && priceHigh == null && copiesAvailable == null) {
-    // Bubble up an auth error from the parallel calls if that's why we have nothing.
     const statsErr = statsResult.status === 'rejected' ? statsResult.reason : null;
     const suggErr  = suggestResult.status === 'rejected' ? suggestResult.reason : null;
     if ((statsErr && statsErr.status === 401) || (suggErr && suggErr.status === 401)) {
-      return jsonResponse({
-        error: (statsErr || suggErr).message,
-        code: 'BAD_TOKEN'
-      }, 401);
+      return badTokenResponse(statsErr || suggErr);
     }
     return jsonResponse({
       error: 'No marketplace data found for this release on Discogs.' +
@@ -220,12 +253,11 @@ export default async (req, context) => {
     }, 502);
   }
 
-  // 6. Upsert the record. Preserve all existing fields.
   const updated = Object.assign({}, record, {
     discogs_release_id: releaseId,
     price_low: priceLow,
     price_high: priceHigh,
-    price_last_sold: null,             // Not exposed by Discogs API.
+    price_last_sold: null,
     copies_available: copiesAvailable,
     price_currency: currency || 'USD',
     price_updated_at: new Date().toISOString()
