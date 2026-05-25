@@ -39,33 +39,37 @@ Susan moved Phase 3 from parked to active on May 24, 2026. The shipped scope of 
 
 - **Condition field** — `condition` string on every record, Goldmine grade. Default `VG`. Editable on `/audit.html` via a dropdown next to year/genre.
 - **Condition display** — shows as a small pill in the detail modal, with a "Legend" link to `/about.html#grading`.
-- **Pricing schema** — new optional fields: `price_low`, `price_high`, `copies_available`, `price_currency` (`USD` or `EUR`), `price_updated_at`. Stored alongside other fields, preserved by the existing upsert merge pattern. (`price_last_sold` was in earlier v12-v16; dropped in v17 because the Discogs API has no historical-sales endpoint and the field could never be populated.)
-- **Pricing display (when present)** — detail modal renders a "Market" block with Range (or Cheapest, when only the low side is known) and Copies for sale. The block hides cleanly when no pricing fields are present.
+- **Pricing schema** — optional fields populated when a record is refreshed from Discogs: `price_low`, `price_median`, `price_high`, `price_last_sold` (string date or null), `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_currency` (ISO code), `price_updated_at`, `discogs_release_id`. Stored alongside other fields, preserved by the existing upsert merge pattern.
+- **Pricing display (when present)** — detail modal renders a "Market" block with Range (or Cheapest, when only the low side is known), Median, Last sold date, Copies for sale, and a Community line showing `N have · N want`. The block hides cleanly when no pricing fields are present.
 - **Exec-friendly `/about.html`** — single-page setup description, Goldmine legend with multipliers, roadmap, linked from masthead nav on every page.
 - **PROJECT.md updated in repo** — charter ships with the code.
 
-### Sub-phase 3.1 — SHIPPED (v12, May 25 2026): live Discogs pricing fetch
+### Sub-phase 3.1 — SHIPPED (v12 – v18, May 2026): live Discogs market data
 
-On-demand pricing per record, via the Discogs marketplace API. UI: a "Fetch from Discogs" button in the detail modal. One record per click, never bulk, never automatic.
+On-demand market data per record. UI: a "Refresh from Discogs" button in the detail modal. One record per click, never bulk, never automatic.
 
-**Server endpoint.** `POST /api/discogs-pricing` (`netlify/functions/discogs-pricing.mjs`). Takes `{ recordId }`, looks up the record in the records store, searches Discogs by `artist + title` (filtered to format=Vinyl), fetches `marketplace/stats/:release_id` and `marketplace/price_suggestions/:release_id` in parallel, upserts the result back into the same record, returns the updated record. Logs the matched release title so Susan can sanity-check.
+**Server endpoint.** `POST /api/discogs-pricing` (`netlify/functions/discogs-pricing.mjs`). Takes `{ recordId }`, looks up the record in the records store, searches Discogs by `artist + title` (filtered to format=Vinyl), then runs two requests in parallel: the documented `marketplace/stats/:release_id` API for the current cheapest listing + copies for sale, AND a fetch of the public release page (`https://www.discogs.com/release/:release_id`) which it tag-strips and regex-parses for the Statistics block (Have, Want, Avg Rating, Ratings, Last Sold, Low, Median, High). Combines both, upserts the result back into the same record, returns the updated record plus a `scrape_debug` object describing what the parser found.
 
-**Environment variable.** `DISCOGS_TOKEN` — a Discogs personal access token created at <https://www.discogs.com/settings/developers>, set on Netlify under Site Settings → Environment Variables. If absent the endpoint returns a clear 503 with setup instructions; nothing crashes.
+**Why the scrape.** Discogs's documented API does not expose historical sales data (low/median/high/last-sold) on any endpoint — there is an open feature request on their forum asking for exactly this. The data is, however, in the static HTML of every release page (not JS-injected), so a server-side fetch with a proper User-Agent works. The earlier `/marketplace/price_suggestions` endpoint (used v12–v17) returned per-condition asking-price suggestions instead of historical sales, silently empty for many releases — that path was removed in v18.
+
+**Environment variable.** `DISCOGS_TOKEN` — a Discogs personal access token created at <https://www.discogs.com/settings/developers>, set on Netlify under Site Settings → Environment Variables. Required for the API half (search + marketplace stats). The scrape half uses no auth (release pages are public) but sends the same User-Agent. If the token is absent the endpoint returns a clear 503 with setup instructions; nothing crashes.
 
 **Fields populated.**
 
-- `price_low` ← `marketplace/stats.lowest_price.value`
+- `price_low` ← `marketplace/stats.lowest_price.value` (with scrape's `Low:` as fallback if API didn't have one)
 - `copies_available` ← `marketplace/stats.num_for_sale`
-- `price_high` ← `price_suggestions["Mint (M)" || "Near Mint (NM or M-)"].value`
-- `price_currency` ← whichever response carried it (USD or EUR depending on Discogs account locale)
+- `price_median`, `price_high` ← parsed from the release-page Statistics block (sales history)
+- `price_last_sold` ← string date from the Statistics block (e.g. `"Apr 23, 2026"`), or `null` if the release shows "Never"
+- `have_count`, `want_count`, `rating_avg`, `rating_count` ← parsed from the Statistics block
+- `price_currency` ← detected from the price symbol (€ → EUR, $ → USD, £ → GBP)
 - `price_updated_at` ← ISO timestamp of the fetch
 - `discogs_release_id` ← release ID of the matched pressing, cached so future refreshes skip the search
 
-**Field removed in v17 (was permanently null).** Earlier versions stored `price_last_sold` in the schema and always set it to `null` — Discogs's API has no historical-sales endpoint, only current marketplace asking prices. Rather than carrying a forever-null field that took UI space and confused the schema, v17 dropped it entirely. The function's upsert also `delete`s the field from any existing record it touches, so old stored values get cleaned up incidentally as records are refreshed.
+**Fallback behavior.** If the scrape fails (HTTP 403/429, network error, or layout change that breaks the parser), the function falls back to the API-only data and reports the failure in `scrape_debug.status = 'rejected'`. The front-end logs the debug payload to the browser console on every Refresh, so we can see why a record is missing fields without opening any tools.
 
-**Release matching limitation.** First-result match. Good for popular records, imperfect for obscure pressings, reissues, or generic titles. Phase 3.2 would add a "pick the right pressing" UI on `/audit.html`. For now, Susan can verify the matched release title in the toast hint, and re-search by tweaking artist/title on `/audit.html`.
+**Release matching limitation.** First-result match. Good for popular records, imperfect for obscure pressings, reissues, or generic titles. Phase 3.2 would add a "pick the right pressing" UI on `/audit.html`. For now, Susan can re-search by tweaking artist/title on `/audit.html`.
 
-**v15 auth fix.** v13 and v14 authenticated to Discogs via query string only (`?token=…`). That works for `/database/search` but fails intermittently on `/marketplace/*` endpoints — confirmed via the Discogs forum and reading the source of the joalla Python client, which sends the token via *both* the Authorization header (`Discogs token=…`) and the query string. v15 does the same. v15 also calls `/oauth/identity` first as a preflight, so when auth fails we know whether it's the token itself (identity 401) or just one endpoint (identity passes, downstream 401). And note: Netlify env-var changes do not reach a running function until the next deploy, so updating `DISCOGS_TOKEN` without pushing leaves the function reading the old value. Pushing v15 incidentally fixes that case too.
+**v15 auth fix (preserved).** v13 and v14 authenticated to Discogs via query string only (`?token=…`). That works for `/database/search` but fails intermittently on `/marketplace/*` endpoints — confirmed via the Discogs forum and reading the source of the joalla Python client, which sends the token via *both* the Authorization header (`Discogs token=…`) and the query string. v15 onwards does the same, and calls `/oauth/identity` first as a preflight so when auth fails we know whether it's the token itself or just one endpoint. Netlify env-var changes do not reach a running function until the next deploy.
 
 ---
 
@@ -100,7 +104,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=18**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=19**.
 
 ### 4. No silent failures
 
@@ -234,7 +238,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Goldmine grade**: One of the 8 conditions listed above. Default `VG`.
 - **Phase 1**: Barebones cataloging via vision. Complete.
 - **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11. Display refined in v13 (spelled-out grade names).
-- **Phase 3.1**: Live Discogs pricing fetch. Shipped in v12; auth fix + better error messages in v13.
+- **Phase 3.1**: Live Discogs market data. Shipped v12; auth fix v13–v15; UI polish v16; plain-text seed v17; release-page scrape for full Statistics block v18.
 - **Phase 3.2**: "Pick the right pressing" UI for ambiguous Discogs matches. Not started.
 - **Phase 2, Phase 4**: Deferred / parked. Don't start.
 - **Catalog**: Susan's full collection. Currently ~80 records after May 2026 rebuild.

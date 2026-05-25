@@ -1,10 +1,12 @@
 // Vinyl Scout — app.js
-// version: 18
+// version: 19
+// v19: docs-only deploy. /about.html and PROJECT.md rewritten to match v18
+//      reality (full Statistics block; scrape architecture; plain-text seed).
+//      No functional code changes. Cache-bust bumped so the corrected docs
+//      reach the exec without a stale browser cache.
 // v18: full Statistics block in Market panel — range, median, last sold,
 //      copies, Have/Want — sourced from scraped Discogs release page since
 //      their API doesn't expose historical-sales data.
-// v17: dropped price_last_sold (turned out Discogs hides it from API but
-//      not the web page; reinstated in v18 with correct semantics — date string).
 // v16: market block no longer shows the 'Updated' stamp or 'Matched' hint.
 // v15: no app.js changes — the Discogs fetch fix is purely server-side.
 // v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).

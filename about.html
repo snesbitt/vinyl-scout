@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=18" />
+  <link rel="stylesheet" href="/style.css?v=19" />
 </head>
 <body>
 
@@ -25,7 +25,7 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v18 · May 2026</p>
+  <p class="article__kicker">How it works · v19 · May 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
@@ -38,8 +38,9 @@
   <p>
     A single-tenant catalog of physical records. The owner photographs covers in
     small batches, Claude identifies artist and title from each cover, and a short
-    JSON file gets pasted into <a href="/seed.html">/seed.html</a> to register the
-    records. Every entry is editable on <a href="/audit.html">/audit.html</a>.
+    list of <code>Artist - Title</code> lines gets pasted into
+    <a href="/seed.html">/seed.html</a> to register the records. Every entry
+    is editable on <a href="/audit.html">/audit.html</a>.
   </p>
   <p>
     The collection page itself — what you came from — is read-only: a searchable,
@@ -67,10 +68,14 @@
     <li><strong>cover_url</strong> — optional image URL or inline data URL.</li>
     <li><strong>notes</strong> — optional free text.</li>
     <li><strong>condition</strong> — Goldmine grade (default <em>VG</em>). See below.</li>
-    <li><strong>price_low</strong>, <strong>price_high</strong> — market prices, optional.</li>
-    <li><strong>copies_available</strong> — count, optional.</li>
-    <li><strong>price_currency</strong> — <em>USD</em> or <em>EUR</em>, optional.</li>
+    <li><strong>price_low</strong>, <strong>price_median</strong>, <strong>price_high</strong> — market prices in <code>price_currency</code>, optional. Low is the current cheapest listing; median and high are from the release's last-30-sales history.</li>
+    <li><strong>price_last_sold</strong> — string date of the most recent completed sale (e.g. <code>"Apr 23, 2026"</code>), or <code>null</code> if the release has never sold.</li>
+    <li><strong>copies_available</strong> — count of copies currently for sale, optional.</li>
+    <li><strong>have_count</strong>, <strong>want_count</strong> — Discogs community ownership and wishlist counts, optional.</li>
+    <li><strong>rating_avg</strong>, <strong>rating_count</strong> — Discogs community rating (0–5) and number of ratings, optional.</li>
+    <li><strong>price_currency</strong> — ISO code (<em>USD</em>, <em>EUR</em>, <em>GBP</em>), optional.</li>
     <li><strong>price_updated_at</strong> — ISO timestamp of last refresh, optional.</li>
+    <li><strong>discogs_release_id</strong> — cached release ID for fast refreshes, optional.</li>
   </ul>
 
   <h2 id="grading"><span class="article__num">04</span>Goldmine grading</h2>
@@ -101,14 +106,14 @@
   <ul>
     <li><strong>Phase 1 — complete.</strong> Vision-identified records, edit, delete, cover upload.</li>
     <li><strong>Phase 3 — complete.</strong> Condition tracking on every record (Goldmine grade, default VG, editable on Audit).</li>
-    <li><strong>Phase 3.1 — shipped (v12).</strong> Live Discogs pricing. Open any record's detail view and tap "Fetch from Discogs" to pull current marketplace data into the catalog. One record per click; no automatic refresh.</li>
+    <li><strong>Phase 3.1 — shipped (v12 — v18).</strong> Live Discogs market data. Open any record's detail view and tap "Refresh from Discogs" to pull the current cheapest listing and the full sales-history Statistics block — range, median, last sold date, copies for sale, and the Have/Want community counts. One record per click; no automatic refresh, no batch.</li>
     <li><strong>Phase 3.2 — not started.</strong> A "pick the right pressing" picker on Audit, for when Discogs's first search result isn't the right release.</li>
     <li><strong>Phase 2 — deferred.</strong> Pressing-accurate metadata from Discogs (label, catalog number, country, pressing year). Useful but not urgent.</li>
     <li><strong>Phase 4 — parked.</strong> Listing &amp; selling helpers. Far-future.</li>
   </ul>
 
   <p><strong>What Discogs can and can't tell us.</strong>
-  The Discogs API exposes the current lowest asking price and the number of copies for sale right now, and a per-condition suggested price (which we use for the "high" end of the range when Discogs has enough data to compute one). It does not expose historical completed-sale prices, so there's no "last sold" field on Vinyl Scout — better to omit it than to carry a forever-null placeholder.</p>
+  The Discogs API exposes the current cheapest listing and the number of copies for sale right now. It does <em>not</em> expose historical completed-sale data (low, median, high, last-sold date) on any documented endpoint — Discogs has an open feature request from the community for exactly this. That data <em>is</em>, however, in the static HTML of every public release page, so on each refresh we run two requests in parallel: the API for live market state, and a fetch-and-parse of the release page's Statistics block for sales history and community counts. If Discogs ever changes their page layout or blocks the fetch, the Market block falls back gracefully to API-only data and a small debug payload lands in the browser console so we know to update the parser.</p>
 
   <h2><span class="article__num">06</span>What it won't do</h2>
   <p>
