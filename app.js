@@ -1,7 +1,10 @@
 // Vinyl Scout — app.js
-// version: 17
-// v17: dropped price_last_sold (never available via Discogs); cleaner empty
-//      state when high price is unknown; logs suggest_debug to console.
+// version: 18
+// v18: full Statistics block in Market panel — range, median, last sold,
+//      copies, Have/Want — sourced from scraped Discogs release page since
+//      their API doesn't expose historical-sales data.
+// v17: dropped price_last_sold (turned out Discogs hides it from API but
+//      not the web page; reinstated in v18 with correct semantics — date string).
 // v16: market block no longer shows the 'Updated' stamp or 'Matched' hint.
 // v15: no app.js changes — the Discogs fetch fix is purely server-side.
 // v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).
@@ -225,34 +228,49 @@
 
   function buildPricingBlock(r) {
     var lo  = formatPrice(r.price_low,        r.price_currency);
+    var med = formatPrice(r.price_median,     r.price_currency);
     var hi  = formatPrice(r.price_high,       r.price_currency);
     var cnt = (r.copies_available != null && !isNaN(r.copies_available))
               ? Number(r.copies_available) : null;
-    // v17: price_last_sold field removed entirely from schema and UI.
-    // Discogs API has no historical-sales endpoint; the field could never
-    // be populated and was just adding noise.
+    var lastSold = r.price_last_sold || null;   // v18: string date, not currency
+    var haveN = (r.have_count != null && !isNaN(r.have_count)) ? Number(r.have_count) : null;
+    var wantN = (r.want_count != null && !isNaN(r.want_count)) ? Number(r.want_count) : null;
 
-    var hasAny = (lo != null || hi != null || cnt != null);
+    var hasAny = (lo != null || med != null || hi != null || cnt != null || lastSold != null || haveN != null);
 
     var dataHtml;
     if (hasAny) {
-      // v17: if we have a high, show "low – high". If only low, show
-      // "Cheapest: low" (no dangling em-dash). Cleaner empty state.
-      var rangeRow;
+      // v18: full Statistics block from scraped release page.
+      // Range from sales history (low – high), median, last sold date,
+      // copies for sale, and the Have/Want community counts.
+      var rows = '';
+
+      // Range: show low–high if we have both, low alone, or high alone.
       if (lo != null && hi != null) {
-        rangeRow = '<dt>Range</dt><dd>' + escapeHtml(lo + ' – ' + hi) + '</dd>';
+        rows += '<dt>Range</dt><dd>' + escapeHtml(lo + ' – ' + hi) + '</dd>';
       } else if (lo != null) {
-        rangeRow = '<dt>Cheapest</dt><dd>' + escapeHtml(lo) + '</dd>';
+        rows += '<dt>Cheapest</dt><dd>' + escapeHtml(lo) + '</dd>';
       } else if (hi != null) {
-        rangeRow = '<dt>Suggested</dt><dd>' + escapeHtml(hi) + '</dd>';
-      } else {
-        rangeRow = '';
+        rows += '<dt>High</dt><dd>' + escapeHtml(hi) + '</dd>';
       }
-      dataHtml = ''
-        + '<dl class="detail__prices">'
-        +   rangeRow
-        +   (cnt != null ? '<dt>Copies for sale</dt><dd>' + cnt + '</dd>' : '')
-        + '</dl>';
+
+      if (med != null) {
+        rows += '<dt>Median</dt><dd>' + escapeHtml(med) + '</dd>';
+      }
+      if (lastSold) {
+        rows += '<dt>Last sold</dt><dd>' + escapeHtml(lastSold) + '</dd>';
+      }
+      if (cnt != null) {
+        rows += '<dt>Copies for sale</dt><dd>' + cnt + '</dd>';
+      }
+      if (haveN != null || wantN != null) {
+        var hwParts = [];
+        if (haveN != null) hwParts.push(haveN + ' have');
+        if (wantN != null) hwParts.push(wantN + ' want');
+        rows += '<dt>Community</dt><dd>' + hwParts.join(' · ') + '</dd>';
+      }
+
+      dataHtml = '<dl class="detail__prices">' + rows + '</dl>';
     } else {
       dataHtml = '<p class="detail__prices-empty">No market data yet.</p>';
     }
@@ -306,13 +324,12 @@
         var idx = allRecords.findIndex(function (x) { return x.id === updated.id; });
         if (idx >= 0) allRecords[idx] = updated;
       }
-      // v17: log suggest_debug to console so we can diagnose missing
-      // high-price values. The Discogs /marketplace/price_suggestions
-      // endpoint sometimes returns empty {} for releases without enough
-      // sale history, or 401s with PAT auth while stats works. Logging
-      // here lets us see which case it is on the next failure.
-      if (payload && payload.suggest_debug) {
-        try { console.log('[VinylScout] suggest_debug', payload.suggest_debug); } catch (_) {}
+      // v18: log scrape_debug to console so we can diagnose missing data.
+      // The Discogs release-page scrape is fragile — Discogs could change
+      // their layout. If fields_found is unexpectedly low or status is
+      // 'rejected', this tells us why before the user files a complaint.
+      if (payload && payload.scrape_debug) {
+        try { console.log('[VinylScout] scrape_debug', payload.scrape_debug); } catch (_) {}
       }
       // v16: 'Matched: <release title>' hint removed per Susan's ask.
       // payload.discogs_match is still returned by the function for any
