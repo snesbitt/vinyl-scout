@@ -1,7 +1,8 @@
 /* Vinyl Scout — style.css
-   version: 8
+   version: 10
    Editorial / catalog-card aesthetic.
-   Detail modal added. Otherwise stylistically unchanged from v7. */
+   v10: brand bigger than pagehead title (hierarchy fix).
+   Carries forward v9 mobile fixes: grid blowup guard, iOS zoom, button reset. */
 
 /* ---------- Tokens ---------- */
 :root {
@@ -35,6 +36,9 @@ html, body {
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Last-line-of-defence against any rogue element forcing horizontal scroll on mobile.
+     All legitimate horizontal scrolling (chip strip) happens inside contained scrollers. */
+  overflow-x: hidden;
 }
 
 html { scroll-behavior: smooth; }
@@ -105,7 +109,7 @@ main#main:focus-visible { outline: none; }
 }
 .brand:hover { color: var(--ink); }
 .brand__mark {
-  font-size: 18px;
+  font-size: 20px;
   color: var(--accent);
   line-height: 1;
   position: relative;
@@ -116,7 +120,7 @@ main#main:focus-visible { outline: none; }
   font-style: italic;
   font-weight: 500;
   font-variation-settings: "SOFT" 50;
-  font-size: clamp(22px, 2.6vw, 28px);
+  font-size: clamp(24px, 2.8vw, 32px);
   letter-spacing: -0.015em;
   line-height: 1;
   margin: 0;
@@ -142,16 +146,16 @@ main#main:focus-visible { outline: none; }
   align-items: baseline;
   justify-content: space-between;
   gap: 24px;
-  padding: 36px 40px 14px;
+  padding: 28px 40px 14px;
 }
 .pagehead__title {
   font-family: var(--serif);
   font-style: italic;
   font-weight: 400;
-  font-variation-settings: "SOFT" 50, "opsz" 144;
-  font-size: clamp(28px, 3.4vw, 44px);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-variation-settings: "SOFT" 50, "opsz" 36;
+  font-size: clamp(20px, 1.9vw, 24px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   margin: 0;
   color: var(--ink);
 }
@@ -295,7 +299,14 @@ main {
   width: 100%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   font-family: inherit;
+  /* min-width: 0 lets grid columns shrink below content min-width
+     (otherwise an image inside can force the column wider than 1fr) */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---------- List view ---------- */
@@ -388,6 +399,7 @@ main {
 .gallery .tile__cover img {
   width: 100%;
   height: 100%;
+  max-width: 100%;
   object-fit: cover;
   display: block;
 }
@@ -405,7 +417,7 @@ main {
   background: var(--bg-soft);
   user-select: none;
 }
-.gallery .tile__text { display: block; padding: 0 1px; }
+.gallery .tile__text { display: block; padding: 0 1px; min-width: 0; }
 .gallery .tile__artist {
   display: block;
   font-size: 12px;
@@ -415,6 +427,7 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .gallery .tile__title {
   display: block;
@@ -427,6 +440,7 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .gallery .tile__meta {
   display: block;
@@ -439,6 +453,7 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 /* ---------- Detail modal ---------- */
@@ -670,19 +685,26 @@ main {
 /* ---------- Mobile ---------- */
 @media (max-width: 720px) {
   .masthead { padding: 14px 18px; gap: 12px; }
-  .brand { gap: 8px; }
-  .brand h1 { font-size: clamp(20px, 5.6vw, 24px); }
-  .brand__mark { font-size: 16px; }
-  .masthead__nav { gap: 16px; }
+  .brand { gap: 8px; min-width: 0; }
+  .brand h1 {
+    font-size: clamp(22px, 6vw, 28px);
+    /* Prevent the wordmark from pushing the nav off-screen */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .brand__mark { font-size: 18px; flex-shrink: 0; }
+  .masthead__nav { gap: 16px; flex-shrink: 0; }
 
   .pagehead {
     flex-direction: column;
     align-items: flex-start;
-    padding: 28px 18px 12px;
+    padding: 22px 18px 10px;
     gap: 4px;
   }
-  .pagehead__title { font-size: clamp(28px, 9vw, 38px); }
-  .pagehead__count { margin: 0; }
+  .pagehead__title { font-size: clamp(18px, 4.4vw, 22px); }
+  .pagehead__count { margin: 0; font-size: 10px; }
 
   .controls {
     grid-template-columns: 1fr;
@@ -691,6 +713,10 @@ main {
   }
   .controls__view { order: 1; justify-self: start; }
   .controls__search { order: 2; }
+  /* iOS Safari zooms in when an <input> has font-size < 16px on focus.
+     Force 16px on phones to prevent the zoom-and-stuck behaviour. */
+  .controls__search input { font-size: 16px; padding: 12px 0 12px 28px; }
+  .controls__search::before { font-size: 18px; }
   .controls__chips {
     order: 3;
     flex-wrap: nowrap;
@@ -756,5 +782,4 @@ main {
     grid-template-columns: repeat(2, 1fr);
     gap: 20px 12px;
   }
-  .pagehead__title { font-size: 32px; }
 }

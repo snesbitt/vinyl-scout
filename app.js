@@ -1,5 +1,5 @@
 // Vinyl Scout — app.js
-// version: 8
+// version: 10
 // Editorial. List = text only. Gallery = thumb grid. Genre chips.
 // Click any record (list row or gallery tile) -> opens a detail modal for that album.
 // ESC / × / backdrop / browser-back all close. URL hash (#rec_<id>) deep-links.
