@@ -1,5 +1,7 @@
 // Vinyl Scout — app.js
-// version: 16
+// version: 17
+// v17: dropped price_last_sold (never available via Discogs); cleaner empty
+//      state when high price is unknown; logs suggest_debug to console.
 // v16: market block no longer shows the 'Updated' stamp or 'Matched' hint.
 // v15: no app.js changes — the Discogs fetch fix is purely server-side.
 // v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).
@@ -224,22 +226,31 @@
   function buildPricingBlock(r) {
     var lo  = formatPrice(r.price_low,        r.price_currency);
     var hi  = formatPrice(r.price_high,       r.price_currency);
-    var ls  = formatPrice(r.price_last_sold,  r.price_currency);
     var cnt = (r.copies_available != null && !isNaN(r.copies_available))
               ? Number(r.copies_available) : null;
-    // v16: price_updated_at still gets stored, just no longer displayed.
-    // Susan wanted the "Updated YYYY-MM-DD" stamp removed for visual clutter.
+    // v17: price_last_sold field removed entirely from schema and UI.
+    // Discogs API has no historical-sales endpoint; the field could never
+    // be populated and was just adding noise.
 
-    var hasAny = (lo != null || hi != null || ls != null || cnt != null);
+    var hasAny = (lo != null || hi != null || cnt != null);
 
     var dataHtml;
     if (hasAny) {
-      var rangeStr = (lo || hi)
-        ? escapeHtml((lo || '—') + ' – ' + (hi || '—'))
-        : '—';
+      // v17: if we have a high, show "low – high". If only low, show
+      // "Cheapest: low" (no dangling em-dash). Cleaner empty state.
+      var rangeRow;
+      if (lo != null && hi != null) {
+        rangeRow = '<dt>Range</dt><dd>' + escapeHtml(lo + ' – ' + hi) + '</dd>';
+      } else if (lo != null) {
+        rangeRow = '<dt>Cheapest</dt><dd>' + escapeHtml(lo) + '</dd>';
+      } else if (hi != null) {
+        rangeRow = '<dt>Suggested</dt><dd>' + escapeHtml(hi) + '</dd>';
+      } else {
+        rangeRow = '';
+      }
       dataHtml = ''
         + '<dl class="detail__prices">'
-        +   '<dt>Range</dt><dd>' + rangeStr + '</dd>'
+        +   rangeRow
         +   (cnt != null ? '<dt>Copies for sale</dt><dd>' + cnt + '</dd>' : '')
         + '</dl>';
     } else {
@@ -294,6 +305,14 @@
       if (updated && updated.id) {
         var idx = allRecords.findIndex(function (x) { return x.id === updated.id; });
         if (idx >= 0) allRecords[idx] = updated;
+      }
+      // v17: log suggest_debug to console so we can diagnose missing
+      // high-price values. The Discogs /marketplace/price_suggestions
+      // endpoint sometimes returns empty {} for releases without enough
+      // sale history, or 401s with PAT auth while stats works. Logging
+      // here lets us see which case it is on the next failure.
+      if (payload && payload.suggest_debug) {
+        try { console.log('[VinylScout] suggest_debug', payload.suggest_debug); } catch (_) {}
       }
       // v16: 'Matched: <release title>' hint removed per Susan's ask.
       // payload.discogs_match is still returned by the function for any

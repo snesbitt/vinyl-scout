@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=16" />
+  <link rel="stylesheet" href="/style.css?v=17" />
 </head>
 <body>
 
@@ -25,7 +25,7 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v16 · May 2026</p>
+  <p class="article__kicker">How it works · v17 · May 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
@@ -67,7 +67,7 @@
     <li><strong>cover_url</strong> — optional image URL or inline data URL.</li>
     <li><strong>notes</strong> — optional free text.</li>
     <li><strong>condition</strong> — Goldmine grade (default <em>VG</em>). See below.</li>
-    <li><strong>price_low</strong>, <strong>price_high</strong>, <strong>price_last_sold</strong> — market prices, optional.</li>
+    <li><strong>price_low</strong>, <strong>price_high</strong> — market prices, optional.</li>
     <li><strong>copies_available</strong> — count, optional.</li>
     <li><strong>price_currency</strong> — <em>USD</em> or <em>EUR</em>, optional.</li>
     <li><strong>price_updated_at</strong> — ISO timestamp of last refresh, optional.</li>
@@ -108,7 +108,7 @@
   </ul>
 
   <p><strong>What Discogs can and can't tell us.</strong>
-  The Discogs API exposes the current lowest asking price and the number of copies for sale right now, and a per-condition suggested price (which we use for the "high" end of the range). It does not expose historical sale prices, so the "last sold" field in the record schema is permanently <em>null</em> — better to admit it than to make something up.</p>
+  The Discogs API exposes the current lowest asking price and the number of copies for sale right now, and a per-condition suggested price (which we use for the "high" end of the range when Discogs has enough data to compute one). It does not expose historical completed-sale prices, so there's no "last sold" field on Vinyl Scout — better to omit it than to carry a forever-null placeholder.</p>
 
   <h2><span class="article__num">06</span>What it won't do</h2>
   <p>

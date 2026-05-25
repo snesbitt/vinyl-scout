@@ -39,8 +39,8 @@ Susan moved Phase 3 from parked to active on May 24, 2026. The shipped scope of 
 
 - **Condition field** — `condition` string on every record, Goldmine grade. Default `VG`. Editable on `/audit.html` via a dropdown next to year/genre.
 - **Condition display** — shows as a small pill in the detail modal, with a "Legend" link to `/about.html#grading`.
-- **Pricing schema** — new optional fields: `price_low`, `price_high`, `price_last_sold`, `copies_available`, `price_currency` (`USD` or `EUR`), `price_updated_at`. Stored alongside other fields, preserved by the existing upsert merge pattern.
-- **Pricing display (when present)** — detail modal renders a "Market" block with Range, Last sold, Copies for sale, and an updated stamp. The block hides cleanly when no pricing fields are present.
+- **Pricing schema** — new optional fields: `price_low`, `price_high`, `copies_available`, `price_currency` (`USD` or `EUR`), `price_updated_at`. Stored alongside other fields, preserved by the existing upsert merge pattern. (`price_last_sold` was in earlier v12-v16; dropped in v17 because the Discogs API has no historical-sales endpoint and the field could never be populated.)
+- **Pricing display (when present)** — detail modal renders a "Market" block with Range (or Cheapest, when only the low side is known) and Copies for sale. The block hides cleanly when no pricing fields are present.
 - **Exec-friendly `/about.html`** — single-page setup description, Goldmine legend with multipliers, roadmap, linked from masthead nav on every page.
 - **PROJECT.md updated in repo** — charter ships with the code.
 
@@ -61,7 +61,7 @@ On-demand pricing per record, via the Discogs marketplace API. UI: a "Fetch from
 - `price_updated_at` ← ISO timestamp of the fetch
 - `discogs_release_id` ← release ID of the matched pressing, cached so future refreshes skip the search
 
-**Field NOT populated, by design.** `price_last_sold` is permanently `null`. Discogs does not expose historical sale prices via API; the marketplace shows current asking prices only. Pretending otherwise would be a lie; we leave the field nullable in the schema in case a future data source provides it.
+**Field removed in v17 (was permanently null).** Earlier versions stored `price_last_sold` in the schema and always set it to `null` — Discogs's API has no historical-sales endpoint, only current marketplace asking prices. Rather than carrying a forever-null field that took UI space and confused the schema, v17 dropped it entirely. The function's upsert also `delete`s the field from any existing record it touches, so old stored values get cleaned up incidentally as records are refreshed.
 
 **Release matching limitation.** First-result match. Good for popular records, imperfect for obscure pressings, reissues, or generic titles. Phase 3.2 would add a "pick the right pressing" UI on `/audit.html`. For now, Susan can verify the matched release title in the toast hint, and re-search by tweaking artist/title on `/audit.html`.
 
@@ -100,7 +100,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=16**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=17**.
 
 ### 4. No silent failures
 
@@ -140,7 +140,6 @@ Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `
   "discogs_release_id": "number | null  (cached after first pricing fetch)",
   "price_low":          "number | null",
   "price_high":         "number | null",
-  "price_last_sold":    "always null — Discogs API does not expose historical sales",
   "copies_available":   "number | null",
   "price_currency":     "'USD' | 'EUR' | null",
   "price_updated_at":   "ISO timestamp | null"

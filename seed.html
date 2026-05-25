@@ -2,196 +2,373 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vinyl Scout · Seed Records</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Vinyl Scout · Add Records</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=2" />
+  <link rel="stylesheet" href="/style.css?v=17" />
   <style>
     .seed-shell {
       max-width: 900px;
-      margin: 3rem auto;
-      padding: 2rem;
+      margin: 24px auto 80px;
+      padding: 0 32px;
     }
-    .seed-heading {
+    .seed-h2 {
       font-family: var(--serif);
-      font-size: 2rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem 0;
+      font-style: italic;
+      font-size: clamp(28px, 4vw, 38px);
+      font-weight: 400;
       color: var(--ink);
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
     }
     .seed-intro {
-      color: var(--ink-soft);
-      margin: 0 0 2rem 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      line-height: 1.7;
+      color: var(--ink-faint);
+      margin: 0 0 24px;
+      max-width: 60ch;
+    }
+    .seed-intro code {
+      background: var(--bg-soft);
+      border: 1px solid var(--rule);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-size: 10px;
     }
     .seed-textarea {
       width: 100%;
-      min-height: 400px;
-      padding: 1rem;
+      min-height: 320px;
+      padding: 18px;
       font-family: var(--mono);
-      font-size: 13px;
-      line-height: 1.6;
+      font-size: 14px;
+      line-height: 1.7;
       border: 1px solid var(--rule);
-      border-radius: 4px;
       background: var(--surface);
       color: var(--ink);
+      border-radius: 2px;
       resize: vertical;
-      margin-bottom: 1.5rem;
+      box-sizing: border-box;
+      -webkit-appearance: none;
     }
+    .seed-textarea:focus { outline: none; border-color: var(--accent); }
     .seed-actions {
       display: flex;
-      gap: 1rem;
+      gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
     }
     .seed-btn {
-      padding: 0.75rem 1.5rem;
-      font-size: 15px;
-      font-weight: 500;
-      border: none;
-      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 12px 18px;
+      border-radius: 2px;
       cursor: pointer;
-      transition: all 0.2s;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+      border: 1px solid var(--ink);
     }
-    .seed-btn--primary {
-      background: var(--accent);
-      color: white;
-    }
-    .seed-btn--primary:hover {
-      background: var(--accent-deep);
-    }
-    .seed-btn--secondary {
-      background: var(--rule);
-      color: var(--ink);
-    }
-    .seed-btn--secondary:hover {
-      background: var(--rule-soft);
-    }
+    .seed-btn--primary { background: var(--ink); color: var(--bg); }
+    .seed-btn--primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+    .seed-btn--primary:disabled { opacity: 0.5; cursor: progress; }
+    .seed-btn--ghost { background: transparent; color: var(--ink-soft); border-color: var(--rule); }
+    .seed-btn--ghost:hover { color: var(--ink); border-color: var(--ink); }
     .seed-status {
-      font-size: 14px;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      line-height: 1.7;
       color: var(--ink-faint);
+      min-height: 1em;
     }
-    .seed-status.is-loading {
-      color: var(--ink);
+    .seed-status.is-error { color: var(--accent); }
+    .seed-status.is-success { color: var(--good, #4a6b3b); }
+
+    .seed-preview {
+      margin-top: 18px;
+      padding: 16px 18px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--ink-soft);
     }
-    .seed-status.is-success {
-      color: var(--good);
+    .seed-preview__head {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin: 0 0 10px;
     }
-    .seed-status.is-error {
+    .seed-preview__row {
+      padding: 4px 0;
+      border-bottom: 1px dashed var(--rule-soft, var(--rule));
+    }
+    .seed-preview__row:last-child { border-bottom: 0; }
+    .seed-preview__row--skip {
       color: var(--accent);
+      font-style: italic;
+    }
+    .seed-preview__artist { color: var(--ink); }
+    .seed-preview__title { font-style: italic; color: var(--ink-soft); }
+
+    .seed-back {
+      display: inline-block;
+      margin-top: 24px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--ink-faint);
+      text-decoration: none;
+    }
+    .seed-back:hover { color: var(--ink); }
+
+    @media (max-width: 640px) {
+      .seed-shell { padding: 0 18px; margin: 16px auto 60px; }
+      .seed-textarea { min-height: 240px; font-size: 16px; }
     }
   </style>
 </head>
 <body>
 
-<div class="seed-shell">
-  <h1 class="seed-heading">Add Records via JSON</h1>
+<header class="masthead">
+  <a class="brand" href="/">
+    <span class="brand__mark">⦿</span>
+    <div>
+      <h1>The Vinyl Scout</h1>
+      <p class="brand__sub">Add records</p>
+    </div>
+  </a>
+</header>
+
+<main class="seed-shell">
+  <h2 class="seed-h2">Add by plain text</h2>
   <p class="seed-intro">
-    Paste the JSON array from Claude below. Each object becomes one record in your collection.
+    One record per line. Separate artist and title with a hyphen, en-dash, or em-dash.
+    Example: <code>Bob Marley - Rastaman Vibration</code>. Year and genre are optional and can be edited on
+    the <a href="/audit.html" style="color:var(--accent);">audit page</a> after adding. Default condition is Very Good.
   </p>
 
-  <textarea id="seed-input" class="seed-textarea" placeholder='[{"id":"rec_123", "artist":"...", "title":"...", ...}]'></textarea>
+  <textarea
+    id="seed-input"
+    class="seed-textarea"
+    autocomplete="off"
+    spellcheck="false"
+    placeholder="Bob Marley - Rastaman Vibration&#10;Air - Moon Safari&#10;Pink Floyd - The Dark Side of the Moon"></textarea>
 
   <div class="seed-actions">
-    <button class="seed-btn seed-btn--primary" id="seed-add-btn">Add Records</button>
-    <button class="seed-btn seed-btn--secondary" id="seed-clear-btn">Clear</button>
-    <div class="seed-status" id="seed-status"></div>
+    <button type="button" id="seed-preview-btn" class="seed-btn seed-btn--ghost">Preview</button>
+    <button type="button" id="seed-add-btn" class="seed-btn seed-btn--primary">Add Records</button>
+    <button type="button" id="seed-clear-btn" class="seed-btn seed-btn--ghost">Clear</button>
   </div>
 
-  <p style="margin-top: 2rem; color: var(--ink-soft); font-size: 13px;">
-    ← <a href="/" style="color: var(--accent);">Back to gallery</a>
-  </p>
-</div>
+  <div id="seed-preview" class="seed-preview" hidden></div>
+  <div id="seed-status" class="seed-status" role="status" aria-live="polite"></div>
+
+  <a class="seed-back" href="/">← Back to gallery</a>
+</main>
 
 <script>
-  const input = document.getElementById('seed-input');
-  const addBtn = document.getElementById('seed-add-btn');
-  const clearBtn = document.getElementById('seed-clear-btn');
-  const status = document.getElementById('seed-status');
+// Vinyl Scout — seed.html
+// version: 2 (paired with style.css?v=17)
+// v17: plain-text "Artist - Title per line" input. The old JSON-paste flow
+// is gone; the page now parses lines and constructs the record JSON itself
+// before POSTing one at a time to /api/records. Single-record upserts only.
+// No bulk variant. No dedup. Hard rules respected.
 
-  clearBtn.addEventListener('click', () => {
-    input.value = '';
-    status.textContent = '';
+(function () {
+  var input    = document.getElementById('seed-input');
+  var previewBtn = document.getElementById('seed-preview-btn');
+  var addBtn   = document.getElementById('seed-add-btn');
+  var clearBtn = document.getElementById('seed-clear-btn');
+  var status   = document.getElementById('seed-status');
+  var preview  = document.getElementById('seed-preview');
+
+  // Separators accepted between artist and title. Order matters: try the
+  // longer/distinctive ones first. ' — ' (em-dash) and ' – ' (en-dash) are
+  // preferred since they're less ambiguous; ' - ' (hyphen-minus) is the
+  // common keyboard fallback. We require surrounding whitespace so titles
+  // like "Crosby, Stills & Nash" with internal commas/hyphens aren't split.
+  var SEPARATORS = [' — ', ' – ', ' - '];
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+  }
+
+  function generateRecordId() {
+    var bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    var hex = '';
+    for (var i = 0; i < bytes.length; i++) {
+      hex += bytes[i].toString(16).padStart(2, '0');
+    }
+    return 'rec_' + hex;
+  }
+
+  function parseLines(raw) {
+    var lines = raw.split(/\r?\n/);
+    var parsed = [];   // {lineNum, artist, title}
+    var skipped = [];  // {lineNum, text, reason}
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      var sepIdx = -1;
+      var sepUsed = null;
+      for (var s = 0; s < SEPARATORS.length; s++) {
+        var idx = line.indexOf(SEPARATORS[s]);
+        if (idx > 0) { sepIdx = idx; sepUsed = SEPARATORS[s]; break; }
+      }
+      if (sepIdx < 0) {
+        skipped.push({ lineNum: i + 1, text: line, reason: 'no separator' });
+        continue;
+      }
+      var artist = line.slice(0, sepIdx).trim();
+      var title  = line.slice(sepIdx + sepUsed.length).trim();
+      if (!artist || !title) {
+        skipped.push({ lineNum: i + 1, text: line, reason: 'empty artist or title' });
+        continue;
+      }
+      parsed.push({ lineNum: i + 1, artist: artist, title: title });
+    }
+    return { parsed: parsed, skipped: skipped };
+  }
+
+  function renderPreview(result) {
+    if (result.parsed.length === 0 && result.skipped.length === 0) {
+      preview.hidden = true;
+      preview.innerHTML = '';
+      return;
+    }
+    var html = '<p class="seed-preview__head">' +
+      result.parsed.length + ' to add' +
+      (result.skipped.length ? ' · ' + result.skipped.length + ' skipped' : '') +
+      '</p>';
+    for (var i = 0; i < result.parsed.length; i++) {
+      var p = result.parsed[i];
+      html += '<div class="seed-preview__row">' +
+        '<span class="seed-preview__artist">' + escapeHtml(p.artist) + '</span>' +
+        ' &middot; ' +
+        '<span class="seed-preview__title">' + escapeHtml(p.title) + '</span>' +
+        '</div>';
+    }
+    for (var j = 0; j < result.skipped.length; j++) {
+      var sk = result.skipped[j];
+      html += '<div class="seed-preview__row seed-preview__row--skip">' +
+        'line ' + sk.lineNum + ' skipped (' + escapeHtml(sk.reason) + '): ' +
+        escapeHtml(sk.text) +
+        '</div>';
+    }
+    preview.innerHTML = html;
+    preview.hidden = false;
+  }
+
+  function setStatus(msg, kind) {
+    status.textContent = msg || '';
+    status.classList.remove('is-error', 'is-success');
+    if (kind === 'error') status.classList.add('is-error');
+    if (kind === 'success') status.classList.add('is-success');
+  }
+
+  previewBtn.addEventListener('click', function () {
+    setStatus('');
+    var result = parseLines(input.value);
+    renderPreview(result);
+    if (result.parsed.length === 0) {
+      setStatus('Nothing to add. Each line needs an artist, separator, and title.', 'error');
+    }
   });
 
-  addBtn.addEventListener('click', async () => {
-    status.textContent = '';
-    const text = input.value.trim();
+  clearBtn.addEventListener('click', function () {
+    input.value = '';
+    preview.hidden = true;
+    preview.innerHTML = '';
+    setStatus('');
+    input.focus();
+  });
 
-    if (!text) {
-      status.textContent = 'Paste JSON first';
-      status.classList.add('is-error');
+  addBtn.addEventListener('click', async function () {
+    setStatus('');
+    var result = parseLines(input.value);
+    renderPreview(result);
+    if (result.parsed.length === 0) {
+      setStatus('Nothing to add. Each line needs an artist, separator, and title.', 'error');
       return;
     }
 
-    try {
-      const records = JSON.parse(text);
-      if (!Array.isArray(records)) {
-        throw new Error('JSON must be an array');
-      }
+    addBtn.disabled = true;
+    var originalText = addBtn.textContent;
+    addBtn.textContent = 'Adding…';
 
-      status.textContent = `Adding ${records.length} record${records.length === 1 ? '' : 's'}…`;
-      status.classList.remove('is-error', 'is-success');
-      status.classList.add('is-loading');
+    var added = 0;
+    var failed = 0;
+    var lastError = '';
+    var now = new Date().toISOString();
 
-      let added = 0;
-      let failed = 0;
-      let lastError = '';
-
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i];
-        const idx = i + 1;
-        
-        status.textContent = `Adding ${records.length} records… [${idx}/${records.length}]`;
-        
-        try {
-          // 10-second timeout per fetch
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
-          
-          const r = await fetch('/api/records', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(record),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          
-          if (r.ok) {
-            added++;
-          } else {
-            failed++;
-            const errText = await r.text();
-            lastError = `${record.id}: ${r.status} ${errText}`;
-            console.error('Failed:', lastError);
-          }
-        } catch (e) {
+    for (var i = 0; i < result.parsed.length; i++) {
+      var p = result.parsed[i];
+      setStatus('Adding ' + (i + 1) + '/' + result.parsed.length + '…');
+      var record = {
+        id: generateRecordId(),
+        artist: p.artist,
+        title: p.title,
+        year: null,
+        genre: null,
+        cover_url: null,
+        notes: '',
+        condition: 'VG',
+        created_at: now
+      };
+      try {
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function () { controller.abort(); }, 15000);
+        var res = await fetch('/api/records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          added++;
+        } else {
           failed++;
-          lastError = `${record.id}: ${e.message}`;
-          console.error('Error:', lastError);
+          var bodyTxt = '';
+          try { bodyTxt = await res.text(); } catch (_) {}
+          lastError = 'HTTP ' + res.status + (bodyTxt ? ' — ' + bodyTxt.slice(0, 80) : '');
         }
+      } catch (err) {
+        failed++;
+        lastError = err.message || String(err);
       }
+    }
 
-      if (added > 0 && failed === 0) {
-        status.textContent = `✓ Added ${added}/${records.length}. Open the gallery to review.`;
-        status.classList.remove('is-loading', 'is-error');
-        status.classList.add('is-success');
-        input.value = '';
-      } else if (added > 0) {
-        status.textContent = `Added ${added}/${records.length} — ${failed} failed. Last error: ${lastError}`;
-        status.classList.remove('is-loading', 'is-success');
-        status.classList.add('is-error');
-      } else {
-        status.textContent = `✗ All failed. ${lastError}`;
-        status.classList.remove('is-loading', 'is-success');
-        status.classList.add('is-error');
-      }
-    } catch (err) {
-      status.textContent = `Error: ${err.message}`;
-      status.classList.add('is-error');
-      status.classList.remove('is-loading');
+    addBtn.disabled = false;
+    addBtn.textContent = originalText;
+
+    if (added > 0 && failed === 0) {
+      setStatus('Added ' + added + '/' + result.parsed.length + '. Open the gallery to review.', 'success');
+      input.value = '';
+      preview.hidden = true;
+      preview.innerHTML = '';
+    } else if (added > 0) {
+      setStatus('Added ' + added + '/' + result.parsed.length + ' — ' + failed + ' failed. Last error: ' + lastError, 'error');
+    } else {
+      setStatus('All ' + result.parsed.length + ' failed. Last error: ' + lastError, 'error');
     }
   });
+})();
 </script>
 
 </body>

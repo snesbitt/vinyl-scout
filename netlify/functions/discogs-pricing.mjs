@@ -274,14 +274,53 @@ export default async (req, context) => {
     }
   }
 
+  // v17: broader high-price extraction with diagnostic surface.
+  // The previous code only tried 'Mint (M)' and 'Near Mint (NM or M-)' —
+  // if those weren't in the response, priceHigh stayed null silently.
+  // Now: walk condition keys from best down to good, take the first
+  // present numeric value, and surface a suggest_debug object so we can
+  // see why it failed if it still does.
+  const CONDITION_KEYS_HIGH_TO_LOW = [
+    'Mint (M)',
+    'Near Mint (NM or M-)',
+    'Very Good Plus (VG+)',
+    'Very Good (VG)',
+    'Good Plus (G+)',
+    'Good (G)',
+    'Fair (F)',
+    'Poor (P)'
+  ];
   let priceHigh = null;
+  let suggestDebug;
   if (suggestResult.status === 'fulfilled' && suggestResult.value) {
     const sugg = suggestResult.value;
-    const high = sugg['Mint (M)'] || sugg['Near Mint (NM or M-)'];
-    if (high && typeof high.value === 'number') {
-      priceHigh = high.value;
-      if (!currency && high.currency) currency = high.currency;
+    const keysFound = Object.keys(sugg);
+    let keyUsed = null;
+    for (const k of CONDITION_KEYS_HIGH_TO_LOW) {
+      const entry = sugg[k];
+      if (entry && typeof entry.value === 'number') {
+        priceHigh = entry.value;
+        if (!currency && entry.currency) currency = entry.currency;
+        keyUsed = k;
+        break;
+      }
     }
+    suggestDebug = {
+      status: 'ok',
+      keys_returned: keysFound,
+      key_used: keyUsed,
+      // Sample the first 2 entries verbatim so we can see structure if extraction fails.
+      sample_entries: keysFound.slice(0, 2).reduce(function (acc, k) { acc[k] = sugg[k]; return acc; }, {})
+    };
+  } else if (suggestResult.status === 'rejected') {
+    suggestDebug = {
+      status: 'rejected',
+      error: suggestResult.reason ? suggestResult.reason.message : 'unknown',
+      http_status: suggestResult.reason ? suggestResult.reason.status : null,
+      body: suggestResult.reason ? (suggestResult.reason.discogsBody || null) : null
+    };
+  } else {
+    suggestDebug = { status: 'empty_response' };
   }
 
   if (priceLow == null && priceHigh == null && copiesAvailable == null) {
@@ -295,19 +334,23 @@ export default async (req, context) => {
              (statsErr ? ' Stats: ' + statsErr.message : '') +
              (suggErr ? ' Suggestions: ' + suggErr.message : ''),
       code: 'NO_DATA',
-      discogs_release_id: releaseId
+      discogs_release_id: releaseId,
+      suggest_debug: suggestDebug
     }, 502);
   }
 
+  // v17: price_last_sold removed from schema. Discogs has no historical-
+  // sales endpoint — the field would forever be null. Dropping cleanly.
   const updated = Object.assign({}, record, {
     discogs_release_id: releaseId,
     price_low: priceLow,
     price_high: priceHigh,
-    price_last_sold: null,
     copies_available: copiesAvailable,
     price_currency: currency || 'USD',
     price_updated_at: new Date().toISOString()
   });
+  // Clean up any pre-existing field on the record so old data doesn't lurk.
+  if ('price_last_sold' in updated) delete updated.price_last_sold;
 
   try {
     await store.set(recordId, JSON.stringify(updated));
@@ -319,7 +362,8 @@ export default async (req, context) => {
     ok: true,
     record: updated,
     discogs_match: releaseTitle,
-    identityUsername: identityUsername
+    identityUsername: identityUsername,
+    suggest_debug: suggestDebug
   });
 };
 
