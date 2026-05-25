@@ -1,7 +1,8 @@
 // Vinyl Scout — app.js
-// version: 7
+// version: 8
 // Editorial. List = text only. Gallery = thumb grid. Genre chips.
-// New: row/tile are <button>s; clicking cross-navigates between views with scroll+flash.
+// Click any record (list row or gallery tile) -> opens a detail modal for that album.
+// ESC / × / backdrop / browser-back all close. URL hash (#rec_<id>) deep-links.
 // No destructive ops on this page — those live on /audit.html.
 
 (function () {
@@ -11,6 +12,9 @@
   var currentView = 'list';
   var currentGenre = null;
   var currentSearch = '';
+  var detailReturnFocus = null;   // element to return focus to on close
+  var detailOpen = false;
+  var suppressHashHandler = false; // avoid loops when we set hash ourselves
 
   function $(id) { return document.getElementById(id); }
 
@@ -20,7 +24,6 @@
     d.textContent = String(s);
     return d.innerHTML;
   }
-
   function escapeAttr(s) {
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -43,7 +46,6 @@
     if (!g) return '';
     return String(g).toLowerCase().trim();
   }
-
   function genreLabel(g) {
     if (!g) return '—';
     return g.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
@@ -58,6 +60,8 @@
       clearError();
       renderChips();
       render();
+      // If the page loaded with #rec_xxx, open that detail now that data is in.
+      maybeOpenFromHash();
     } catch (err) {
       showError('Failed to load: ' + err.message);
       $('main').innerHTML = '<div class="empty">Failed to load. Check banner above.</div>';
@@ -70,9 +74,7 @@
       if (currentGenre !== null && normalizeGenre(r.genre) !== currentGenre) return false;
       if (q) {
         var hay = [r.artist, r.title, r.genre, r.year]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
+          .filter(Boolean).join(' ').toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
@@ -103,7 +105,6 @@
       +   'data-g="" aria-pressed="' + (currentGenre === null ? 'true' : 'false') + '">'
       +   'All <span class="chip__n">' + allRecords.length + '</span>'
       + '</button>';
-
     for (var j = 0; j < entries.length; j++) {
       var key = entries[j][0];
       var n = entries[j][1];
@@ -116,7 +117,6 @@
         +   ' <span class="chip__n">' + n + '</span>'
         + '</button>';
     }
-
     $('chips').innerHTML = html;
   }
 
@@ -125,13 +125,9 @@
 
     var records = filtered();
     var total = allRecords.length;
-    var label;
-    if (records.length === total) {
-      label = total + (total === 1 ? ' record' : ' records');
-    } else {
-      label = records.length + ' of ' + total;
-    }
-    $('count').textContent = label;
+    $('count').textContent = (records.length === total)
+      ? total + (total === 1 ? ' record' : ' records')
+      : records.length + ' of ' + total;
 
     var main = $('main');
     if (records.length === 0) {
@@ -147,7 +143,7 @@
         return ''
           + '<button type="button" class="row" '
           +   'data-id="' + escapeAttr(r.id) + '" '
-          +   'aria-label="' + escapeAttr(label) + '. Show in gallery.">'
+          +   'aria-label="' + escapeAttr(label) + '. Open details.">'
           +   '<span class="row__artist">' + escapeHtml(r.artist || '—') + '</span>'
           +   '<span class="row__title">'  + escapeHtml(r.title  || '—') + '</span>'
           +   '<span class="row__year">'   + (r.year != null ? r.year : '') + '</span>'
@@ -171,7 +167,7 @@
         return ''
           + '<button type="button" class="tile" '
           +   'data-id="' + escapeAttr(r.id) + '" '
-          +   'aria-label="' + escapeAttr(label) + '. Show in list.">'
+          +   'aria-label="' + escapeAttr(label) + '. Open details.">'
           +   '<span class="tile__cover">' + cover + '</span>'
           +   '<span class="tile__text">'
           +     '<span class="tile__artist">' + escapeHtml(r.artist || '—') + '</span>'
@@ -195,32 +191,92 @@
     render();
   }
 
-  // Cross-view: click row → gallery@id, click tile → list@id. Scroll + flash + focus.
-  function crossNav(id, toView) {
-    if (!id) return;
-    setView(toView);
-    // After render, find the corresponding element and scroll/flash.
+  // --- Detail modal ---
+
+  function openDetail(id, triggerEl) {
+    var r = allRecords.find(function (x) { return x.id === id; });
+    if (!r) return;
+
+    var inner = $('detail-inner');
+    var initial = (r.artist || '?').trim().charAt(0).toUpperCase() || '?';
+    var cover = r.cover_url
+      ? '<img class="detail__img" src="' + escapeAttr(r.cover_url) + '" alt="">'
+      : '<div class="detail__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
+
+    var metaParts = [];
+    if (r.year != null) metaParts.push(escapeHtml(r.year));
+    if (r.genre) metaParts.push(escapeHtml(r.genre));
+    var meta = metaParts.length
+      ? '<p class="detail__meta">' + metaParts.join(' &middot; ') + '</p>'
+      : '';
+
+    var notes = (r.notes && String(r.notes).trim())
+      ? '<p class="detail__notes">' + escapeHtml(r.notes) + '</p>'
+      : '';
+
+    inner.innerHTML = ''
+      + '<div class="detail__cover">' + cover + '</div>'
+      + '<div class="detail__info">'
+      +   '<p class="detail__artist">' + escapeHtml(r.artist || 'Unknown') + '</p>'
+      +   '<h2 class="detail__title" id="detail-title">' + escapeHtml(r.title || 'Untitled') + '</h2>'
+      +   meta
+      +   notes
+      + '</div>';
+
+    detailReturnFocus = triggerEl || document.activeElement;
+
+    var modal = $('detail');
+    modal.hidden = false;
+    document.body.classList.add('has-detail');
+    detailOpen = true;
+
+    // Defer focus until after paint so screen readers pick up the dialog correctly
     requestAnimationFrame(function () {
-      var sel = (toView === 'gallery' ? '.tile' : '.row') + '[data-id="' + cssEscape(id) + '"]';
-      var target = $('main').querySelector(sel);
-      if (!target) return;
-      try {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } catch (e) {
-        target.scrollIntoView();
-      }
-      target.classList.add('is-flash');
-      // Move keyboard focus to the new element without re-scrolling.
-      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-      setTimeout(function () { target.classList.remove('is-flash'); }, 1400);
+      try { $('detail-close').focus({ preventScroll: true }); }
+      catch (e) { $('detail-close').focus(); }
     });
+
+    // Update URL hash (deep-linkable). Use replaceState so we don't create
+    // a new history entry per click but DO update the URL.
+    if (location.hash !== '#' + id) {
+      suppressHashHandler = true;
+      try { history.replaceState(null, '', '#' + id); } catch (e) {}
+      setTimeout(function () { suppressHashHandler = false; }, 0);
+    }
   }
 
-  function cssEscape(s) {
-    // Record IDs are rec_<hex> so simple, but escape just in case.
-    if (window.CSS && window.CSS.escape) return window.CSS.escape(s);
-    return String(s).replace(/["\\]/g, '\\$&');
+  function closeDetail() {
+    if (!detailOpen) return;
+    var modal = $('detail');
+    modal.hidden = true;
+    document.body.classList.remove('has-detail');
+    detailOpen = false;
+
+    if (detailReturnFocus && document.body.contains(detailReturnFocus)) {
+      try { detailReturnFocus.focus({ preventScroll: true }); }
+      catch (e) { try { detailReturnFocus.focus(); } catch (e2) {} }
+    }
+    detailReturnFocus = null;
+
+    if (location.hash) {
+      suppressHashHandler = true;
+      try {
+        history.replaceState(null, '',
+          location.pathname + location.search);
+      } catch (e) {}
+      setTimeout(function () { suppressHashHandler = false; }, 0);
+    }
   }
+
+  function maybeOpenFromHash() {
+    var raw = location.hash.replace(/^#/, '');
+    if (!raw) return;
+    if (!allRecords.length) return;
+    var r = allRecords.find(function (x) { return x.id === raw; });
+    if (r) openDetail(r.id, null);
+  }
+
+  // --- Wiring ---
 
   document.addEventListener('DOMContentLoaded', function () {
     $('search').addEventListener('input', function (e) {
@@ -240,12 +296,39 @@
     $('view-list').addEventListener('click',    function () { setView('list'); });
     $('view-gallery').addEventListener('click', function () { setView('gallery'); });
 
-    // Delegated cross-view click on main
+    // Open detail when any row or tile is clicked (delegated).
     $('main').addEventListener('click', function (e) {
-      var row = e.target.closest && e.target.closest('.row');
-      if (row) { crossNav(row.dataset.id, 'gallery'); return; }
-      var tile = e.target.closest && e.target.closest('.tile');
-      if (tile) { crossNav(tile.dataset.id, 'list'); return; }
+      var trigger = e.target.closest && e.target.closest('.row, .tile');
+      if (!trigger) return;
+      var id = trigger.dataset.id;
+      if (id) openDetail(id, trigger);
+    });
+
+    // Close handlers
+    $('detail-close').addEventListener('click', closeDetail);
+    $('detail').addEventListener('click', function (e) {
+      // Backdrop click (anywhere outside the panel that has data-close="1")
+      if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') {
+        closeDetail();
+      }
+    });
+
+    // ESC closes modal
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && detailOpen) {
+        e.preventDefault();
+        closeDetail();
+      }
+    });
+
+    // Back/forward + manual hash changes
+    window.addEventListener('hashchange', function () {
+      if (suppressHashHandler) return;
+      if (!location.hash) {
+        if (detailOpen) closeDetail();
+      } else {
+        maybeOpenFromHash();
+      }
     });
 
     load();

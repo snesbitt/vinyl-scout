@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=7" />
+  <link rel="stylesheet" href="/style.css?v=8" />
 </head>
 <body data-view="list">
 
@@ -53,6 +53,21 @@
   <div class="empty">Loading…</div>
 </main>
 
-<script src="/app.js?v=7"></script>
+<div
+  id="detail"
+  class="detail"
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="detail-title"
+  tabindex="-1">
+  <div class="detail__backdrop" data-close="1" aria-hidden="true"></div>
+  <article class="detail__panel" id="detail-panel">
+    <button id="detail-close" class="detail__close" type="button" aria-label="Close detail">×</button>
+    <div class="detail__inner" id="detail-inner"></div>
+  </article>
+</div>
+
+<script src="/app.js?v=8"></script>
 </body>
 </html>
