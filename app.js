@@ -1,5 +1,6 @@
 // Vinyl Scout — app.js
-// version: 15
+// version: 16
+// v16: market block no longer shows the 'Updated' stamp or 'Matched' hint.
 // v15: no app.js changes — the Discogs fetch fix is purely server-side.
 // v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).
 // v13: Goldmine grades are spelled out in the detail modal.
@@ -226,7 +227,8 @@
     var ls  = formatPrice(r.price_last_sold,  r.price_currency);
     var cnt = (r.copies_available != null && !isNaN(r.copies_available))
               ? Number(r.copies_available) : null;
-    var updated = r.price_updated_at ? new Date(r.price_updated_at) : null;
+    // v16: price_updated_at still gets stored, just no longer displayed.
+    // Susan wanted the "Updated YYYY-MM-DD" stamp removed for visual clutter.
 
     var hasAny = (lo != null || hi != null || ls != null || cnt != null);
 
@@ -239,10 +241,7 @@
         + '<dl class="detail__prices">'
         +   '<dt>Range</dt><dd>' + rangeStr + '</dd>'
         +   (cnt != null ? '<dt>Copies for sale</dt><dd>' + cnt + '</dd>' : '')
-        + '</dl>'
-        + (updated && !isNaN(updated.getTime())
-            ? '<p class="detail__prices-stamp">Updated ' + escapeHtml(updated.toISOString().slice(0, 10)) + '</p>'
-            : '');
+        + '</dl>';
     } else {
       dataHtml = '<p class="detail__prices-empty">No market data yet.</p>';
     }
@@ -296,19 +295,11 @@
         var idx = allRecords.findIndex(function (x) { return x.id === updated.id; });
         if (idx >= 0) allRecords[idx] = updated;
       }
-      var match = payload.discogs_match;
+      // v16: 'Matched: <release title>' hint removed per Susan's ask.
+      // payload.discogs_match is still returned by the function for any
+      // future use; the UI just doesn't render it.
       closeDetail();
       openDetail(id, null);
-      if (match) {
-        // Faint hint of which release we matched, in the just-rebuilt body.
-        var freshBody = document.getElementById('detail-pricing-body');
-        if (freshBody) {
-          var hint = document.createElement('p');
-          hint.className = 'detail__prices-match';
-          hint.textContent = 'Matched: ' + match;
-          freshBody.appendChild(hint);
-        }
-      }
     } catch (err) {
       if (body) {
         body.innerHTML = '<p class="detail__prices-error">Network error: ' + escapeHtml(err.message) + '</p>';
