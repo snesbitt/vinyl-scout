@@ -1,20 +1,29 @@
 // Vinyl Scout — app.js
-// version: 10
-// Editorial. List = text only. Gallery = thumb grid. Genre chips.
-// Click any record (list row or gallery tile) -> opens a detail modal for that album.
-// ESC / × / backdrop / browser-back all close. URL hash (#rec_<id>) deep-links.
+// version: 12
+// Editorial. List = text only. Gallery = thumb grid. Genre chips. Default: Gallery.
+// Click any record -> opens a detail modal with cover, artist, italic title,
+// condition pill, year/genre meta, optional market block, refresh-pricing
+// button (Phase 3.1 — Discogs), and notes. ESC / × / backdrop / back close.
 // No destructive ops on this page — those live on /audit.html.
 
 (function () {
   'use strict';
 
   var allRecords = [];
-  var currentView = 'list';
+  var currentView = 'gallery';   // v11: default to gallery
   var currentGenre = null;
   var currentSearch = '';
-  var detailReturnFocus = null;   // element to return focus to on close
+  var detailReturnFocus = null;
   var detailOpen = false;
-  var suppressHashHandler = false; // avoid loops when we set hash ourselves
+  var suppressHashHandler = false;
+
+  // Goldmine grades — see /about.html for full legend.
+  var GRADES = ['M', 'NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
+  function normalizeCondition(c) {
+    if (!c) return 'VG';
+    var s = String(c).trim().toUpperCase();
+    return GRADES.indexOf(s) !== -1 ? s : 'VG';
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -51,6 +60,14 @@
     return g.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
 
+  function formatPrice(amount, currency) {
+    if (amount == null || isNaN(amount)) return null;
+    var cur = currency || 'USD';
+    var symbol = cur === 'EUR' ? '€' : '$';
+    var n = Number(amount);
+    return symbol + n.toFixed(2);
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/records?bust=' + Date.now());
@@ -60,7 +77,6 @@
       clearError();
       renderChips();
       render();
-      // If the page loaded with #rec_xxx, open that detail now that data is in.
       maybeOpenFromHash();
     } catch (err) {
       showError('Failed to load: ' + err.message);
@@ -193,6 +209,104 @@
 
   // --- Detail modal ---
 
+  function buildPricingBlock(r) {
+    var lo  = formatPrice(r.price_low,        r.price_currency);
+    var hi  = formatPrice(r.price_high,       r.price_currency);
+    var ls  = formatPrice(r.price_last_sold,  r.price_currency);
+    var cnt = (r.copies_available != null && !isNaN(r.copies_available))
+              ? Number(r.copies_available) : null;
+    var updated = r.price_updated_at ? new Date(r.price_updated_at) : null;
+
+    var hasAny = (lo != null || hi != null || ls != null || cnt != null);
+
+    var dataHtml;
+    if (hasAny) {
+      var rangeStr = (lo || hi)
+        ? escapeHtml((lo || '—') + ' – ' + (hi || '—'))
+        : '—';
+      dataHtml = ''
+        + '<dl class="detail__prices">'
+        +   '<dt>Range</dt><dd>' + rangeStr + '</dd>'
+        +   (cnt != null ? '<dt>Copies for sale</dt><dd>' + cnt + '</dd>' : '')
+        + '</dl>'
+        + (updated && !isNaN(updated.getTime())
+            ? '<p class="detail__prices-stamp">Updated ' + escapeHtml(updated.toISOString().slice(0, 10)) + '</p>'
+            : '');
+    } else {
+      dataHtml = '<p class="detail__prices-empty">No market data yet.</p>';
+    }
+
+    return ''
+      + '<section class="detail__pricing" aria-label="Pricing">'
+      +   '<div class="detail__pricing-head">'
+      +     '<h3 class="detail__h3">Market</h3>'
+      +     '<button type="button" class="detail__pricing-refresh js-pricing-refresh" data-id="' + escapeAttr(r.id) + '">'
+      +       (hasAny ? 'Refresh from Discogs' : 'Fetch from Discogs')
+      +     '</button>'
+      +   '</div>'
+      +   '<div class="detail__pricing-body" id="detail-pricing-body">' + dataHtml + '</div>'
+      + '</section>';
+  }
+
+  async function refreshPricing(id, btn) {
+    var body = document.getElementById('detail-pricing-body');
+    var origBtnText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Fetching…';
+    if (body) {
+      body.innerHTML = '<p class="detail__prices-empty">Looking up on Discogs… (a few seconds)</p>';
+    }
+
+    try {
+      var res = await fetch('/api/discogs-pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: id })
+      });
+      var payload;
+      try { payload = await res.json(); }
+      catch (_) { payload = { error: 'HTTP ' + res.status }; }
+
+      if (!res.ok) {
+        var msg = (payload && payload.error) || ('HTTP ' + res.status);
+        if (body) {
+          body.innerHTML = '<p class="detail__prices-error">' + escapeHtml(msg) + '</p>';
+        }
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        return;
+      }
+
+      // Update the in-memory record and re-render the modal so the new
+      // values appear immediately. Closes + reopens to refresh the DOM
+      // cleanly without bespoke patching logic.
+      var updated = payload.record;
+      if (updated && updated.id) {
+        var idx = allRecords.findIndex(function (x) { return x.id === updated.id; });
+        if (idx >= 0) allRecords[idx] = updated;
+      }
+      var match = payload.discogs_match;
+      closeDetail();
+      openDetail(id, null);
+      if (match) {
+        // Faint hint of which release we matched, in the just-rebuilt body.
+        var freshBody = document.getElementById('detail-pricing-body');
+        if (freshBody) {
+          var hint = document.createElement('p');
+          hint.className = 'detail__prices-match';
+          hint.textContent = 'Matched: ' + match;
+          freshBody.appendChild(hint);
+        }
+      }
+    } catch (err) {
+      if (body) {
+        body.innerHTML = '<p class="detail__prices-error">Network error: ' + escapeHtml(err.message) + '</p>';
+      }
+      btn.disabled = false;
+      btn.textContent = origBtnText;
+    }
+  }
+
   function openDetail(id, triggerEl) {
     var r = allRecords.find(function (x) { return x.id === id; });
     if (!r) return;
@@ -202,6 +316,12 @@
     var cover = r.cover_url
       ? '<img class="detail__img" src="' + escapeAttr(r.cover_url) + '" alt="">'
       : '<div class="detail__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
+
+    var condition = normalizeCondition(r.condition);
+    var conditionPill =
+      '<span class="detail__condition" title="Goldmine grade — see About for legend">'
+      +   escapeHtml(condition)
+      + '</span>';
 
     var metaParts = [];
     if (r.year != null) metaParts.push(escapeHtml(r.year));
@@ -214,12 +334,20 @@
       ? '<p class="detail__notes">' + escapeHtml(r.notes) + '</p>'
       : '';
 
+    var pricing = buildPricingBlock(r);
+
     inner.innerHTML = ''
       + '<div class="detail__cover">' + cover + '</div>'
       + '<div class="detail__info">'
       +   '<p class="detail__artist">' + escapeHtml(r.artist || 'Unknown') + '</p>'
       +   '<h2 class="detail__title" id="detail-title">' + escapeHtml(r.title || 'Untitled') + '</h2>'
+      +   '<p class="detail__condition-line">'
+      +     '<span class="detail__condition-label">Condition</span>'
+      +     conditionPill
+      +     '<a class="detail__legend-link" href="/about.html#grading">Legend</a>'
+      +   '</p>'
       +   meta
+      +   pricing
       +   notes
       + '</div>';
 
@@ -230,14 +358,11 @@
     document.body.classList.add('has-detail');
     detailOpen = true;
 
-    // Defer focus until after paint so screen readers pick up the dialog correctly
     requestAnimationFrame(function () {
       try { $('detail-close').focus({ preventScroll: true }); }
       catch (e) { $('detail-close').focus(); }
     });
 
-    // Update URL hash (deep-linkable). Use replaceState so we don't create
-    // a new history entry per click but DO update the URL.
     if (location.hash !== '#' + id) {
       suppressHashHandler = true;
       try { history.replaceState(null, '', '#' + id); } catch (e) {}
@@ -296,7 +421,6 @@
     $('view-list').addEventListener('click',    function () { setView('list'); });
     $('view-gallery').addEventListener('click', function () { setView('gallery'); });
 
-    // Open detail when any row or tile is clicked (delegated).
     $('main').addEventListener('click', function (e) {
       var trigger = e.target.closest && e.target.closest('.row, .tile');
       if (!trigger) return;
@@ -304,16 +428,19 @@
       if (id) openDetail(id, trigger);
     });
 
-    // Close handlers
     $('detail-close').addEventListener('click', closeDetail);
     $('detail').addEventListener('click', function (e) {
-      // Backdrop click (anywhere outside the panel that has data-close="1")
+      var refreshBtn = e.target.closest && e.target.closest('.js-pricing-refresh');
+      if (refreshBtn) {
+        var id = refreshBtn.dataset.id;
+        if (id) refreshPricing(id, refreshBtn);
+        return;
+      }
       if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') {
         closeDetail();
       }
     });
 
-    // ESC closes modal
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && detailOpen) {
         e.preventDefault();
@@ -321,7 +448,6 @@
       }
     });
 
-    // Back/forward + manual hash changes
     window.addEventListener('hashchange', function () {
       if (suppressHashHandler) return;
       if (!location.hash) {

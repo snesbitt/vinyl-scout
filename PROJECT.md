@@ -1,54 +1,79 @@
 # Vinyl Scout — Project Charter
 
-*Charter v1.1 — updated 2026-05-23 with lessons from Phase 1 POC*
-
 ## Identity
 
-**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~75 LPs and is in manual catalog-building phase. She works on both mobile (iPhone, Safari) and desktop (Chrome).
-
-**Deployment**: GitHub repo `snesbitt/vinyl-scout` → `git push origin main` → Netlify auto-deploys main branch in ~30-60 seconds. Local repo at `/Users/snesbitt/Downloads/vinyl-scout-deploy`.
+**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~80 LPs and is in catalog-building + condition-tracking phase. She works primarily from mobile (iPhone, Safari).
 
 Aesthetic: editorial / record-shop / library catalog card.
 - Fraunces italic display serif · IBM Plex Sans body · IBM Plex Mono for catalog numbers
 - Cream `#f1ebdc` ground · ink `#1c2018` text · vinyl-red `#b53026` accent · gold `#a8801c` for metadata
 - Subtle paper-noise radial gradients
-- No emoji in UI chrome (the camera 📷 icon is the only exception)
+- No emoji in UI chrome (the brand mark ⦿ is the only exception)
+
+Public exec-friendly setup page lives at `/about.html` and is linked from the masthead nav on every page.
 
 ---
 
-## Phase 1 — Current scope: barebones cataloging via vision
+## Phase 1 — COMPLETE: barebones cataloging via vision
 
 **The whole thing in one sentence**: A static site that displays Susan's vinyl collection, with new records added by Claude looking at photos Susan uploads in chat.
 
-**STATUS: POC complete (2026-05-23). 5 test records live, DELETE works end-to-end, ready for real catalog seeding.**
-
-### In scope
+### Shipped in Phase 1
 
 - One persistent record store (Netlify Blobs, store name: `records`)
 - One read endpoint (`GET /api/records`) — strictly read-only
 - One write endpoint (`POST /api/records`) — upsert by ID only
 - One delete endpoint (`DELETE /api/records/:id`) — single ID only, no bulk variant
-- One static page (`/`) showing the collection as a gallery
-- One static page (`/seed.html`) where Claude-generated JSON gets pasted in to bulk-add
-- Record fields: `id`, `artist`, `title`, `year` (optional), `genre` (optional), `cover_url` (optional), `notes` (optional), `created_at`
+- Public collection at `/` — list + gallery, genre chips, search, detail modal
+- `/seed.html` for pasting Claude-generated JSON
+- `/audit.html` for editing artist/title/year/genre/cover one record at a time
+- Phase 1 record fields: `id`, `artist`, `title`, `year`, `genre`, `cover_url`, `notes`, `created_at`
 
-### OUT of scope for Phase 1 (do not build, do not "just add it while we're here")
+---
 
-- ❌ Discogs API of any kind (search, sync, pricing, restore, lookup)
-- ❌ OCR / Tesseract
-- ❌ Grading / Goldmine pricing / marketplace
-- ❌ Auth (site is public)
-- ❌ Dedup of any kind (banned — see Hard Rules)
-- ❌ Background enrichment / auto-backfill
-- ❌ Edit-in-place / inline editing UI
-- ❌ Multiple views (Inbox / Accepted / Passed)
-- ❌ "Nice to have" features Susan didn't ask for
+## Phase 3 — ACTIVE: condition tracking + pricing scaffolding
 
-### Parked for future phases — do not start
+Susan moved Phase 3 from parked to active on May 24, 2026. The shipped scope of this phase carries condition tracking end-to-end and lays in the schema and UI for marketplace pricing, but does not yet fetch live pricing data.
 
-- Phase 2: Discogs lookup for pressing accuracy
-- Phase 3: Pricing & marketplace
-- Phase 4: Listing & selling
+### In scope (this phase)
+
+- **Condition field** — `condition` string on every record, Goldmine grade. Default `VG`. Editable on `/audit.html` via a dropdown next to year/genre.
+- **Condition display** — shows as a small pill in the detail modal, with a "Legend" link to `/about.html#grading`.
+- **Pricing schema** — new optional fields: `price_low`, `price_high`, `price_last_sold`, `copies_available`, `price_currency` (`USD` or `EUR`), `price_updated_at`. Stored alongside other fields, preserved by the existing upsert merge pattern.
+- **Pricing display (when present)** — detail modal renders a "Market" block with Range, Last sold, Copies for sale, and an updated stamp. The block hides cleanly when no pricing fields are present.
+- **Exec-friendly `/about.html`** — single-page setup description, Goldmine legend with multipliers, roadmap, linked from masthead nav on every page.
+- **PROJECT.md updated in repo** — charter ships with the code.
+
+### Sub-phase 3.1 — SHIPPED (v12, May 25 2026): live Discogs pricing fetch
+
+On-demand pricing per record, via the Discogs marketplace API. UI: a "Fetch from Discogs" button in the detail modal. One record per click, never bulk, never automatic.
+
+**Server endpoint.** `POST /api/discogs-pricing` (`netlify/functions/discogs-pricing.mjs`). Takes `{ recordId }`, looks up the record in the records store, searches Discogs by `artist + title` (filtered to format=Vinyl), fetches `marketplace/stats/:release_id` and `marketplace/price_suggestions/:release_id` in parallel, upserts the result back into the same record, returns the updated record. Logs the matched release title so Susan can sanity-check.
+
+**Environment variable.** `DISCOGS_TOKEN` — a Discogs personal access token created at <https://www.discogs.com/settings/developers>, set on Netlify under Site Settings → Environment Variables. If absent the endpoint returns a clear 503 with setup instructions; nothing crashes.
+
+**Fields populated.**
+
+- `price_low` ← `marketplace/stats.lowest_price.value`
+- `copies_available` ← `marketplace/stats.num_for_sale`
+- `price_high` ← `price_suggestions["Mint (M)" || "Near Mint (NM or M-)"].value`
+- `price_currency` ← whichever response carried it (USD or EUR depending on Discogs account locale)
+- `price_updated_at` ← ISO timestamp of the fetch
+- `discogs_release_id` ← release ID of the matched pressing, cached so future refreshes skip the search
+
+**Field NOT populated, by design.** `price_last_sold` is permanently `null`. Discogs does not expose historical sale prices via API; the marketplace shows current asking prices only. Pretending otherwise would be a lie; we leave the field nullable in the schema in case a future data source provides it.
+
+**Release matching limitation.** First-result match. Good for popular records, imperfect for obscure pressings, reissues, or generic titles. Phase 3.2 would add a "pick the right pressing" UI on `/audit.html`. For now, Susan can verify the matched release title in the toast hint, and re-search by tweaking artist/title on `/audit.html`.
+
+---
+
+## Phase 2 — DEFERRED: pressing-accurate metadata from Discogs
+
+Originally listed as the next phase after barebones cataloging. Deferred because condition + pricing was more useful to Susan first. When Phase 2 returns, it would add: label, catalog number, country, pressing year (vs. release year), and format details, all sourced from Discogs releases.
+
+## Phase 4 — PARKED: listing & selling helpers
+
+Generate listing copy, suggested ask price (using condition multiplier × `price_low`), and a one-tap export to Discogs/eBay listing templates. Far-future.
 
 When asked about a parked feature, say "that's Phase N, parked" and stop.
 
@@ -65,6 +90,7 @@ The previous version lost 29 records to a dedup race condition. That cannot happ
 - **No background mutation.** List/read endpoints are pure reads. They cannot write to storage under any circumstance.
 - **All writes are upserts by ID.** Never "replace all records with this array."
 - **Single-record delete only**, gated by a UI `confirm()` dialog.
+- **Pricing refresh is on-demand only.** When Phase 3.1 lands, no cron, no polling, no batch refresh. One record, one button, one fetch.
 
 ### 2. Scope is sacred
 
@@ -72,7 +98,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. **Current production version: 3.**
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=12**.
 
 ### 4. No silent failures
 
@@ -82,22 +108,62 @@ Every error path renders a visible, persistent error in the UI with the actual e
 
 If a release ID, identification, or fact is uncertain, say so. Don't fabricate confidence Susan can't verify.
 
-### 6. Diagnose before patching *(new — 2026-05-23)*
+### 6. Diagnose before patching
 
-When Susan reports "it's broken", the FIRST step is always to read the actual state of the deployed system — never go straight to patching from suspicion. Concretely:
-- For server bugs: `curl -sv https://vinylscout.org/api/records 2>&1 | tail -40`
-- For client bugs: `curl -s https://vinylscout.org/app.js | sed -n '30,50p'` (or whatever range matches the reported error line)
-- For deploy state: `git log --oneline -5` to see what's actually on main
+When Susan reports a failure, first `curl` the deployed file or read the source on disk to confirm what's actually live. Don't guess from memory.
 
-Spending 5 seconds to curl beats 30 minutes of rewriting code that wasn't the problem. This rule is in here because we violated it heavily on 2026-05-23.
+### 7. No heredocs with JS template literals
 
-### 7. No heredocs with JS template literals *(new — 2026-05-23)*
+Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `python3 << 'PYEOF'` with `r'''…'''` for full-file writes; `sed -i ''` for single-line edits. Verify after with `wc -l`, `grep`, `node --check`.
 
-zsh corrupts `cat << 'EOF'` heredocs when the JS payload contains backticks, `${...}`, or `onerror="..."` attributes. The corruption embeds the literal heredoc wrapper line INTO the file as actual JavaScript, causing a `SyntaxError: Invalid regular expression flags` that's nearly invisible in chat (you have to curl the deployed file to see it). Rules:
+---
 
-- **For full-file writes**: use `python3 << 'PYEOF'` with `print(r'''...''')` (raw triple-quoted Python string). Survives any JS payload.
-- **For one-line edits**: use `sed -i ''` with `|` as the delimiter (avoids escaping `/` in paths).
-- **Always verify after writing**: `wc -l file`, `grep -n "cat >\|EOF\|PYEOF" file` (should be empty), `node --check file`.
+## Record schema (current — Phase 1 + Phase 3 additions)
+
+```jsonc
+{
+  "id":                 "rec_<8-byte-hex>",
+  "artist":             "string (required)",
+  "title":              "string (required)",
+  "year":               "number 1900–2100 | null",
+  "genre":              "string | null",
+  "cover_url":          "string | null",
+  "notes":              "string (default \"\")",
+  "created_at":         "ISO timestamp",
+
+  "condition":          "'M' | 'NM' | 'VG+' | 'VG' | 'G+' | 'G' | 'F' | 'P' (default 'VG')",
+  "discogs_release_id": "number | null  (cached after first pricing fetch)",
+  "price_low":          "number | null",
+  "price_high":         "number | null",
+  "price_last_sold":    "always null — Discogs API does not expose historical sales",
+  "copies_available":   "number | null",
+  "price_currency":     "'USD' | 'EUR' | null",
+  "price_updated_at":   "ISO timestamp | null"
+}
+```
+
+The pricing fields are all nullable and absent on records that haven't been refreshed yet. The frontend renders the Market block on every detail view; if no pricing has been fetched it shows "No market data yet" plus a "Fetch from Discogs" button. Schema additions are additive — old records are never rewritten on read.
+
+---
+
+## Goldmine grading
+
+| Grade | Meaning | Multiplier |
+|------:|---------|-----------:|
+| M     | Mint, sealed, never played                    | ×1.20 |
+| NM    | Near Mint, plays flawlessly, reference grade  | ×1.10 |
+| VG+   | Very Good Plus, light wear                    | ×0.85 |
+| **VG** | **Very Good, visible wear, light surface noise. Default.** | **×0.65** |
+| G+    | Good Plus, audible pops and crackle           | ×0.45 |
+| G     | Good, heavy wear, distracts during play       | ×0.30 |
+| F     | Fair, barely playable                         | ×0.15 |
+| P     | Poor, wall art only                           | ×0.05 |
+
+Formula for suggested ask price (Phase 4):
+
+```
+ask = price_low × multiplier(condition)
+```
 
 ---
 
@@ -108,33 +174,25 @@ Before delivering ANY code change, Claude runs this checklist explicitly in the 
 ### Pre-flight (state these upfront)
 - [ ] One-sentence scope of the change
 - [ ] Files that will be modified (by name)
-- [ ] Confirmed in-scope for Phase 1 (or asked Susan if not)
-- [ ] **(new) Read the live deployed state first — curl the relevant endpoint or file**
+- [ ] Confirmed in-scope for the current phase (or asked Susan if not)
 
 ### Code-level
 - [ ] Every modified file passes `node --check` (or equivalent syntax check)
-- [ ] No `deleteRecord`, `.delete(`, bulk-delete, or dedup logic added anywhere
+- [ ] No `deleteRecord`, `.delete(`, bulk-delete, or dedup logic added anywhere outside `/audit.html`'s single-record gated delete
 - [ ] No new function mutates storage from a read endpoint
-- [ ] Cache-bust version bumped in `index.html` and `seed.html`
+- [ ] No background mutation, no polling, no auto-refresh
+- [ ] Cache-bust version bumped on `/app.js` and `/style.css` in every page that loads them
 - [ ] Cross-file references verified: imports resolve, CSS classes match selectors, frontend API paths match backend `export const config = { path }`
 - [ ] Dead code removed (unused functions, abandoned imports)
 - [ ] No `setTimeout` patterns that hide errors
-- [ ] **(new) After writing files: `grep -n "cat >\|EOF\|PYEOF"` returns nothing**
-
-### Deploy verification *(new — 2026-05-23)*
-- [ ] `git status` confirms expected files are staged
-- [ ] `git diff` shown to Susan if change is non-trivial — she eyeballs before commit
-- [ ] `git push origin main` actually executed (not just `git commit` — push too)
-- [ ] Wait ~30-60s for Netlify build
-- [ ] `curl -s https://vinylscout.org/<changed-file>` shows the new content (catches "I forgot to push" and "Netlify build failed silently")
 
 ### Post-flight (the message Susan receives)
 - [ ] **What changed** — one paragraph, plain language
 - [ ] **Files touched** — bulleted list by name
 - [ ] **How to deploy** — exact steps
-- [ ] **How to verify it works** — specific test (e.g., "snap a photo of 3 albums, expect modal with 3 rows")
+- [ ] **How to verify it works** — specific test
 - [ ] **How to roll back** — what to undo if it breaks
-- [ ] **New cache-bust version** — e.g., "now at v=9"
+- [ ] **New cache-bust version** — e.g., "now at v=11"
 
 If ANY item is in doubt, stop and ask Susan before proceeding.
 
@@ -148,64 +206,19 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 - **Brevity** — explanations are a paragraph, not an essay. Don't re-explain programming.
 - **Ask one clear question, not three speculative ones** when uncertain.
 - **Build to spec** — if it's not in this document, it's not in scope.
-- **Never put credentials in chat.** If Susan accidentally pastes a token, tell her immediately to revoke it.
 
 ---
 
-## Record schema (Phase 1, locked)
-
-```json
-{
-  "id": "rec_<8-byte-hex>",
-  "artist": "string",
-  "title": "string",
-  "year": null | number,
-  "genre": null | "string",
-  "cover_url": null | "string",
-  "notes": "",
-  "created_at": "ISO timestamp"
-}
-```
-
-No other fields. If Phase 2 adds Discogs enrichment, fields are added via additive migration, never replacing existing ones.
-
----
-
-## Catalog seeding workflow (Phase 1)
+## Catalog seeding workflow
 
 1. Susan photographs albums in groups of 3–6 per shot
 2. Susan uploads photos to chat
 3. Claude (in chat) looks at each photo, identifies each cover, produces a JSON array of record objects
 4. Susan visits `/seed.html`, pastes the JSON, taps "Add"
 5. Each record is upserted by its `id` (Claude generates unique IDs)
-6. Susan reviews the collection in `/`
+6. Susan reviews the collection in `/`, sets condition per record in `/audit.html`
 
 No automation between chat and the site. Chat → JSON → paste → add. Every link in this chain is auditable by Susan.
-
-### Cover URL strategy *(working notes — 2026-05-23)*
-
-MusicBrainz Cover Art Archive (`https://coverartarchive.org/release/<MBID>/front-500`) works reliably for major-label modern releases (verified rendering: Portishead Dummy, Fleetwood Mac Rumours, Steely Dan Aja). It is UNRELIABLE for older or smaller-label releases — server returns an image to curl/web_fetch but the browser fails to render (likely hotlink protection or CORS). Known gaps from POC: Nina Simone "Little Girl Blue" (1958 Bethlehem), Moby "Play". Next session priority: evaluate Wikipedia `Special:FilePath` URLs as a more reliable fallback. Until then, `cover_url: null` is acceptable for any record where the URL doesn't visibly render in-browser. **Better to leave null than to ship a broken-image placeholder.**
-
----
-
-## Deployed system inventory *(as of 2026-05-23)*
-
-| File | Purpose | Notes |
-|------|---------|-------|
-| `index.html` | Gallery page | Loads `/app.js?v=3` and `/style.css?v=3` |
-| `seed.html` | JSON-paste bulk-add UI | No auto-redirect on partial failure |
-| `app.js` | Frontend module | ~158 lines. Event-delegated DELETE on `#card-stack`. No `window.deleteRecord` global. |
-| `style.css` | All styling | Cream/ink/red/gold palette, library-card layout |
-| `netlify/functions/records.mjs` | Single function for GET/POST/DELETE | Uses `new URL(req.url).pathname` (NOT `req.path` — that's undefined in v2). Path config: `/api/records/:id?` |
-| `PROJECT.md` | This charter | Canonical scope + rules document |
-| `README.md` | Pointer to charter | One paragraph |
-
-**Endpoints**:
-- `GET /api/records` → returns `[{record}, ...]` (all records, no filtering)
-- `POST /api/records` with `{id, ...}` body → upserts by id
-- `DELETE /api/records/:id` → deletes single record by id (400 if id missing or literal `"records"`)
-
-**Netlify Blobs store**: name `records`, global scope (NOT deploy-scoped). One JSON blob per record, keyed by record id.
 
 ---
 
@@ -214,14 +227,10 @@ MusicBrainz Cover Art Archive (`https://coverartarchive.org/release/<MBID>/front
 - **Record**: One row in the catalog. One physical LP.
 - **Records store**: The Netlify Blobs store named `records`. One JSON blob per record.
 - **Seed**: A chat-generated JSON array Susan pastes into `/seed.html` to bulk-add.
-- **Phase 1**: This phase. Vision-identified records, no third parties.
-- **Catalog**: Susan's full collection. Started empty after May 2026 data loss.
-- **POC**: Proof of concept — completed 2026-05-23 with 5 test records.
-
----
-
-## Changelog
-
-- **v1.1 (2026-05-23)** — Phase 1 POC complete. Added Hard Rules 6 (Diagnose before patching) and 7 (No heredocs with JS template literals). Added Deploy Verification section to QA checklist. Added Cover URL strategy notes. Added Deployed system inventory table. Pinned current production cache-bust version at v=3.
-- **v1.0 (2026-05-21)** — Initial charter after data-loss incident and Phase 3 scope-creep reset.
-
+- **Goldmine grade**: One of the 8 conditions listed above. Default `VG`.
+- **Phase 1**: Barebones cataloging via vision. Complete.
+- **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11.
+- **Phase 3.1**: Live Discogs pricing fetch. Shipped in v12.
+- **Phase 3.2**: "Pick the right pressing" UI for ambiguous Discogs matches. Not started.
+- **Phase 2, Phase 4**: Deferred / parked. Don't start.
+- **Catalog**: Susan's full collection. Currently ~80 records after May 2026 rebuild.

@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=10" />
+  <link rel="stylesheet" href="/style.css?v=12" />
 </head>
-<body data-view="list">
+<body data-view="gallery">
 
 <a class="sr-only sr-only-focusable" href="#main">Skip to records</a>
 
@@ -22,15 +22,15 @@
   <nav class="masthead__nav" aria-label="Primary">
     <a href="/seed.html">Add</a>
     <a href="/audit.html">Audit</a>
+    <a href="/about.html">About</a>
   </nav>
 </header>
 
-<section class="pagehead">
-  <h2 class="pagehead__title">Full Collection</h2>
-  <p class="pagehead__count" id="count">— records</p>
-</section>
-
 <section class="controls" aria-label="Filters">
+  <div class="controls__heading">
+    <h2 class="controls__title">Full Collection</h2>
+    <span class="controls__count" id="count">— records</span>
+  </div>
   <div class="controls__search">
     <label for="search" class="sr-only">Search the collection</label>
     <input
@@ -40,16 +40,16 @@
       autocomplete="off"
       spellcheck="false" />
   </div>
-  <div class="controls__chips" id="chips" role="group" aria-label="Filter by genre"></div>
   <div class="controls__view" role="group" aria-label="View mode">
-    <button id="view-list" class="vbtn is-on" type="button" aria-pressed="true">List</button>
-    <button id="view-gallery" class="vbtn" type="button" aria-pressed="false">Gallery</button>
+    <button id="view-list" class="vbtn" type="button" aria-pressed="false">List</button>
+    <button id="view-gallery" class="vbtn is-on" type="button" aria-pressed="true">Gallery</button>
   </div>
+  <div class="controls__chips" id="chips" role="group" aria-label="Filter by genre"></div>
 </section>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
 
-<main id="main" class="list" tabindex="-1" aria-label="Records">
+<main id="main" class="gallery" tabindex="-1" aria-label="Records">
   <div class="empty">Loading…</div>
 </main>
 
@@ -68,6 +68,6 @@
   </article>
 </div>
 
-<script src="/app.js?v=10"></script>
+<script src="/app.js?v=12"></script>
 </body>
 </html>

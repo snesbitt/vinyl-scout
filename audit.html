@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=4" />
+  <link rel="stylesheet" href="/style.css?v=12" />
   <style>
     .audit-toolbar {
       max-width: 1100px;
@@ -133,11 +133,11 @@
       grid-area: meta;
       display: grid;
       gap: 4px;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 110px;
       grid-template-areas:
-        "artist artist"
-        "title title"
-        "year genre";
+        "artist artist artist"
+        "title title title"
+        "year genre cond";
     }
     .audit-input {
       font-family: var(--sans);
@@ -161,6 +161,30 @@
     .audit-input.js-title { grid-area: title; color: var(--ink-soft); font-style: italic; }
     .audit-input.js-year { grid-area: year; font-family: var(--mono); font-size: 12px; }
     .audit-input.js-genre { grid-area: genre; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+    /* Condition select — same visual class but its own grid slot */
+    .audit-select.js-condition {
+      grid-area: cond;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 8px 10px;
+      border-radius: 2px;
+      color: var(--ink);
+      width: 100%;
+      min-height: 36px;
+      transition: border-color 120ms, background 120ms;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+    .audit-select.js-condition:hover { background: var(--bg-soft); }
+    .audit-select.js-condition:focus { outline: none; border-color: var(--accent); }
+    .audit-select.is-saving { border-color: var(--gold); }
+    .audit-select.is-saved { border-color: var(--good); }
+    .audit-select.is-error { border-color: var(--accent); }
     .audit-row__actions { grid-area: actions; }
     .audit-row__delete {
       font-family: var(--mono);
@@ -229,10 +253,12 @@
         height: 80px;
       }
       .audit-row__meta {
+        grid-template-columns: 1fr 1fr;
         grid-template-areas:
           "artist artist"
           "title title"
-          "year genre";
+          "year genre"
+          "cond cond";
         gap: 2px;
       }
       .audit-row__actions { justify-self: end; }
@@ -244,11 +270,12 @@
 <header class="masthead">
   <a class="brand" href="/">
     <span class="brand__mark">⦿</span>
-    <div>
-      <h1>The Vinyl Scout</h1>
-      <p class="brand__sub">Audit</p>
-    </div>
+    <h1>The Vinyl Scout</h1>
   </a>
+  <nav class="masthead__nav">
+    <a href="/">← Collection</a>
+    <a href="/about.html">About</a>
+  </nav>
 </header>
 
 <h2 class="collection-title">Audit · Full Collection</h2>
@@ -262,14 +289,13 @@
     autocomplete="off"
     spellcheck="false" />
   <span class="audit-toolbar__count" id="filter-count">—</span>
-  <a class="btn btn--ghost btn--sm" href="/">← Gallery</a>
 </section>
 
 <div class="audit-help">
-  Tap any text field to edit — saves automatically when you tab away or press <kbd>Enter</kbd>. Tap a cover to upload a replacement (image is auto-resized). Delete is permanent.
+  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Condition uses Goldmine grading — see <a href="/about.html#grading">About</a>.
 </div>
 
-<div id="error-banner" class="error-banner" hidden></div>
+<div id="error-banner" class="error-banner" hidden role="alert"></div>
 
 <main class="audit-list" id="audit-list">
   <div class="audit-empty">Loading…</div>
@@ -279,8 +305,17 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 1
+// version: 2 (paired with style.css?v=12)
 // Single-record ops only. No bulk delete, no auto-dedup, no background mutation.
+// v2 adds: condition select column (Goldmine grading, default VG).
+
+const GRADES = ['M', 'NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
+
+function normalizeCondition(c) {
+  if (!c) return 'VG';
+  const s = String(c).trim().toUpperCase();
+  return GRADES.indexOf(s) !== -1 ? s : 'VG';
+}
 
 let allRecords = [];
 
@@ -366,6 +401,10 @@ function render() {
     const cover = r.cover_url
       ? '<img src="' + escapeHtml(r.cover_url) + '" alt="">'
       : '<div class="nocover">no cover</div>';
+    const cond = normalizeCondition(r.condition);
+    const condOptions = GRADES.map(function (g) {
+      return '<option value="' + g + '"' + (g === cond ? ' selected' : '') + '>' + g + '</option>';
+    }).join('');
     return ''
       + '<div class="audit-row" data-id="' + escapeHtml(r.id) + '">'
       +   '<label class="audit-row__cover">' + cover
@@ -376,6 +415,7 @@ function render() {
       +     '<input class="audit-input js-title" data-field="title" value="' + escapeHtml(r.title) + '" placeholder="title" autocomplete="off" spellcheck="false">'
       +     '<input class="audit-input js-year" data-field="year" value="' + (r.year != null ? r.year : '') + '" placeholder="year" autocomplete="off" spellcheck="false" inputmode="numeric">'
       +     '<input class="audit-input js-genre" data-field="genre" value="' + escapeHtml(r.genre || '') + '" placeholder="genre" autocomplete="off" spellcheck="false">'
+      +     '<select class="audit-select js-condition" data-field="condition" title="Goldmine grade">' + condOptions + '</select>'
       +   '</div>'
       +   '<div class="audit-row__actions">'
       +     '<button type="button" class="audit-row__delete js-delete">Delete</button>'
@@ -413,6 +453,10 @@ async function saveField(id, field, raw, inputEl) {
     inputEl.classList.add('is-error');
     toast('Title cannot be empty', true);
     return;
+  }
+  if (field === 'condition') {
+    // Always normalize — never let an invalid value escape to storage
+    value = normalizeCondition(raw);
   }
 
   if (existing[field] === value) return;
@@ -496,7 +540,6 @@ async function uploadCover(id, file, coverEl) {
   coverEl.classList.add('is-uploading');
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
-    // Sanity check: data URLs above ~4MB will exceed our Blob value limit safely
     if (dataUrl.length > 4 * 1024 * 1024) {
       throw new Error('Compressed image still too large');
     }
@@ -529,7 +572,6 @@ async function uploadCover(id, file, coverEl) {
   const filterInput = document.getElementById('filter-input');
   filterInput.addEventListener('input', render);
 
-  // Save on blur (focusout bubbles)
   list.addEventListener('focusout', function (e) {
     const inp = e.target.closest('.audit-input');
     if (!inp) return;
@@ -538,7 +580,6 @@ async function uploadCover(id, file, coverEl) {
     saveField(row.dataset.id, inp.dataset.field, inp.value, inp);
   });
 
-  // Enter -> blur (which triggers save)
   list.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.closest('.audit-input')) {
       e.preventDefault();
@@ -546,7 +587,6 @@ async function uploadCover(id, file, coverEl) {
     }
   });
 
-  // Delete
   list.addEventListener('click', function (e) {
     const btn = e.target.closest('.js-delete');
     if (!btn) return;
@@ -555,17 +595,26 @@ async function uploadCover(id, file, coverEl) {
     deleteRecord(row.dataset.id);
   });
 
-  // Cover upload
   list.addEventListener('change', function (e) {
+    // Cover upload
     const inp = e.target.closest('.js-cover-upload');
-    if (!inp) return;
-    const file = inp.files && inp.files[0];
-    if (!file) return;
-    const row = inp.closest('.audit-row');
-    const coverEl = inp.closest('.audit-row__cover');
-    if (!row || !coverEl) return;
-    uploadCover(row.dataset.id, file, coverEl);
-    inp.value = '';
+    if (inp) {
+      const file = inp.files && inp.files[0];
+      if (!file) return;
+      const row = inp.closest('.audit-row');
+      const coverEl = inp.closest('.audit-row__cover');
+      if (!row || !coverEl) return;
+      uploadCover(row.dataset.id, file, coverEl);
+      inp.value = '';
+      return;
+    }
+    // Condition select
+    const sel = e.target.closest('.audit-select.js-condition');
+    if (sel) {
+      const row = sel.closest('.audit-row');
+      if (!row) return;
+      saveField(row.dataset.id, sel.dataset.field, sel.value, sel);
+    }
   });
 })();
 </script>
