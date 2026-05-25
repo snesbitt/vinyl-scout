@@ -1,10 +1,7 @@
 // Vinyl Scout — app.js
-// version: 12
-// Editorial. List = text only. Gallery = thumb grid. Genre chips. Default: Gallery.
-// Click any record -> opens a detail modal with cover, artist, italic title,
-// condition pill, year/genre meta, optional market block, refresh-pricing
-// button (Phase 3.1 — Discogs), and notes. ESC / × / backdrop / back close.
-// No destructive ops on this page — those live on /audit.html.
+// version: 13
+// v13: Goldmine grades are spelled out in the detail modal ("Very Good"
+// instead of a "VG" pill + Legend link). Storage value stays the short code.
 
 (function () {
   'use strict';
@@ -19,10 +16,23 @@
 
   // Goldmine grades — see /about.html for full legend.
   var GRADES = ['M', 'NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
+  var CONDITION_NAMES = {
+    'M':   'Mint',
+    'NM':  'Near Mint',
+    'VG+': 'Very Good Plus',
+    'VG':  'Very Good',
+    'G+':  'Good Plus',
+    'G':   'Good',
+    'F':   'Fair',
+    'P':   'Poor'
+  };
   function normalizeCondition(c) {
     if (!c) return 'VG';
     var s = String(c).trim().toUpperCase();
     return GRADES.indexOf(s) !== -1 ? s : 'VG';
+  }
+  function conditionLabel(code) {
+    return CONDITION_NAMES[code] || code;
   }
 
   function $(id) { return document.getElementById(id); }
@@ -318,17 +328,13 @@
       : '<div class="detail__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
 
     var condition = normalizeCondition(r.condition);
-    var conditionPill =
-      '<span class="detail__condition" title="Goldmine grade — see About for legend">'
-      +   escapeHtml(condition)
-      + '</span>';
+    var conditionText = conditionLabel(condition);
 
-    var metaParts = [];
+    // Combined meta line: "Very Good · 1976 · Reggae / Roots"
+    var metaParts = [escapeHtml(conditionText)];
     if (r.year != null) metaParts.push(escapeHtml(r.year));
     if (r.genre) metaParts.push(escapeHtml(r.genre));
-    var meta = metaParts.length
-      ? '<p class="detail__meta">' + metaParts.join(' &middot; ') + '</p>'
-      : '';
+    var meta = '<p class="detail__meta">' + metaParts.join(' &middot; ') + '</p>';
 
     var notes = (r.notes && String(r.notes).trim())
       ? '<p class="detail__notes">' + escapeHtml(r.notes) + '</p>'
@@ -341,11 +347,6 @@
       + '<div class="detail__info">'
       +   '<p class="detail__artist">' + escapeHtml(r.artist || 'Unknown') + '</p>'
       +   '<h2 class="detail__title" id="detail-title">' + escapeHtml(r.title || 'Untitled') + '</h2>'
-      +   '<p class="detail__condition-line">'
-      +     '<span class="detail__condition-label">Condition</span>'
-      +     conditionPill
-      +     '<a class="detail__legend-link" href="/about.html#grading">Legend</a>'
-      +   '</p>'
       +   meta
       +   pricing
       +   notes

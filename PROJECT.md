@@ -98,7 +98,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=12**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=13**.
 
 ### 4. No silent failures
 
@@ -132,6 +132,9 @@ Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `
   "created_at":         "ISO timestamp",
 
   "condition":          "'M' | 'NM' | 'VG+' | 'VG' | 'G+' | 'G' | 'F' | 'P' (default 'VG')",
+  /* Note: condition is STORED as the short code but DISPLAYED with the spelled
+     name ('Very Good', 'Near Mint', etc.) in both /audit.html and the detail
+     modal. See conditionLabel() in app.js / CONDITION_NAMES in audit.html. */
   "discogs_release_id": "number | null  (cached after first pricing fetch)",
   "price_low":          "number | null",
   "price_high":         "number | null",
@@ -229,8 +232,8 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Seed**: A chat-generated JSON array Susan pastes into `/seed.html` to bulk-add.
 - **Goldmine grade**: One of the 8 conditions listed above. Default `VG`.
 - **Phase 1**: Barebones cataloging via vision. Complete.
-- **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11.
-- **Phase 3.1**: Live Discogs pricing fetch. Shipped in v12.
+- **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11. Display refined in v13 (spelled-out grade names).
+- **Phase 3.1**: Live Discogs pricing fetch. Shipped in v12; auth fix + better error messages in v13.
 - **Phase 3.2**: "Pick the right pressing" UI for ambiguous Discogs matches. Not started.
 - **Phase 2, Phase 4**: Deferred / parked. Don't start.
 - **Catalog**: Susan's full collection. Currently ~80 records after May 2026 rebuild.

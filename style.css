@@ -1,14 +1,8 @@
 /* Vinyl Scout — style.css
-   version: 12
-   v12: Phase 3.1 — Discogs pricing refresh button and states in the detail modal.
-   - Brand wordmark dominant: clamp(28-40) desktop, clamp(24-32) mobile.
-   - "Full Collection" reduced to small italic section label inside the controls bar.
-   - Vertical space tightened (masthead 22->16, no separate pagehead section).
-   - Default view is Gallery.
-   - Detail modal: condition pill + optional pricing block + notes.
-   - /about.html: editorial single-pager with Goldmine grading legend.
-   - Carries forward v9 fixes: grid blowup guard, iOS zoom (16px input on mobile),
-     button reset, html overflow-x guard. */
+   version: 13
+   v13: Condition is now spelled out inline in the detail meta line ("Very Good"),
+   dropping the dark pill + "Legend" link. Storage value still uses short codes
+   (VG, NM, etc.). Audit dropdown shows spelled names but stores the codes. */
 
 /* ---------- Tokens ---------- */
 :root {
@@ -567,41 +561,13 @@ main {
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
-.detail__condition-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 4px 0 0;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.detail__condition-label { color: var(--ink-faint); }
-.detail__condition {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  background: var(--ink);
-  color: var(--bg);
-  border-radius: 999px;
-}
+.detail__condition-line,
+.detail__condition,
+.detail__condition-label,
 .detail__legend-link {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 1px;
+  display: none; /* v13: condition is now part of .detail__meta. Kept here as
+                    a safe no-op for any cached pages still referencing them. */
 }
-.detail__legend-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 .detail__meta {
   margin: 14px 0 0;
@@ -1026,7 +992,6 @@ main {
   }
   .detail__close { top: 8px; right: 8px; }
   .detail__title { font-size: clamp(26px, 7.5vw, 36px); }
-  .detail__condition-line { flex-wrap: wrap; gap: 8px; }
 }
 
 @media (max-width: 400px) {
