@@ -65,6 +65,8 @@ On-demand pricing per record, via the Discogs marketplace API. UI: a "Fetch from
 
 **Release matching limitation.** First-result match. Good for popular records, imperfect for obscure pressings, reissues, or generic titles. Phase 3.2 would add a "pick the right pressing" UI on `/audit.html`. For now, Susan can verify the matched release title in the toast hint, and re-search by tweaking artist/title on `/audit.html`.
 
+**v15 auth fix.** v13 and v14 authenticated to Discogs via query string only (`?token=…`). That works for `/database/search` but fails intermittently on `/marketplace/*` endpoints — confirmed via the Discogs forum and reading the source of the joalla Python client, which sends the token via *both* the Authorization header (`Discogs token=…`) and the query string. v15 does the same. v15 also calls `/oauth/identity` first as a preflight, so when auth fails we know whether it's the token itself (identity 401) or just one endpoint (identity passes, downstream 401). And note: Netlify env-var changes do not reach a running function until the next deploy, so updating `DISCOGS_TOKEN` without pushing leaves the function reading the old value. Pushing v15 incidentally fixes that case too.
+
 ---
 
 ## Phase 2 — DEFERRED: pressing-accurate metadata from Discogs
@@ -98,7 +100,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=14**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=15**.
 
 ### 4. No silent failures
 

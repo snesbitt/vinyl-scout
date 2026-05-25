@@ -1,5 +1,6 @@
 // Vinyl Scout — app.js
-// version: 14
+// version: 15
+// v15: no app.js changes — the Discogs fetch fix is purely server-side.
 // v14: meta line reads "CONDITION: VERY GOOD · 1976 · ..." (labeled).
 // v13: Goldmine grades are spelled out in the detail modal.
 
