@@ -1,5 +1,5 @@
 {
-  "snapshot_at": "2026-05-28T03:15:28.112Z",
+  "snapshot_at": "2026-05-28T03:15:49.534Z",
   "record_count": 94,
   "records": [
     {
@@ -472,7 +472,7 @@
       "title": "sounds form the hi-fi",
       "year": null,
       "genre": null,
-      "cover_url": null,
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0e/8e/ce/0e8ece56-650c-13d2-3cb0-90a6a4c432ea/00792755856352_Cover.jpg/600x600bb.jpg",
       "notes": "",
       "condition": "VG",
       "created_at": "2026-05-28T02:42:49.358Z"
