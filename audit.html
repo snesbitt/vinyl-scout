@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vinyl Scout · Audit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -357,10 +358,32 @@ function clearError() {
   el.hidden = true;
 }
 
+function getEditSecret() {
+  var s = '';
+  try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
+  if (s) return s;
+  s = prompt('Enter edit passphrase (writes are protected):') || '';
+  if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
+  return s;
+}
+function clearEditSecret() {
+  try { sessionStorage.removeItem('vs_edit_secret'); } catch (e) {}
+}
 async function api(path, opts) {
   opts = opts || {};
-  opts.headers = { 'Content-Type': 'application/json' };
+  var method = (opts.method || 'GET').toUpperCase();
+  var headers = { 'Content-Type': 'application/json' };
+  if (method === 'POST' || method === 'DELETE' || method === 'PUT' || method === 'PATCH') {
+    var secret = getEditSecret();
+    if (!secret) throw new Error('Edit passphrase required');
+    headers['X-Edit-Key'] = secret;
+  }
+  opts.headers = headers;
   const res = await fetch(path, opts);
+  if (res.status === 401) {
+    clearEditSecret();
+    throw new Error('Unauthorized — wrong passphrase. Try again.');
+  }
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json()).error || ''; } catch (e) {}

@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Vinyl Scout · Add Records</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=19" />
+  <link rel="stylesheet" href="/style.css?v=20" />
   <style>
     .seed-shell {
       max-width: 900px;
@@ -179,13 +180,27 @@
 
 <script>
 // Vinyl Scout — seed.html
-// version: 4 (paired with style.css?v=19)
+// version: 5 (paired with style.css?v=20)
 // v17: plain-text "Artist - Title per line" input. The old JSON-paste flow
 // is gone; the page now parses lines and constructs the record JSON itself
 // before POSTing one at a time to /api/records. Single-record upserts only.
 // No bulk variant. No dedup. Hard rules respected.
 
 (function () {
+  // Edit-secret management — required for POST/DELETE.
+  // Prompts once per browser session, stored in sessionStorage.
+  function getEditSecret() {
+    var s = '';
+    try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
+    if (s) return s;
+    s = prompt('Enter edit passphrase (writes are protected):') || '';
+    if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
+    return s;
+  }
+  function clearEditSecret() {
+    try { sessionStorage.removeItem('vs_edit_secret'); } catch (e) {}
+  }
+
   var input    = document.getElementById('seed-input');
   var previewBtn = document.getElementById('seed-preview-btn');
   var addBtn   = document.getElementById('seed-add-btn');
@@ -311,6 +326,14 @@
     var originalText = addBtn.textContent;
     addBtn.textContent = 'Adding…';
 
+    var editSecret = getEditSecret();
+    if (!editSecret) {
+      setStatus('Edit passphrase required to add records.', 'error');
+      addBtn.disabled = false;
+      addBtn.textContent = originalText;
+      return;
+    }
+
     var added = 0;
     var failed = 0;
     var lastError = '';
@@ -335,12 +358,17 @@
         var timeoutId = setTimeout(function () { controller.abort(); }, 15000);
         var res = await fetch('/api/records', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Edit-Key': editSecret },
           body: JSON.stringify(record),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        if (res.ok) {
+        if (res.status === 401) {
+          clearEditSecret();
+          failed++;
+          lastError = 'Unauthorized — wrong passphrase. Reload and try again.';
+          break;
+        } else if (res.ok) {
           added++;
         } else {
           failed++;
