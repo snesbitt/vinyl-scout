@@ -1,8 +1,18 @@
 # Vinyl Scout — Project Charter
 
+**Version:** 3 · **Last revised:** 2026-05-28
+
+**Changelog**
+- **v3 (2026-05-28)** — Added SEO suppression (noindex meta + `X-Robots-Tag` header + `robots.txt`) and write-protection (`X-Edit-Key` header gates `POST`/`DELETE`; `GET` stays public). "Shipped in Phase 1" now reflects what's actually live (audit page, backups, `/about.html`). Added an Endpoints section covering all five production endpoints. Synced catalog state (now 94 records) and seeding workflow (plain-text input per v17, not JSON paste). Filled out record schema with the full Statistics fields parsed from the release-page scrape. Clarified that manual backup triggers create one commit each.
+- _(pre-v3)_ Charter content was snapshotted alongside `app.js` v19; not explicitly versioned. v3 is the first explicitly-versioned charter.
+
+---
+
 ## Identity
 
-**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~80 LPs and is in catalog-building + condition-tracking phase. She works primarily from mobile (iPhone, Safari).
+**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~80 LPs; the catalog currently holds **94 records** in condition-tracking + pricing-scaffolding phase. She works primarily from mobile (iPhone, Safari).
+
+The site is **publicly viewable but not advertised** — excluded from search engines (noindex meta + `X-Robots-Tag` response header + disallow-all `robots.txt`). Anyone with the URL can view the gallery; only someone holding the shared edit secret can write.
 
 Aesthetic: editorial / record-shop / library catalog card.
 - Fraunces italic display serif · IBM Plex Sans body · IBM Plex Mono for catalog numbers
@@ -21,19 +31,26 @@ Public exec-friendly setup page lives at `/about.html` and is linked from the ma
 ### Shipped in Phase 1
 
 - One persistent record store (Netlify Blobs, store name: `records`)
-- One read endpoint (`GET /api/records`) — strictly read-only
-- One write endpoint (`POST /api/records`) — upsert by ID only
-- One delete endpoint (`DELETE /api/records/:id`) — single ID only, no bulk variant
+- `GET /api/records` — strictly read-only, **public**
+- `POST /api/records` — upsert by ID only, **requires the edit secret**
+- `DELETE /api/records/:id` — single ID only, no bulk variant, **requires the edit secret**
 - Public collection at `/` — list + gallery, genre chips, search, detail modal
-- `/seed.html` for pasting Claude-generated JSON
-- `/audit.html` for editing artist/title/year/genre/cover one record at a time
-- Phase 1 record fields: `id`, `artist`, `title`, `year`, `genre`, `cover_url`, `notes`, `created_at`
+- `/seed.html` — plain-text "Artist - Title per line" input (v17). The page generates record IDs itself and POSTs one record at a time. Writes use the edit secret.
+- `/audit.html` — inline edit of artist/title/year/genre/condition, single-record delete (confirm-gated), per-record cover upload (browser-compressed to a data URL). Writes use the edit secret.
+- `/about.html` — exec-friendly setup page + Goldmine grading legend, linked from the masthead.
+- **Nightly + on-demand git backups** of the entire records store to `backups/YYYY-MM-DD.json` (scheduled `0 9 * * *` UTC + manual `GET /api/backup?key=…`). Pure read of the store; never mutates.
+- **SEO suppression** — `noindex` meta on every page, `X-Robots-Tag: noindex, nofollow, noarchive` response header, disallow-all `robots.txt`.
+- **Write-protection** — shared edit secret (`EDIT_SECRET` Netlify env var) required on every `POST`/`DELETE`. Sent as an `X-Edit-Key` request header (never in the URL). Entered by Susan in the page UI on first write per browser session and held in `sessionStorage`. Never committed to the repo or embedded in served HTML.
+
+### Phase 1 record fields (pre-Phase-3)
+
+`id`, `artist`, `title`, `year`, `genre`, `cover_url`, `notes`, `created_at`. See the full current schema below.
 
 ---
 
 ## Phase 3 — ACTIVE: condition tracking + pricing scaffolding
 
-Susan moved Phase 3 from parked to active on May 24, 2026. The shipped scope of this phase carries condition tracking end-to-end and lays in the schema and UI for marketplace pricing, but does not yet fetch live pricing data.
+Susan moved Phase 3 from parked to active on May 24, 2026. The shipped scope of this phase carries condition tracking end-to-end and lays in the schema and UI for marketplace pricing.
 
 ### In scope (this phase)
 
@@ -85,18 +102,28 @@ When asked about a parked feature, say "that's Phase N, parked" and stop.
 
 ---
 
+## Endpoints (deployed)
+
+- `GET  /api/records` — public; returns all records as a JSON array.
+- `POST /api/records` — edit-secret required; upserts one record by `id`.
+- `DELETE /api/records/:id` — edit-secret required; deletes one record by `id`.
+- `POST /api/discogs-pricing` — public; takes `{ recordId }`, fetches Discogs API + scrapes the release page, upserts the result back. On-demand only, one record per click (see Phase 3.1).
+- `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled equivalent runs nightly at 09:00 UTC. **Each trigger produces one commit**; same-day path is overwritten in place via the GitHub contents API, so multiple commits per day with the same filename is normal and expected (one per manual trigger + one scheduled).
+
+---
+
 ## Hard Rules — NON-NEGOTIABLE
 
 ### 1. The catalog is sacred
 
-The previous version lost 29 records to a dedup race condition. That cannot happen again. Therefore:
+The previous version lost 29 records to a dedup race condition. That cannot happen again. The catalog now has **nightly + on-demand git backups** (real restore path) and **a write-gate** on `POST`/`DELETE` (random visitors can view but not mutate). Both are defense in depth; the rules below still hold.
 
 - **No bulk-delete code paths.** Ever. No function may call delete on more than one record per invocation.
 - **No auto-dedup.** Banned from the codebase. If duplicates appear, they appear. Susan deletes them manually one at a time.
-- **No background mutation.** List/read endpoints are pure reads. They cannot write to storage under any circumstance.
+- **No background mutation.** List/read endpoints — including `/api/backup` — are pure reads. They cannot write to the records store under any circumstance.
 - **All writes are upserts by ID.** Never "replace all records with this array."
 - **Single-record delete only**, gated by a UI `confirm()` dialog.
-- **Pricing refresh is on-demand only.** When Phase 3.1 lands, no cron, no polling, no batch refresh. One record, one button, one fetch.
+- **Pricing refresh is on-demand only.** No cron, no polling, no batch refresh. One record, one button, one fetch.
 
 ### 2. Scope is sacred
 
@@ -104,11 +131,11 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=19**.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. Currently at **v=19**. `/seed.html` and `/audit.html` carry their own internal `// version: N` for their inline scripts.
 
 ### 4. No silent failures
 
-Every error path renders a visible, persistent error in the UI with the actual error text. No `setTimeout(hideError, …)` cleanup that swallows diagnostics. Mobile has no console.
+Every error path renders a visible, persistent error in the UI with the actual error text. No `setTimeout(hideError, …)` cleanup that swallows diagnostics. Mobile has no console. A rejected write (wrong/missing edit secret) must surface a clear, visible message — not fail quietly.
 
 ### 5. Honesty over confidence
 
@@ -120,7 +147,11 @@ When Susan reports a failure, first `curl` the deployed file or read the source 
 
 ### 7. No heredocs with JS template literals
 
-Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `python3 << 'PYEOF'` with `r'''…'''` for full-file writes; `sed -i ''` for single-line edits. Verify after with `wc -l`, `grep`, `node --check`.
+Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `python3 << 'PYEOF'` with `r"""…"""` for full-file writes; `sed -i ''` for single-line edits. Verify after with `wc -l`, `grep`, `node --check`.
+
+### 8. Secrets travel in headers, never in URLs
+
+The edit secret is sent as `X-Edit-Key`. Never as a query parameter. Never committed to the repo. Never embedded in served HTML. Held only in the user's `sessionStorage` for the duration of a browser session.
 
 ---
 
@@ -131,9 +162,9 @@ Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `
   "id":                 "rec_<8-byte-hex>",
   "artist":             "string (required)",
   "title":              "string (required)",
-  "year":               "number 1900–2100 | null",
+  "year":               "number 1900-2100 | null",
   "genre":              "string | null",
-  "cover_url":          "string | null",
+  "cover_url":          "string | null   (URL, or data: URL from audit-page upload)",
   "notes":              "string (default \"\")",
   "created_at":         "ISO timestamp",
 
@@ -141,11 +172,18 @@ Shell heredocs with backticks, `${…}`, or `onerror=` get mangled by zsh. Use `
   /* Note: condition is STORED as the short code but DISPLAYED with the spelled
      name ('Very Good', 'Near Mint', etc.) in both /audit.html and the detail
      modal. See conditionLabel() in app.js / CONDITION_NAMES in audit.html. */
-  "discogs_release_id": "number | null  (cached after first pricing fetch)",
-  "price_low":          "number | null",
-  "price_high":         "number | null",
-  "copies_available":   "number | null",
-  "price_currency":     "'USD' | 'EUR' | null",
+
+  "discogs_release_id": "number | null   (cached after first pricing fetch)",
+  "price_low":          "number | null   (cheapest live listing; scrape fallback)",
+  "price_median":       "number | null   (release-page Statistics block sales history)",
+  "price_high":         "number | null   (release-page Statistics block sales history)",
+  "price_last_sold":    "string | null   (e.g. 'Apr 23, 2026'; null when shown 'Never')",
+  "copies_available":   "number | null   (marketplace/stats.num_for_sale)",
+  "have_count":         "number | null   (from Statistics block)",
+  "want_count":         "number | null   (from Statistics block)",
+  "rating_avg":         "number | null   (from Statistics block)",
+  "rating_count":       "number | null   (from Statistics block)",
+  "price_currency":     "'USD' | 'EUR' | 'GBP' | null   (detected from price symbol)",
   "price_updated_at":   "ISO timestamp | null"
 }
 ```
@@ -158,19 +196,19 @@ The pricing fields are all nullable and absent on records that haven't been refr
 
 | Grade | Meaning | Multiplier |
 |------:|---------|-----------:|
-| M     | Mint, sealed, never played                    | ×1.20 |
-| NM    | Near Mint, plays flawlessly, reference grade  | ×1.10 |
-| VG+   | Very Good Plus, light wear                    | ×0.85 |
-| **VG** | **Very Good, visible wear, light surface noise. Default.** | **×0.65** |
-| G+    | Good Plus, audible pops and crackle           | ×0.45 |
-| G     | Good, heavy wear, distracts during play       | ×0.30 |
-| F     | Fair, barely playable                         | ×0.15 |
-| P     | Poor, wall art only                           | ×0.05 |
+| M     | Mint, sealed, never played                    | x1.20 |
+| NM    | Near Mint, plays flawlessly, reference grade  | x1.10 |
+| VG+   | Very Good Plus, light wear                    | x0.85 |
+| **VG** | **Very Good, visible wear, light surface noise. Default.** | **x0.65** |
+| G+    | Good Plus, audible pops and crackle           | x0.45 |
+| G     | Good, heavy wear, distracts during play       | x0.30 |
+| F     | Fair, barely playable                         | x0.15 |
+| P     | Poor, wall art only                           | x0.05 |
 
 Formula for suggested ask price (Phase 4):
 
 ```
-ask = price_low × multiplier(condition)
+ask = price_low * multiplier(condition)
 ```
 
 ---
@@ -191,6 +229,7 @@ Before delivering ANY code change, Claude runs this checklist explicitly in the 
 - [ ] No background mutation, no polling, no auto-refresh
 - [ ] Cache-bust version bumped on `/app.js` and `/style.css` in every page that loads them
 - [ ] Cross-file references verified: imports resolve, CSS classes match selectors, frontend API paths match backend `export const config = { path }`
+- [ ] Secrets are sent as headers, never in URLs; never committed to the repo or baked into served HTML
 - [ ] Dead code removed (unused functions, abandoned imports)
 - [ ] No `setTimeout` patterns that hide errors
 
@@ -209,7 +248,7 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 ## Working agreement
 
 - **Susan moves fast** — take initiative on design and minor UX, but never on scope additions.
-- **Mobile-first** — every layout checked at 375px viewport before shipping. Tap targets ≥44px. Inputs ≥16px font (no iOS zoom).
+- **Mobile-first** — every layout checked at 375px viewport before shipping. Tap targets >=44px. Inputs >=16px font (no iOS zoom).
 - **Diagnose, then fix.** When Susan reports a failure, read the code, trace the path, report the actual cause. Only ship a fix after the diagnosis is confirmed.
 - **Brevity** — explanations are a paragraph, not an essay. Don't re-explain programming.
 - **Ask one clear question, not three speculative ones** when uncertain.
@@ -219,14 +258,15 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 
 ## Catalog seeding workflow
 
-1. Susan photographs albums in groups of 3–6 per shot
-2. Susan uploads photos to chat
-3. Claude (in chat) looks at each photo, identifies each cover, produces a JSON array of record objects
-4. Susan visits `/seed.html`, pastes the JSON, taps "Add"
-5. Each record is upserted by its `id` (Claude generates unique IDs)
-6. Susan reviews the collection in `/`, sets condition per record in `/audit.html`
+1. Susan photographs albums in groups of 3-6 per shot.
+2. Susan uploads photos to chat.
+3. Claude (in chat) looks at each photo and identifies each cover, producing one record per line in `Artist - Title` form (en-dash, em-dash, or hyphen-with-spaces separator).
+4. Susan visits `/seed.html`, pastes the lines, and taps **Add Records**. The page generates record IDs itself and POSTs one record at a time to `/api/records` (writes use the edit secret).
+5. Susan reviews the collection in `/`, sets condition + year + genre + cover per record in `/audit.html`.
 
-No automation between chat and the site. Chat → JSON → paste → add. Every link in this chain is auditable by Susan.
+(The earlier JSON-paste flow was replaced in v17 by plain-text input. The page parses lines, constructs the record JSON internally, and submits single-record upserts.)
+
+No automation between chat and the site. Chat -> text -> paste -> add. Every link in this chain is auditable by Susan.
 
 ---
 
@@ -234,11 +274,14 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 
 - **Record**: One row in the catalog. One physical LP.
 - **Records store**: The Netlify Blobs store named `records`. One JSON blob per record.
-- **Seed**: A chat-generated JSON array Susan pastes into `/seed.html` to bulk-add.
+- **Seed**: A chat-generated list of `Artist - Title` lines Susan pastes into `/seed.html`.
+- **Audit page**: `/audit.html` - the hand-edit UI (inline edit, single delete, cover upload).
+- **Edit secret**: The shared passphrase stored as `EDIT_SECRET` in Netlify production env. Required on `POST` and `DELETE`; sent as `X-Edit-Key` header. Entered by Susan in the page UI per browser session.
+- **Backup**: A JSON snapshot of all records committed to `backups/YYYY-MM-DD.json` in the repo, nightly at 09:00 UTC and on demand via `/api/backup?key=...`. Each trigger produces one commit; same-day path is overwritten in place via the GitHub contents API, so multiple commits per day is normal.
 - **Goldmine grade**: One of the 8 conditions listed above. Default `VG`.
 - **Phase 1**: Barebones cataloging via vision. Complete.
 - **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11. Display refined in v13 (spelled-out grade names).
-- **Phase 3.1**: Live Discogs market data. Shipped v12; auth fix v13–v15; UI polish v16; plain-text seed v17; release-page scrape for full Statistics block v18.
+- **Phase 3.1**: Live Discogs market data. Shipped v12; auth fix v13-v15; UI polish v16; plain-text seed v17; release-page scrape for full Statistics block v18.
 - **Phase 3.2**: "Pick the right pressing" UI for ambiguous Discogs matches. Not started.
 - **Phase 2, Phase 4**: Deferred / parked. Don't start.
-- **Catalog**: Susan's full collection. Currently ~80 records after May 2026 rebuild.
+- **Catalog**: Susan's full collection. Currently 94 records after May 2026 rebuild.

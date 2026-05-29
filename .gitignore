@@ -1,0 +1,20 @@
+# Local Netlify folder
+.netlify
+
+# Mac
+.DS_Store
+
+# Paste / base64 artifacts from chunked-paste deploys
+*.b64
+
+# One-shot deploy scripts — source of truth is git history, not the script
+vs-deploy-*.sh
+
+# One-shot migration / enrichment scripts — preserved locally, not in repo
+cover-*.mjs
+enrich.mjs
+retry.mjs
+
+# Local catalog exports and scratch notes
+catalog.json
+audit.txt
