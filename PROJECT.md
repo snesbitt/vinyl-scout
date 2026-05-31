@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 3.1 · **Last revised:** 2026-05-28
+**Version:** 3.2 · **Last revised:** 2026-05-30
 
 **Changelog**
+- **v3.2 (2026-05-30)** — Added `POST /api/save-cover` (X-Edit-Key gated). New cover uploads via `/audit.html` now write JPEG/PNG to `covers/<recordId>.<ext>` in the GitHub repo and store the relative path in `cover_url`. Existing CDN and `data:` covers untouched in Phase A; one-time migration script in Phase B will re-host them.
 - **v3.1 (2026-05-28)** — Migrated `/api/backup` from `?key=` query param to an `X-Backup-Key` request header. Bad-auth status is now 401 (was 403). Charter Rule 8 (secrets in headers, not URLs) now applies to backup as well as records.
 - **v3 (2026-05-28)** — Added SEO suppression (noindex meta + `X-Robots-Tag` header + `robots.txt`) and write-protection (`X-Edit-Key` header gates `POST`/`DELETE`; `GET` stays public). "Shipped in Phase 1" now reflects what's actually live (audit page, backups, `/about.html`). Added an Endpoints section covering all five production endpoints. Synced catalog state (now 94 records) and seeding workflow (plain-text input per v17, not JSON paste). Filled out record schema with the full Statistics fields parsed from the release-page scrape. Clarified that manual backup triggers create one commit each.
 - _(pre-v3)_ Charter content was snapshotted alongside `app.js` v19; not explicitly versioned. v3 is the first explicitly-versioned charter.
@@ -110,6 +111,7 @@ When asked about a parked feature, say "that's Phase N, parked" and stop.
 - `DELETE /api/records/:id` — edit-secret required; deletes one record by `id`.
 - `POST /api/discogs-pricing` — public; takes `{ recordId }`, fetches Discogs API + scrapes the release page, upserts the result back. On-demand only, one record per click (see Phase 3.1).
 - `GET  /api/backup` — **`X-Backup-Key` header required**; reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled equivalent runs nightly at 09:00 UTC. **Each trigger produces one commit**; same-day path is overwritten in place via the GitHub contents API, so multiple commits per day with the same filename is normal and expected (one per manual trigger + one scheduled).
+- `POST /api/save-cover` — **`X-Edit-Key` header required**; writes one cover file to `covers/<recordId>.<ext>` in the repo via the GitHub contents API. Pure write of the covers folder; never touches the records store.
 
 ---
 
@@ -279,6 +281,7 @@ No automation between chat and the site. Chat -> text -> paste -> add. Every lin
 - **Audit page**: `/audit.html` - the hand-edit UI (inline edit, single delete, cover upload).
 - **Edit secret**: The shared passphrase stored as `EDIT_SECRET` in Netlify production env. Required on `POST` and `DELETE`; sent as `X-Edit-Key` header. Entered by Susan in the page UI per browser session.
 - **Backup**: A JSON snapshot of all records committed to `backups/YYYY-MM-DD.json` in the repo, nightly at 09:00 UTC and on demand via `GET /api/backup` (X-Backup-Key header required). Each trigger produces one commit; same-day path is overwritten in place via the GitHub contents API, so multiple commits per day is normal.
+- **Cover file**: A JPEG or PNG stored at `covers/<recordId>.<ext>` in the repo, written by `POST /api/save-cover`. Served as a same-origin static asset at `https://vinylscout.org/covers/<id>.<ext>`.
 - **Goldmine grade**: One of the 8 conditions listed above. Default `VG`.
 - **Phase 1**: Barebones cataloging via vision. Complete.
 - **Phase 3**: Condition tracking + pricing scaffolding. Complete in v11. Display refined in v13 (spelled-out grade names).

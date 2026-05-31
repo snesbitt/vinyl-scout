@@ -306,7 +306,7 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 8 (paired with style.css?v=19)
+// version: 9 (paired with style.css?v=19)
 // v14: condition value still stored as short code, displayed as spelled name.
 // Single-record ops only. No bulk delete, no auto-dedup, no background mutation.
 // v2 added condition select column (Goldmine grading, default VG).
@@ -577,17 +577,23 @@ async function uploadCover(id, file, coverEl) {
     if (dataUrl.length > 4 * 1024 * 1024) {
       throw new Error('Compressed image still too large');
     }
-    const merged = Object.assign({}, existing, { cover_url: dataUrl });
+    const base64 = dataUrl.split(',')[1];
+    const saved = await api('/api/save-cover', {
+      method: 'POST',
+      body: JSON.stringify({ recordId: id, contentType: 'image/jpeg', dataBase64: base64 }),
+    });
+    const merged = Object.assign({}, existing, { cover_url: saved.cover_url });
     await api('/api/records', { method: 'POST', body: JSON.stringify(merged) });
-    existing.cover_url = dataUrl;
+    existing.cover_url = saved.cover_url;
+    const cacheBusted = saved.cover_url + '?v=' + Date.now();
     const img = coverEl.querySelector('img');
     if (img) {
-      img.src = dataUrl;
+      img.src = cacheBusted;
     } else {
       const nc = coverEl.querySelector('.nocover');
       if (nc) {
         const newImg = document.createElement('img');
-        newImg.src = dataUrl;
+        newImg.src = cacheBusted;
         newImg.alt = '';
         coverEl.replaceChild(newImg, nc);
       }
