@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Vinyl Scout &middot; Roadmap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v=19" />
+  <style>
+    .roadmap-intro { max-width: 860px; margin: 18px auto 0; padding: 0 32px; font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
+    .roadmap { max-width: 860px; margin: 8px auto 0; padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 18px; }
+    .phase { display: grid; grid-template-columns: 64px 1fr; border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; overflow: hidden; }
+    .phase__rail { background: var(--bg-soft); border-right: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--accent); }
+    .phase--future .phase__rail { color: var(--ink-faint); }
+    .phase__body { padding: 20px 22px; }
+    .phase__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .phase__name { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 600; font-size: 24px; color: var(--ink); line-height: 1.1; margin: 0; }
+    .phase__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 9px; border-radius: 2px; white-space: nowrap; }
+    .phase__status--live { color: var(--good); border: 1px solid var(--good); }
+    .phase__status--future { color: var(--ink-faint); border: 1px solid var(--rule); }
+    .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin: 10px 0 0; }
+    .phase__covers { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 8px 0 0; }
+    .roadmap-note { max-width: 860px; margin: 4px auto 0; padding: 0 32px 90px; font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.03em; color: var(--ink-faint); }
+    @media (max-width: 640px) {
+      .roadmap-intro, .roadmap-note { padding-left: 18px; padding-right: 18px; }
+      .roadmap { padding: 12px 18px 24px; }
+      .phase { grid-template-columns: 48px 1fr; }
+      .phase__rail { font-size: 18px; }
+      .phase__body { padding: 16px 16px; }
+      .phase__name { font-size: 21px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="masthead">
+  <a class="brand" href="/">
+    <span class="brand__mark">&#10753;</span>
+    <div>
+      <h1>The Vinyl Scout</h1>
+      <p class="brand__sub">Roadmap</p>
+    </div>
+  </a>
+</header>
+
+<h2 class="collection-title">Roadmap</h2>
+
+<p class="roadmap-intro">
+  Vinyl Scout is built in deliberate phases. Phase 1 is live; the rest are planned and intentionally not started yet &mdash; each one is added only once the phase before it is solid.
+</p>
+
+<main class="roadmap">
+
+  <section class="phase phase--live">
+    <div class="phase__rail">1</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Cataloguing by photo</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">Build the collection</p>
+      <p class="phase__covers">Browse the whole collection, and add records by photographing them and reviewing the draft before it&rsquo;s saved. Hand-edit details, replace covers, and remove records one at a time. Editing is private; viewing is open to anyone with the link; the collection is backed up automatically.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--future">
+    <div class="phase__rail">2</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Pressing accuracy</h3>
+        <span class="phase__status phase__status--future">Planned</span>
+      </div>
+      <p class="phase__focus">Know exactly which copy you own</p>
+      <p class="phase__covers">Look up the precise pressing, label, and catalogue details for each record, so an entry reflects the exact edition on the shelf &mdash; not just the album.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--future">
+    <div class="phase__rail">3</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Pricing</h3>
+        <span class="phase__status phase__status--future">Planned</span>
+      </div>
+      <p class="phase__focus">Understand what it&rsquo;s worth</p>
+      <p class="phase__covers">Estimate the value of each record and show what comparable copies are selling for, so the collection&rsquo;s worth is visible at a glance.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--future">
+    <div class="phase__rail">4</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Selling support</h3>
+        <span class="phase__status phase__status--future">Planned</span>
+      </div>
+      <p class="phase__focus">Get a record ready to sell</p>
+      <p class="phase__covers">Grade each record&rsquo;s condition, flag what&rsquo;s for sale with an asking price, and generate a ready-to-paste listing. The sale itself happens on Discogs &mdash; Vinyl Scout prepares everything up to the handoff, and stops there.</p>
+    </div>
+  </section>
+
+</main>
+
+<p class="roadmap-note">
+  Phases are sequential. A later phase is never started early, and nothing is added to an earlier phase just because it would be easy to slot in.
+</p>
+
+</body>
+</html>
