@@ -138,7 +138,8 @@
       grid-template-areas:
         "artist artist artist"
         "title title title"
-        "year genre cond";
+        "year genre cond"
+        "press press press";
     }
     .audit-input {
       font-family: var(--sans);
@@ -186,7 +187,40 @@
     .audit-select.is-saving { border-color: var(--gold); }
     .audit-select.is-saved { border-color: var(--good); }
     .audit-select.is-error { border-color: var(--accent); }
-    .audit-row__actions { grid-area: actions; }
+    /* Phase 2 — pressing summary line (catalog no. in mono gold) */
+    .audit-row__pressing {
+      grid-area: press;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-faint);
+      padding: 4px 10px 0;
+      line-height: 1.5;
+    }
+    .audit-row__pressing .catno { color: var(--gold); }
+    .audit-row__pressing:empty { display: none; }
+    .audit-row__actions {
+      grid-area: actions;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .audit-row__lookup {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--ink-soft);
+      cursor: pointer;
+      border-radius: 2px;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .audit-row__lookup:hover { border-color: var(--gold); color: var(--gold); }
     .audit-row__delete {
       font-family: var(--mono);
       font-size: 10px;
@@ -235,6 +269,107 @@
       font-size: 12px;
       letter-spacing: 0.1em;
     }
+    /* Phase 2 — Discogs pressing lookup modal */
+    .lookup-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(28,32,24,0.55);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+      z-index: 200;
+    }
+    .lookup-modal[hidden] { display: none; }
+    .lookup-modal__panel {
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      max-width: 560px;
+      width: 100%;
+      padding: 22px;
+      box-shadow: 0 18px 50px rgba(28,32,24,0.3);
+    }
+    .lookup-modal__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .lookup-modal__title {
+      font-family: 'Fraunces', Georgia, serif;
+      font-style: italic;
+      font-size: 20px;
+      color: var(--ink);
+    }
+    .lookup-modal__close {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--ink-soft);
+      padding: 8px 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      min-height: 36px;
+    }
+    .lookup-modal__close:hover { border-color: var(--accent); color: var(--accent); }
+    .lookup-modal__sub {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--ink-faint);
+      margin-bottom: 16px;
+    }
+    .lookup-status {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink-faint);
+      padding: 18px 0;
+      text-align: center;
+    }
+    .lookup-status.is-error { color: var(--accent); text-align: left; }
+    .lookup-candidate {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      text-align: left;
+      padding: 12px;
+      border: 1px solid var(--rule-soft);
+      border-radius: 2px;
+      background: transparent;
+      cursor: pointer;
+      margin-bottom: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .lookup-candidate:hover { border-color: var(--gold); background: var(--bg-soft); }
+    .lookup-candidate__thumb {
+      width: 48px; height: 48px; border-radius: 2px;
+      object-fit: cover; background: var(--rule); display: block;
+    }
+    .lookup-candidate__title {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+    }
+    .lookup-candidate__meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-faint);
+      margin-top: 3px;
+      line-height: 1.5;
+      display: block;
+    }
+    .lookup-candidate__meta .catno { color: var(--gold); }
     @media (max-width: 640px) {
       .audit-toolbar { padding: 0 18px; }
       .audit-help { padding: 10px 18px; font-size: 10px; }
@@ -259,10 +394,14 @@
           "artist artist"
           "title title"
           "year genre"
-          "cond cond";
+          "cond cond"
+          "press press";
         gap: 2px;
       }
-      .audit-row__actions { justify-self: end; }
+      .audit-row__actions {
+        flex-direction: row;
+        justify-content: flex-end;
+      }
     }
   </style>
 </head>
@@ -275,7 +414,7 @@
   </a>
   <nav class="masthead__nav">
     <a href="/">← Collection</a>
-    <a href="/about.html">About</a>
+    <a href='/about'>About</a>
   </nav>
 </header>
 
@@ -293,7 +432,7 @@
 </section>
 
 <div class="audit-help">
-  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Condition uses Goldmine grading — see <a href="/about.html#grading">About</a>.
+  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up label/catalog no. on Discogs. Condition uses Goldmine grading — see <a href='/about#grading'>About</a>.
 </div>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
@@ -304,9 +443,23 @@
 
 <div class="audit-toast" id="toast"></div>
 
+<div class="lookup-modal" id="lookup-modal" hidden>
+  <div class="lookup-modal__panel" role="dialog" aria-modal="true" aria-label="Discogs pressing lookup">
+    <div class="lookup-modal__head">
+      <span class="lookup-modal__title" id="lookup-title">Pressing lookup</span>
+      <button type="button" class="lookup-modal__close" id="lookup-close">Close</button>
+    </div>
+    <div class="lookup-modal__sub" id="lookup-sub"></div>
+    <div id="lookup-body"></div>
+  </div>
+</div>
+
 <script>
 // Vinyl Scout — Audit page
-// version: 9 (paired with style.css?v=19)
+// version: 10 (paired with style.css?v=19)
+// v10: Phase 2 — Discogs pressing lookup (per-row "Pressing" button → candidate
+//      picker → accept writes 5 additive fields via the existing single-upsert).
+//      Lookup is a public GET to /api/discogs/lookup; accept POSTs to /api/records.
 // v14: condition value still stored as short code, displayed as spelled name.
 // Single-record ops only. No bulk delete, no auto-dedup, no background mutation.
 // v2 added condition select column (Goldmine grading, default VG).
@@ -405,6 +558,16 @@ async function loadRecords() {
   }
 }
 
+// Phase 2 — build the pressing summary line (only fields that are present).
+function pressingLine(r) {
+  var parts = [];
+  if (r.label) parts.push(escapeHtml(r.label));
+  if (r.catalog_no) parts.push('<span class="catno">' + escapeHtml(r.catalog_no) + '</span>');
+  if (r.country) parts.push(escapeHtml(r.country));
+  if (r.format) parts.push(escapeHtml(r.format));
+  return parts.join(' · ');
+}
+
 function render() {
   const list = document.getElementById('audit-list');
   const filterEl = document.getElementById('filter-input');
@@ -450,8 +613,10 @@ function render() {
       +     '<input class="audit-input js-year" data-field="year" value="' + (r.year != null ? r.year : '') + '" placeholder="year" autocomplete="off" spellcheck="false" inputmode="numeric">'
       +     '<input class="audit-input js-genre" data-field="genre" value="' + escapeHtml(r.genre || '') + '" placeholder="genre" autocomplete="off" spellcheck="false">'
       +     '<select class="audit-select js-condition" data-field="condition" title="Goldmine grade">' + condOptions + '</select>'
+      +     '<div class="audit-row__pressing js-pressing">' + pressingLine(r) + '</div>'
       +   '</div>'
       +   '<div class="audit-row__actions">'
+      +     '<button type="button" class="audit-row__lookup js-lookup">Pressing</button>'
       +     '<button type="button" class="audit-row__delete js-delete">Delete</button>'
       +   '</div>'
       + '</div>';
@@ -606,6 +771,109 @@ async function uploadCover(id, file, coverEl) {
   }
 }
 
+// ---- Phase 2: Discogs pressing lookup ----
+// lookupState holds the record being looked up and the candidates returned,
+// so an accept click can reference the exact candidate by index.
+var lookupState = { id: null, candidates: [] };
+
+function openLookup(id) {
+  var rec = allRecords.find(function (r) { return r.id === id; });
+  if (!rec) return;
+  lookupState = { id: id, candidates: [] };
+  var modal = document.getElementById('lookup-modal');
+  document.getElementById('lookup-title').textContent = 'Pressing lookup';
+  document.getElementById('lookup-sub').textContent = (rec.artist || '?') + ' — ' + (rec.title || '?');
+  document.getElementById('lookup-body').innerHTML = '<div class="lookup-status">Searching Discogs…</div>';
+  modal.hidden = false;
+
+  var q = new URLSearchParams();
+  if (rec.artist) q.set('artist', rec.artist);
+  if (rec.title) q.set('title', rec.title);
+
+  // Lookup is a public GET (no edit secret); accepting a pressing is the write.
+  fetch('/api/discogs/lookup?' + q.toString())
+    .then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+      });
+    })
+    .then(function (data) {
+      lookupState.candidates = Array.isArray(data.candidates) ? data.candidates : [];
+      renderCandidates();
+    })
+    .catch(function (err) {
+      document.getElementById('lookup-body').innerHTML =
+        '<div class="lookup-status is-error">Lookup failed: ' + escapeHtml(err.message) + '</div>';
+    });
+}
+
+function renderCandidates() {
+  var body = document.getElementById('lookup-body');
+  if (!lookupState.candidates.length) {
+    body.innerHTML = '<div class="lookup-status">No Discogs matches. Adjust the artist/title and try again.</div>';
+    return;
+  }
+  body.innerHTML = lookupState.candidates.map(function (c, i) {
+    var thumb = c.thumb
+      ? '<img class="lookup-candidate__thumb" src="' + escapeHtml(c.thumb) + '" alt="">'
+      : '<span class="lookup-candidate__thumb"></span>';
+    var meta = [];
+    if (c.year) meta.push(escapeHtml(String(c.year)));
+    if (c.label) meta.push(escapeHtml(c.label));
+    if (c.catalog_no) meta.push('<span class="catno">' + escapeHtml(c.catalog_no) + '</span>');
+    if (c.country) meta.push(escapeHtml(c.country));
+    if (c.format) meta.push(escapeHtml(c.format));
+    return ''
+      + '<button type="button" class="lookup-candidate js-candidate" data-idx="' + i + '">'
+      +   thumb
+      +   '<span>'
+      +     '<span class="lookup-candidate__title">' + escapeHtml(c.display_title || '(untitled)') + '</span>'
+      +     '<span class="lookup-candidate__meta">' + meta.join(' · ') + '</span>'
+      +   '</span>'
+      + '</button>';
+  }).join('');
+}
+
+async function acceptPressing(idx) {
+  var cand = lookupState.candidates[idx];
+  var id = lookupState.id;
+  if (!cand || !id) return;
+  var existing = allRecords.find(function (r) { return r.id === id; });
+  if (!existing) return;
+
+  // Write only the 5 additive pressing fields; everything else preserved.
+  var merged = Object.assign({}, existing, {
+    discogs_release_id: cand.discogs_release_id != null ? cand.discogs_release_id : null,
+    label: cand.label || null,
+    catalog_no: cand.catalog_no || null,
+    country: cand.country || null,
+    format: cand.format || null
+  });
+
+  var body = document.getElementById('lookup-body');
+  body.innerHTML = '<div class="lookup-status">Applying…</div>';
+  try {
+    await api('/api/records', { method: 'POST', body: JSON.stringify(merged) });
+    existing.discogs_release_id = merged.discogs_release_id;
+    existing.label = merged.label;
+    existing.catalog_no = merged.catalog_no;
+    existing.country = merged.country;
+    existing.format = merged.format;
+    closeLookup();
+    render();
+    toast('Pressing applied');
+  } catch (err) {
+    body.innerHTML = '<div class="lookup-status is-error">Apply failed: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function closeLookup() {
+  var modal = document.getElementById('lookup-modal');
+  if (modal) modal.hidden = true;
+  lookupState = { id: null, candidates: [] };
+}
+
 (async function init() {
   await loadRecords();
   const list = document.getElementById('audit-list');
@@ -628,6 +896,14 @@ async function uploadCover(id, file, coverEl) {
   });
 
   list.addEventListener('click', function (e) {
+    // Pressing lookup
+    const lookupBtn = e.target.closest('.js-lookup');
+    if (lookupBtn) {
+      const row = lookupBtn.closest('.audit-row');
+      if (row) openLookup(row.dataset.id);
+      return;
+    }
+    // Delete
     const btn = e.target.closest('.js-delete');
     if (!btn) return;
     const row = btn.closest('.audit-row');
@@ -655,6 +931,18 @@ async function uploadCover(id, file, coverEl) {
       if (!row) return;
       saveField(row.dataset.id, sel.dataset.field, sel.value, sel);
     }
+  });
+
+  // Lookup modal: backdrop click closes; candidate click accepts; Close button; Esc.
+  const modal = document.getElementById('lookup-modal');
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) { closeLookup(); return; }
+    const cand = e.target.closest('.js-candidate');
+    if (cand) { acceptPressing(parseInt(cand.dataset.idx, 10)); return; }
+  });
+  document.getElementById('lookup-close').addEventListener('click', closeLookup);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeLookup();
   });
 })();
 </script>
