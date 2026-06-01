@@ -1,5 +1,10 @@
 // Vinyl Scout — app.js
-// version: 19
+// version: 20
+// v20: genre browse rolled up to parent categories (text before "/"),
+//      collapsing the long tail of sub-genres into their lead genre.
+//      Chips + filter match by parent; cards show the parent genre;
+//      the detail modal still shows the full sub-genre. Search is
+//      unchanged (still matches the full genre string).
 // v19: docs-only deploy. /about.html and PROJECT.md rewritten to match v18
 //      reality (full Statistics block; scrape architecture; plain-text seed).
 //      No functional code changes. Cache-bust bumped so the corrected docs
@@ -78,6 +83,14 @@
     if (!g) return '—';
     return g.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
+  // v20: the lead category — text before the first slash.
+  // 'jazz / gypsy jazz' -> 'jazz'; 'reggae' -> 'reggae'.
+  function parentGenre(g) {
+    if (!g) return '';
+    var s = String(g);
+    var i = s.indexOf('/');
+    return (i === -1 ? s : s.slice(0, i)).trim();
+  }
 
   function formatPrice(amount, currency) {
     if (amount == null || isNaN(amount)) return null;
@@ -106,7 +119,7 @@
   function filtered() {
     var q = currentSearch.toLowerCase().trim();
     var out = allRecords.filter(function (r) {
-      if (currentGenre !== null && normalizeGenre(r.genre) !== currentGenre) return false;
+      if (currentGenre !== null && parentGenre(normalizeGenre(r.genre)) !== currentGenre) return false;
       if (q) {
         var hay = [r.artist, r.title, r.genre, r.year]
           .filter(Boolean).join(' ').toLowerCase();
@@ -126,7 +139,7 @@
   function renderChips() {
     var counts = new Map();
     for (var i = 0; i < allRecords.length; i++) {
-      var g = normalizeGenre(allRecords[i].genre);
+      var g = parentGenre(normalizeGenre(allRecords[i].genre));
       if (!g) continue;
       counts.set(g, (counts.get(g) || 0) + 1);
     }
@@ -182,7 +195,7 @@
           +   '<span class="row__artist">' + escapeHtml(r.artist || '—') + '</span>'
           +   '<span class="row__title">'  + escapeHtml(r.title  || '—') + '</span>'
           +   '<span class="row__year">'   + (r.year != null ? r.year : '') + '</span>'
-          +   '<span class="row__genre">'  + escapeHtml(r.genre || '') + '</span>'
+          +   '<span class="row__genre">'  + escapeHtml(r.genre ? genreLabel(parentGenre(normalizeGenre(r.genre))) : '') + '</span>'
           + '</button>';
       }).join('');
     } else {
@@ -194,7 +207,7 @@
           : '<div class="tile__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
         var metaParts = [];
         if (r.year != null) metaParts.push(r.year);
-        if (r.genre) metaParts.push(r.genre);
+        if (r.genre) metaParts.push(genreLabel(parentGenre(normalizeGenre(r.genre))));
         var meta = metaParts.length
           ? '<div class="tile__meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
           : '';
