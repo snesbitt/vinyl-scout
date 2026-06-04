@@ -18,3 +18,9 @@ retry.mjs
 # Local catalog exports and scratch notes
 catalog.json
 audit.txt
+
+# Editor / tooling .bak files (e.g. netlify.toml.bak)
+*.bak
+
+# Pre-apply scratch snapshots — not the canonical daily backups
+backups/pre-apply-*.json
