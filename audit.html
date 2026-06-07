@@ -400,6 +400,16 @@
       text-align: center;
     }
     .lookup-status.is-error { color: var(--accent); text-align: left; }
+    .lookup-fallback-note {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.03em;
+      color: var(--gold);
+      padding: 4px 0 14px;
+      line-height: 1.5;
+      border-bottom: 1px solid var(--rule-soft);
+      margin-bottom: 14px;
+    }
     .lookup-candidate {
       display: grid;
       grid-template-columns: 48px 1fr;
@@ -523,12 +533,12 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 14 (paired with style.css?v=19)
-// v14: Phase 2 polish — pressing modal opens with artist+title auto-run and
-//      RELEVANCE-first ranking (wrong-artist junk dropped, vinyl breaks ties).
-//      Number box = exact catalog/barcode; bottom box = free-text Discogs search
-//      or a pasted release URL → one exact release. (endpoint v5)
-// v12-13: catalog/barcode dual search; earlier release-ID path.
+// version: 15 (paired with style.css?v=19)
+// v15: Phase 2 polish — empty NUMBER search auto-falls-back to artist+title
+//      (many sleeve numbers are distributor/reissue codes not in Discogs' fields),
+//      with a visible note explaining the fallback. Never strands on a dead end.
+// v14: pressing modal opens with artist+title auto-run + RELEVANCE-first ranking;
+//      number box (catalog/barcode) + flexible Discogs search box. (endpoint v5)
 // v10: Phase 2 — Discogs pressing lookup (per-row "Pressing" button → candidate
 //      picker → accept writes 5 additive fields via the existing single-upsert).
 //      Lookup is a public GET to /api/discogs/lookup; accept POSTs to /api/records.
@@ -889,10 +899,12 @@ function renderSearchControls(rec) {
 }
 
 // Run a search. mode: 'meta' (artist+title), 'catno' (number), 'relid' (free text or URL).
-function runSearch(mode) {
+// `note` (optional) is shown above results, e.g. to explain a fallback.
+function runSearch(mode, note) {
   var rec = allRecords.find(function (r) { return r.id === lookupState.id; });
   if (!rec) return;
   var q = new URLSearchParams();
+  var attempted = mode;
   if (mode === 'relid') {
     var relEl = document.getElementById('lookup-relid');
     var rel = relEl ? relEl.value.trim() : '';
@@ -935,8 +947,16 @@ function runSearch(mode) {
       });
     })
     .then(function (data) {
-      lookupState.candidates = Array.isArray(data.candidates) ? data.candidates : [];
-      renderCandidates();
+      var cands = Array.isArray(data.candidates) ? data.candidates : [];
+      // Graceful fallback: a NUMBER search that finds nothing isn't a dead end —
+      // many sleeve numbers (distributor/reissue codes) aren't in Discogs' fields.
+      // Re-run as artist+title automatically so Susan is never stranded.
+      if (cands.length === 0 && attempted === 'catno' && (rec.artist || rec.title)) {
+        runSearch('meta', 'No Discogs match for that number — showing artist + title results instead.');
+        return;
+      }
+      lookupState.candidates = cands;
+      renderCandidates(note);
     })
     .catch(function (err) {
       setResults('<div class="lookup-status is-error">Lookup failed: ' + escapeHtml(err.message) + '</div>');
@@ -949,12 +969,15 @@ function setResults(html) {
   if (r) r.innerHTML = html;
 }
 
-function renderCandidates() {
+function renderCandidates(note) {
+  var noteHtml = note
+    ? '<div class="lookup-fallback-note">' + escapeHtml(note) + '</div>'
+    : '';
   if (!lookupState.candidates.length) {
-    setResults('<div class="lookup-status">No Discogs matches. Try the other search, or adjust your input.</div>');
+    setResults(noteHtml + '<div class="lookup-status">No Discogs matches. Try a different number, the artist + title, or a Discogs search.</div>');
     return;
   }
-  setResults(lookupState.candidates.map(function (c, i) {
+  setResults(noteHtml + lookupState.candidates.map(function (c, i) {
     var thumb = c.thumb
       ? '<img class="lookup-candidate__thumb" src="' + escapeHtml(c.thumb) + '" alt="">'
       : '<span class="lookup-candidate__thumb"></span>';
