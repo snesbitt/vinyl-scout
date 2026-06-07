@@ -1,10 +1,14 @@
 // netlify/functions/discogs-lookup.mjs
-// version: 4
+// version: 5
 // Phase 2 — Discogs lookup for pressing accuracy.
 // v2: added catno (catalog-number) search path.
 // v3: generic `id` param searches BOTH catno AND barcode fields and merges.
-// v4: added `release_id` path (fetch one exact release, no list) + vinyl-first
-//     ranking of artist+title results (LP/Vinyl up, CD/digital down).
+// v4: added `release_id` path + format-based ranking.
+// v5: FIXES — (a) only send non-empty search params (empty q made Discogs ignore
+//     artist/title and return wrong-artist junk); (b) RELEVANCE-first ranking
+//     (drop/sink candidates that don't match the searched artist+title, vinyl
+//     only breaks ties); (c) release_id rejects non-release URLs (search-page
+//     links no longer fetch a random release). Free-text `q` search supported.
 //
 // PURE READ. This function queries the Discogs search API and returns
 // candidate releases. It NEVER touches the Netlify Blobs "records" store
@@ -49,14 +53,28 @@ export default async (req) => {
   // OR a barcode. We don't make Susan know which; we search both Discogs fields.
   // `catno` is still accepted for backward-compat and maps into the same path.
   const id = (url.searchParams.get("id") || url.searchParams.get("catno") || "").trim();
-  // `release_id` is the unambiguous Discogs release ID — fetches exactly one.
-  // Accept a bare number or anything containing /release/<digits> (a pasted URL);
-  // we extract the digits client-side, but also defensively parse here.
+  // `release_id` must be an ACTUAL release reference, not any stray number.
+  // Accept: a bare all-digit string, OR a URL/text containing /release/<digits>.
+  // A search-page URL (discogs.com/search?...) has NO /release/ and is NOT a
+  // bare number, so it is correctly rejected instead of fetching a wrong release.
   const releaseRaw = (url.searchParams.get("release_id") || "").trim();
-  const releaseMatch = releaseRaw.match(/(\d{2,})/);
-  const releaseId = releaseMatch ? releaseMatch[1] : "";
+  let releaseId = "";
+  let releaseBad = false;
+  if (releaseRaw) {
+    const fromUrl = releaseRaw.match(/\/release\/(\d+)/);
+    if (fromUrl) {
+      releaseId = fromUrl[1];
+    } else if (/^\d+$/.test(releaseRaw)) {
+      releaseId = releaseRaw;            // a clean bare ID
+    } else {
+      releaseBad = true;                 // text given but no usable release ref
+    }
+  }
   const q = (url.searchParams.get("q") || "").trim();
 
+  if (releaseBad) {
+    return json({ error: "That doesn't look like a Discogs release. Paste a release ID (just the number) or a release URL ending in /release/NNNN — a search-results link won't work." }, 400);
+  }
   if (!artist && !title && !id && !releaseId && !q) {
     return json({ error: "Provide at least one of: artist, title, id, release_id, q" }, 400);
   }
@@ -133,20 +151,52 @@ export default async (req) => {
     }];
   }
 
-  // Rank candidates vinyl-first: LP / Vinyl float up, CD / digital / file sink.
-  // Stable within a tier (preserves Discogs' own relevance order).
-  function rankVinylFirst(list) {
-    function tier(c) {
-      const f = (c.format || "").toLowerCase();
-      if (/vinyl|lp|7"|10"|12"/.test(f)) return 0;            // vinyl first
-      if (/cd|cassette|dvd|sacd/.test(f)) return 2;           // physical non-vinyl
-      if (/file|digital|flac|mp3|streaming/.test(f)) return 3; // digital last
-      return 1;                                                // unknown/other
+  // Rank candidates: RELEVANCE first (does it actually match what was searched?),
+  // then vinyl-first as a tie-breaker among genuine matches. This stops a
+  // wrong-artist vinyl record (e.g. a random EP) from floating to the top.
+  // `want` is { artist, title } when known (artist+title search), else null.
+  function rankCandidates(list, want) {
+    function norm(s) {
+      return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     }
+    function tokens(s) { return norm(s).split(" ").filter(Boolean); }
+
+    var wantArtistTok = want ? tokens(want.artist) : [];
+    var wantTitleTok = want ? tokens(want.title) : [];
+
+    function formatTier(c) {
+      var f = (c.format || "").toLowerCase();
+      if (/vinyl|lp|7"|10"|12"/.test(f)) return 0;            // vinyl best
+      if (/cd|cassette|dvd|sacd/.test(f)) return 2;
+      if (/file|digital|flac|mp3|streaming/.test(f)) return 3; // digital worst
+      return 1;
+    }
+
+    // Relevance score: fraction of wanted artist+title tokens present in the
+    // candidate's display title. Higher is better. 1.0 = every token present.
+    function relevance(c) {
+      if (!want) return 1; // free-text/number search: trust Discogs' own order
+      var hay = norm(c.display_title);
+      var all = wantArtistTok.concat(wantTitleTok);
+      if (!all.length) return 1;
+      var hit = 0;
+      for (var i = 0; i < all.length; i++) {
+        if (hay.indexOf(all[i]) !== -1) hit++;
+      }
+      return hit / all.length;
+    }
+
     return list
-      .map((c, i) => ({ c: c, i: i, t: tier(c) }))
-      .sort((a, b) => (a.t - b.t) || (a.i - b.i))
-      .map((x) => x.c);
+      .map(function (c, i) { return { c: c, i: i, rel: relevance(c), ft: formatTier(c) }; })
+      // Drop candidates that match almost nothing of a known artist+title (junk).
+      .filter(function (x) { return !want || x.rel >= 0.34; })
+      // Sort: higher relevance first; then vinyl-first; then Discogs' own order.
+      .sort(function (a, b) {
+        if (b.rel !== a.rel) return b.rel - a.rel;
+        if (a.ft !== b.ft) return a.ft - b.ft;
+        return a.i - b.i;
+      })
+      .map(function (x) { return x.c; });
   }
 
   // Decide which searches to run.
@@ -174,11 +224,19 @@ export default async (req) => {
         candidates.push(c);
       }
     } else {
-      candidates = rankVinylFirst(await searchDiscogs({
-        artist: artist,
-        release_title: title,
-        q: q,
-      }));
+      // Build params with ONLY non-empty fields. Sending an empty q alongside
+      // artist/release_title made Discogs ignore the structured fields and return
+      // junk (the Pete Moss bug). want=relevance target when artist+title given.
+      var params = {};
+      var want = null;
+      if (q) {
+        params.q = q;                       // free-text search; trust Discogs order
+      } else {
+        if (artist) params.artist = artist;
+        if (title) params.release_title = title;
+        want = { artist: artist, title: title };
+      }
+      candidates = rankCandidates(await searchDiscogs(params), want);
     }
   } catch (err) {
     if (err.upstream) return json({ error: err.message }, 502);
