@@ -1,7 +1,10 @@
 // netlify/functions/discogs-lookup.mjs
-// version: 2
+// version: 3
 // Phase 2 — Discogs lookup for pressing accuracy.
 // v2: added catno (catalog-number) search path.
+// v3: generic `id` param searches BOTH catno AND barcode fields and merges —
+//     a number on a sleeve can be either, and Discogs files them separately.
+//     `catno` param still accepted (maps to the same dual search).
 //
 // PURE READ. This function queries the Discogs search API and returns
 // candidate releases. It NEVER touches the Netlify Blobs "records" store
@@ -42,67 +45,84 @@ export default async (req) => {
   const url = new URL(req.url);
   const artist = (url.searchParams.get("artist") || "").trim();
   const title = (url.searchParams.get("title") || "").trim();
-  const catno = (url.searchParams.get("catno") || "").trim();
+  // `id` is a generic identifier off the sleeve — could be a catalog number
+  // OR a barcode. We don't make Susan know which; we search both Discogs fields.
+  // `catno` is still accepted for backward-compat and maps into the same path.
+  const id = (url.searchParams.get("id") || url.searchParams.get("catno") || "").trim();
   const q = (url.searchParams.get("q") || "").trim();
 
-  if (!artist && !title && !catno && !q) {
-    return json({ error: "Provide at least one of: artist, title, catno, q" }, 400);
+  if (!artist && !title && !id && !q) {
+    return json({ error: "Provide at least one of: artist, title, id, q" }, 400);
   }
 
-  // Build the Discogs search query (releases only).
-  // catno is Discogs' native catalog-number field — the most precise way to
-  // pin an exact pressing. It's an additive search path; artist/title still work.
-  const search = new URLSearchParams();
-  search.set("type", "release");
-  if (artist) search.set("artist", artist);
-  if (title) search.set("release_title", title);
-  if (catno) search.set("catno", catno);
-  if (q) search.set("q", q);
-  search.set("per_page", "10");
-
-  const discogsUrl = "https://api.discogs.com/database/search?" + search.toString();
-
-  let res;
-  try {
-    res = await fetch(discogsUrl, {
+  // Helper: run one Discogs release search from a params object, return mapped candidates.
+  async function searchDiscogs(paramsObj) {
+    const search = new URLSearchParams();
+    search.set("type", "release");
+    for (const [k, v] of Object.entries(paramsObj)) {
+      if (v) search.set(k, v);
+    }
+    search.set("per_page", "10");
+    const discogsUrl = "https://api.discogs.com/database/search?" + search.toString();
+    const res = await fetch(discogsUrl, {
       headers: {
-        // Token via header, not in the URL.
         "Authorization": "Discogs token=" + token,
-        // Discogs requires a descriptive User-Agent.
         "User-Agent": "VinylScout/1.0 +https://vinylscout.org",
       },
     });
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).message || ""; } catch (e) {}
+      const err = new Error("Discogs returned HTTP " + res.status + (detail ? " — " + detail : ""));
+      err.upstream = true;
+      throw err;
+    }
+    const data = await res.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+    return results.map((r) => ({
+      discogs_release_id: typeof r.id === "number" ? r.id : null,
+      display_title: r.title || null,
+      year: r.year ? parseInt(r.year, 10) || null : null,
+      label: Array.isArray(r.label) && r.label.length ? r.label[0] : null,
+      catalog_no: r.catno || null,
+      country: r.country || null,
+      format: Array.isArray(r.format) && r.format.length ? r.format.join(", ") : null,
+      thumb: r.thumb || null,
+    }));
+  }
+
+  // Decide which searches to run.
+  // - identifier (id): query BOTH catno and barcode, merge — the number on a
+  //   sleeve can be either, and Discogs files them in separate fields.
+  // - otherwise: a single artist/title/q search as before.
+  let candidates;
+  try {
+    if (id) {
+      const [byCatno, byBarcode] = await Promise.all([
+        searchDiscogs({ catno: id }),
+        searchDiscogs({ barcode: id }),
+      ]);
+      // Merge, deduping by release id (catno matches first, then any new barcode ones).
+      const seen = new Set();
+      candidates = [];
+      for (const c of byCatno.concat(byBarcode)) {
+        const key = c.discogs_release_id;
+        if (key == null) { candidates.push(c); continue; }
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push(c);
+      }
+    } else {
+      candidates = await searchDiscogs({
+        artist: artist,
+        release_title: title,
+        q: q,
+      });
+    }
   } catch (err) {
+    if (err.upstream) return json({ error: err.message }, 502);
     return json({ error: "Could not reach Discogs: " + err.message }, 502);
   }
-
-  if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json()).message || ""; } catch (e) {}
-    return json({ error: "Discogs returned HTTP " + res.status + (detail ? " — " + detail : "") }, 502);
-  }
-
-  let data;
-  try {
-    data = await res.json();
-  } catch (err) {
-    return json({ error: "Could not parse Discogs response: " + err.message }, 502);
-  }
-
-  const results = Array.isArray(data.results) ? data.results : [];
-
-  // Map to a slim candidate shape that mirrors our 5 additive fields,
-  // plus a thumbnail + display title to help Susan pick the right pressing.
-  const candidates = results.map((r) => ({
-    discogs_release_id: typeof r.id === "number" ? r.id : null,
-    display_title: r.title || null,                 // usually "Artist - Album"
-    year: r.year ? parseInt(r.year, 10) || null : null,
-    label: Array.isArray(r.label) && r.label.length ? r.label[0] : null,
-    catalog_no: r.catno || null,
-    country: r.country || null,
-    format: Array.isArray(r.format) && r.format.length ? r.format.join(", ") : null,
-    thumb: r.thumb || null,
-  }));
 
   return json({ candidates }, 200);
 };

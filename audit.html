@@ -384,6 +384,14 @@
       -webkit-appearance: none;
     }
     .lookup-search__input:focus { outline: none; border-color: var(--accent); }
+    .lookup-search__note {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--ink-faint);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
     .lookup-status {
       font-family: var(--mono);
       font-size: 12px;
@@ -515,10 +523,11 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 11 (paired with style.css?v=19)
-// v11: Phase 2 polish — search-type chooser in the pressing modal: pick
-//      artist+title (prefilled) OR catalog number before the search runs.
-//      Catalog search hits /api/discogs/lookup?catno=… (endpoint v2).
+// version: 12 (paired with style.css?v=19)
+// v12: Phase 2 polish — number search now checks BOTH catalog number AND
+//      barcode (sends ?id=…; endpoint v3 queries both Discogs fields & merges).
+//      Field relabeled "Catalog # or barcode" since sleeve numbers can be either.
+// v11: search-type chooser in the pressing modal: artist+title OR a number.
 // v10: Phase 2 — Discogs pressing lookup (per-row "Pressing" button → candidate
 //      picker → accept writes 5 additive fields via the existing single-upsert).
 //      Lookup is a public GET to /api/discogs/lookup; accept POSTs to /api/records.
@@ -861,9 +870,10 @@ function renderSearchControls(rec) {
     +   '</div>'
     +   '<div class="lookup-search__or">or</div>'
     +   '<div class="lookup-search__row">'
-    +     '<input type="text" id="lookup-catno" class="lookup-search__input" placeholder="Catalog number, e.g. 2438449781" autocomplete="off" spellcheck="false" inputmode="latin">'
-    +     '<button type="button" class="lookup-search__btn js-search-catno">Search catalog #</button>'
+    +     '<input type="text" id="lookup-catno" class="lookup-search__input" placeholder="Catalog # or barcode, e.g. 7599-23703-1" autocomplete="off" spellcheck="false" inputmode="latin">'
+    +     '<button type="button" class="lookup-search__btn js-search-catno">Search number</button>'
     +   '</div>'
+    +   '<div class="lookup-search__note">Type any number off the sleeve — catalog number or barcode. Both are checked.</div>'
     + '</div>'
     + '<div id="lookup-results"></div>';
 }
@@ -877,10 +887,10 @@ function runSearch(mode) {
     var catEl = document.getElementById('lookup-catno');
     var catno = catEl ? catEl.value.trim() : '';
     if (!catno) {
-      setResults('<div class="lookup-status is-error">Enter a catalog number first.</div>');
+      setResults('<div class="lookup-status is-error">Enter a catalog number or barcode first.</div>');
       return;
     }
-    q.set('catno', catno);
+    q.set('id', catno);
   } else {
     if (rec.artist) q.set('artist', rec.artist);
     if (rec.title) q.set('title', rec.title);
