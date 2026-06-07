@@ -523,10 +523,10 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 12 (paired with style.css?v=19)
-// v12: Phase 2 polish — number search now checks BOTH catalog number AND
-//      barcode (sends ?id=…; endpoint v3 queries both Discogs fields & merges).
-//      Field relabeled "Catalog # or barcode" since sleeve numbers can be either.
+// version: 13 (paired with style.css?v=19)
+// v13: Phase 2 polish — third search path: exact Discogs release ID/URL (one
+//      result, no list). artist+title results now ranked vinyl-first (endpoint v4).
+// v12: number search checks BOTH catalog number AND barcode (?id=…; endpoint v3).
 // v11: search-type chooser in the pressing modal: artist+title OR a number.
 // v10: Phase 2 — Discogs pressing lookup (per-row "Pressing" button → candidate
 //      picker → accept writes 5 additive fields via the existing single-upsert).
@@ -844,7 +844,8 @@ async function uploadCover(id, file, coverEl) {
 // ---- Phase 2: Discogs pressing lookup ----
 // lookupState holds the record being looked up and the candidates returned,
 // so an accept click can reference the exact candidate by index.
-// v11: search-type chooser — pick artist+title OR catalog number before running.
+// v13: three search paths — artist+title (vinyl-ranked), catalog#/barcode,
+//      and exact Discogs release ID/URL (one result, no list).
 var lookupState = { id: null, candidates: [] };
 
 function openLookup(id) {
@@ -874,6 +875,12 @@ function renderSearchControls(rec) {
     +     '<button type="button" class="lookup-search__btn js-search-catno">Search number</button>'
     +   '</div>'
     +   '<div class="lookup-search__note">Type any number off the sleeve — catalog number or barcode. Both are checked.</div>'
+    +   '<div class="lookup-search__or">or</div>'
+    +   '<div class="lookup-search__row">'
+    +     '<input type="text" id="lookup-relid" class="lookup-search__input" placeholder="Discogs release ID or URL" autocomplete="off" spellcheck="false" inputmode="latin">'
+    +     '<button type="button" class="lookup-search__btn js-search-relid">Go to exact release</button>'
+    +   '</div>'
+    +   '<div class="lookup-search__note">Most precise — paste a Discogs ID or the URL ending in /release/NNNN. Returns one result, no list.</div>'
     + '</div>'
     + '<div id="lookup-results"></div>';
 }
@@ -883,7 +890,16 @@ function runSearch(mode) {
   var rec = allRecords.find(function (r) { return r.id === lookupState.id; });
   if (!rec) return;
   var q = new URLSearchParams();
-  if (mode === 'catno') {
+  if (mode === 'relid') {
+    var relEl = document.getElementById('lookup-relid');
+    var rel = relEl ? relEl.value.trim() : '';
+    if (!rel) {
+      setResults('<div class="lookup-status is-error">Paste a Discogs release ID or URL first.</div>');
+      return;
+    }
+    // Accept a bare number or a pasted URL; the endpoint extracts the digits too.
+    q.set('release_id', rel);
+  } else if (mode === 'catno') {
     var catEl = document.getElementById('lookup-catno');
     var catno = catEl ? catEl.value.trim() : '';
     if (!catno) {
@@ -1054,15 +1070,15 @@ function closeLookup() {
     if (e.target === modal) { closeLookup(); return; }
     if (e.target.closest('.js-search-meta')) { runSearch('meta'); return; }
     if (e.target.closest('.js-search-catno')) { runSearch('catno'); return; }
+    if (e.target.closest('.js-search-relid')) { runSearch('relid'); return; }
     const cand = e.target.closest('.js-candidate');
     if (cand) { acceptPressing(parseInt(cand.dataset.idx, 10)); return; }
   });
-  // Enter inside the catalog-number field runs the catalog search.
+  // Enter inside either number field runs that search.
   modal.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target.id === 'lookup-catno') {
-      e.preventDefault();
-      runSearch('catno');
-    }
+    if (e.key !== 'Enter') return;
+    if (e.target.id === 'lookup-catno') { e.preventDefault(); runSearch('catno'); }
+    else if (e.target.id === 'lookup-relid') { e.preventDefault(); runSearch('relid'); }
   });
   document.getElementById('lookup-close').addEventListener('click', closeLookup);
   document.addEventListener('keydown', function (e) {
