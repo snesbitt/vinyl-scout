@@ -325,6 +325,65 @@
       color: var(--ink-faint);
       margin-bottom: 16px;
     }
+    /* v11 — search-type chooser (artist+title OR catalog number) */
+    .lookup-search {
+      border: 1px solid var(--rule-soft);
+      border-radius: 2px;
+      padding: 14px;
+      margin-bottom: 16px;
+      background: var(--bg-soft);
+    }
+    .lookup-search__row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .lookup-search__btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 12px 14px;
+      background: transparent;
+      border: 1px solid var(--rule);
+      color: var(--ink-soft);
+      cursor: pointer;
+      border-radius: 2px;
+      min-height: 44px;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .lookup-search__btn:hover { border-color: var(--gold); color: var(--gold); }
+    .lookup-search__hint {
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-soft);
+      font-style: italic;
+    }
+    .lookup-search__or {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      text-align: center;
+      margin: 10px 0;
+    }
+    .lookup-search__input {
+      flex: 1;
+      min-width: 180px;
+      font-family: var(--mono);
+      font-size: 16px; /* ≥16px: no iOS zoom */
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 11px 12px;
+      border-radius: 2px;
+      color: var(--ink);
+      min-height: 44px;
+      -webkit-appearance: none;
+    }
+    .lookup-search__input:focus { outline: none; border-color: var(--accent); }
     .lookup-status {
       font-family: var(--mono);
       font-size: 12px;
@@ -432,7 +491,7 @@
 </section>
 
 <div class="audit-help">
-  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up label/catalog no. on Discogs. Condition uses Goldmine grading — see <a href='/about#grading'>About</a>.
+  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up a release on Discogs by artist+title or by catalog number. Condition uses Goldmine grading — see <a href='/about#grading'>About</a>.
 </div>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
@@ -456,13 +515,15 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 10 (paired with style.css?v=19)
+// version: 11 (paired with style.css?v=19)
+// v11: Phase 2 polish — search-type chooser in the pressing modal: pick
+//      artist+title (prefilled) OR catalog number before the search runs.
+//      Catalog search hits /api/discogs/lookup?catno=… (endpoint v2).
 // v10: Phase 2 — Discogs pressing lookup (per-row "Pressing" button → candidate
 //      picker → accept writes 5 additive fields via the existing single-upsert).
 //      Lookup is a public GET to /api/discogs/lookup; accept POSTs to /api/records.
-// v14: condition value still stored as short code, displayed as spelled name.
 // Single-record ops only. No bulk delete, no auto-dedup, no background mutation.
-// v2 added condition select column (Goldmine grading, default VG).
+// Condition select column uses Goldmine grading (default VG), stored as short code.
 
 const GRADES = ['M', 'NM', 'VG+', 'VG', 'G+', 'G', 'F', 'P'];
 const CONDITION_NAMES = {
@@ -774,6 +835,7 @@ async function uploadCover(id, file, coverEl) {
 // ---- Phase 2: Discogs pressing lookup ----
 // lookupState holds the record being looked up and the candidates returned,
 // so an accept click can reference the exact candidate by index.
+// v11: search-type chooser — pick artist+title OR catalog number before running.
 var lookupState = { id: null, candidates: [] };
 
 function openLookup(id) {
@@ -783,12 +845,52 @@ function openLookup(id) {
   var modal = document.getElementById('lookup-modal');
   document.getElementById('lookup-title').textContent = 'Pressing lookup';
   document.getElementById('lookup-sub').textContent = (rec.artist || '?') + ' — ' + (rec.title || '?');
-  document.getElementById('lookup-body').innerHTML = '<div class="lookup-status">Searching Discogs…</div>';
+  // Show the search chooser first; nothing runs until Susan picks a mode.
+  renderSearchControls(rec);
   modal.hidden = false;
+}
 
+// Render the search-type chooser + a results area beneath it.
+function renderSearchControls(rec) {
+  var body = document.getElementById('lookup-body');
+  body.innerHTML = ''
+    + '<div class="lookup-search">'
+    +   '<div class="lookup-search__row">'
+    +     '<button type="button" class="lookup-search__btn js-search-meta">Search artist + title</button>'
+    +     '<span class="lookup-search__hint">' + escapeHtml((rec.artist || '?') + ' — ' + (rec.title || '?')) + '</span>'
+    +   '</div>'
+    +   '<div class="lookup-search__or">or</div>'
+    +   '<div class="lookup-search__row">'
+    +     '<input type="text" id="lookup-catno" class="lookup-search__input" placeholder="Catalog number, e.g. 2438449781" autocomplete="off" spellcheck="false" inputmode="latin">'
+    +     '<button type="button" class="lookup-search__btn js-search-catno">Search catalog #</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="lookup-results"></div>';
+}
+
+// Run a search. mode is 'meta' (artist+title) or 'catno' (catalog number).
+function runSearch(mode) {
+  var rec = allRecords.find(function (r) { return r.id === lookupState.id; });
+  if (!rec) return;
   var q = new URLSearchParams();
-  if (rec.artist) q.set('artist', rec.artist);
-  if (rec.title) q.set('title', rec.title);
+  if (mode === 'catno') {
+    var catEl = document.getElementById('lookup-catno');
+    var catno = catEl ? catEl.value.trim() : '';
+    if (!catno) {
+      setResults('<div class="lookup-status is-error">Enter a catalog number first.</div>');
+      return;
+    }
+    q.set('catno', catno);
+  } else {
+    if (rec.artist) q.set('artist', rec.artist);
+    if (rec.title) q.set('title', rec.title);
+    if (!rec.artist && !rec.title) {
+      setResults('<div class="lookup-status is-error">This record has no artist or title to search.</div>');
+      return;
+    }
+  }
+
+  setResults('<div class="lookup-status">Searching Discogs…</div>');
 
   // Lookup is a public GET (no edit secret); accepting a pressing is the write.
   fetch('/api/discogs/lookup?' + q.toString())
@@ -803,18 +905,22 @@ function openLookup(id) {
       renderCandidates();
     })
     .catch(function (err) {
-      document.getElementById('lookup-body').innerHTML =
-        '<div class="lookup-status is-error">Lookup failed: ' + escapeHtml(err.message) + '</div>';
+      setResults('<div class="lookup-status is-error">Lookup failed: ' + escapeHtml(err.message) + '</div>');
     });
 }
 
+// Write into the results area, leaving the search chooser in place.
+function setResults(html) {
+  var r = document.getElementById('lookup-results');
+  if (r) r.innerHTML = html;
+}
+
 function renderCandidates() {
-  var body = document.getElementById('lookup-body');
   if (!lookupState.candidates.length) {
-    body.innerHTML = '<div class="lookup-status">No Discogs matches. Adjust the artist/title and try again.</div>';
+    setResults('<div class="lookup-status">No Discogs matches. Try the other search, or adjust your input.</div>');
     return;
   }
-  body.innerHTML = lookupState.candidates.map(function (c, i) {
+  setResults(lookupState.candidates.map(function (c, i) {
     var thumb = c.thumb
       ? '<img class="lookup-candidate__thumb" src="' + escapeHtml(c.thumb) + '" alt="">'
       : '<span class="lookup-candidate__thumb"></span>';
@@ -832,7 +938,7 @@ function renderCandidates() {
       +     '<span class="lookup-candidate__meta">' + meta.join(' · ') + '</span>'
       +   '</span>'
       + '</button>';
-  }).join('');
+  }).join(''));
 }
 
 async function acceptPressing(idx) {
@@ -851,8 +957,7 @@ async function acceptPressing(idx) {
     format: cand.format || null
   });
 
-  var body = document.getElementById('lookup-body');
-  body.innerHTML = '<div class="lookup-status">Applying…</div>';
+  setResults('<div class="lookup-status">Applying…</div>');
   try {
     await api('/api/records', { method: 'POST', body: JSON.stringify(merged) });
     existing.discogs_release_id = merged.discogs_release_id;
@@ -864,7 +969,7 @@ async function acceptPressing(idx) {
     render();
     toast('Pressing applied');
   } catch (err) {
-    body.innerHTML = '<div class="lookup-status is-error">Apply failed: ' + escapeHtml(err.message) + '</div>';
+    setResults('<div class="lookup-status is-error">Apply failed: ' + escapeHtml(err.message) + '</div>');
   }
 }
 
@@ -937,8 +1042,17 @@ function closeLookup() {
   const modal = document.getElementById('lookup-modal');
   modal.addEventListener('click', function (e) {
     if (e.target === modal) { closeLookup(); return; }
+    if (e.target.closest('.js-search-meta')) { runSearch('meta'); return; }
+    if (e.target.closest('.js-search-catno')) { runSearch('catno'); return; }
     const cand = e.target.closest('.js-candidate');
     if (cand) { acceptPressing(parseInt(cand.dataset.idx, 10)); return; }
+  });
+  // Enter inside the catalog-number field runs the catalog search.
+  modal.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.id === 'lookup-catno') {
+      e.preventDefault();
+      runSearch('catno');
+    }
   });
   document.getElementById('lookup-close').addEventListener('click', closeLookup);
   document.addEventListener('keydown', function (e) {

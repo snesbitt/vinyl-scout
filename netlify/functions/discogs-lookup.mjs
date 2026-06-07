@@ -1,6 +1,7 @@
 // netlify/functions/discogs-lookup.mjs
-// version: 1
+// version: 2
 // Phase 2 — Discogs lookup for pressing accuracy.
+// v2: added catno (catalog-number) search path.
 //
 // PURE READ. This function queries the Discogs search API and returns
 // candidate releases. It NEVER touches the Netlify Blobs "records" store
@@ -41,17 +42,21 @@ export default async (req) => {
   const url = new URL(req.url);
   const artist = (url.searchParams.get("artist") || "").trim();
   const title = (url.searchParams.get("title") || "").trim();
+  const catno = (url.searchParams.get("catno") || "").trim();
   const q = (url.searchParams.get("q") || "").trim();
 
-  if (!artist && !title && !q) {
-    return json({ error: "Provide at least one of: artist, title, q" }, 400);
+  if (!artist && !title && !catno && !q) {
+    return json({ error: "Provide at least one of: artist, title, catno, q" }, 400);
   }
 
   // Build the Discogs search query (releases only).
+  // catno is Discogs' native catalog-number field — the most precise way to
+  // pin an exact pressing. It's an additive search path; artist/title still work.
   const search = new URLSearchParams();
   search.set("type", "release");
   if (artist) search.set("artist", artist);
   if (title) search.set("release_title", title);
+  if (catno) search.set("catno", catno);
   if (q) search.set("q", q);
   search.set("per_page", "10");
 
