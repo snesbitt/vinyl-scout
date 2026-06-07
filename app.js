@@ -1,5 +1,8 @@
 // Vinyl Scout — app.js
-// version: 20
+// version: 21
+// v21: soft collection value on home page — sums stored prices (price_median,
+//      price_low fallback) grouped by currency, shows "X of Y priced" coverage.
+//      Pure read of already-stored data; no network, no re-pricing.
 // v20: genre browse rolled up to parent categories (text before "/"),
 //      collapsing the long tail of sub-genres into their lead genre.
 //      Chips + filter match by parent; cards show the parent genre;
@@ -100,6 +103,40 @@
     return symbol + n.toFixed(2);
   }
 
+  // Soft collection value: sum stored prices across the catalog. Pure read of
+  // already-stored data (no network, no re-pricing). Prefers price_median,
+  // falls back to price_low. Groups by currency so we never add across them.
+  function collectionValue() {
+    var byCur = {};      // currency -> summed amount
+    var priced = 0;      // how many records contributed
+    for (var i = 0; i < allRecords.length; i++) {
+      var r = allRecords[i];
+      var amt = (r.price_median != null && !isNaN(r.price_median)) ? Number(r.price_median)
+              : (r.price_low != null && !isNaN(r.price_low)) ? Number(r.price_low)
+              : null;
+      if (amt == null) continue;
+      var cur = r.price_currency || 'USD';
+      byCur[cur] = (byCur[cur] || 0) + amt;
+      priced++;
+    }
+    return { byCur: byCur, priced: priced, total: allRecords.length };
+  }
+
+  function renderCollectionValue() {
+    var el = $('collection-value');
+    if (!el) return;
+    var v = collectionValue();
+    if (v.priced === 0) { el.hidden = true; el.textContent = ''; return; }
+    var parts = [];
+    for (var cur in v.byCur) {
+      if (Object.prototype.hasOwnProperty.call(v.byCur, cur)) {
+        parts.push('\u2248 ' + formatPrice(v.byCur[cur], cur));
+      }
+    }
+    el.textContent = parts.join(' + ') + '  \u00b7  ' + v.priced + ' of ' + v.total + ' priced';
+    el.hidden = false;
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/records?bust=' + Date.now());
@@ -176,6 +213,8 @@
     $('count').textContent = (records.length === total)
       ? total + (total === 1 ? ' record' : ' records')
       : records.length + ' of ' + total;
+
+    renderCollectionValue();
 
     var main = $('main');
     if (records.length === 0) {
