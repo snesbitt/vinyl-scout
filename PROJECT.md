@@ -1,8 +1,10 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 5 · **Last revised:** 2026-06-01
+**Version:** 7 · **Last revised:** 2026-06-06
 
 **Changelog**
+- **v7 (2026-06-06)** — **Doc reconciliation + soft collection value shipped** (`app.js` v21). TWO things this charter had WRONG, now corrected against the live site: (1) **Pricing is NOT parked — it is LIVE.** A per-record Discogs market feature is deployed: each record's detail view has a "Refresh from Discogs" button pulling cheapest listing, sales-history median/high/low, last-sold date, copies-for-sale, and Have/Want community counts; records carry `price_low/median/high`, `price_currency`, `price_last_sold`, `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_updated_at`, `discogs_release_id`. (2) The home page now shows a **soft collection-value total** — sums stored `price_median` (falls back to `price_low`) grouped by currency, with "X of Y priced" coverage (currently ≈ €253.70 · 16 of 92). Pure read of stored data; no re-pricing on load, no background mutation. Catalog is 92 records. NOTE: the deployed About/roadmap pages still carried stale/aspirational copy and scrambled phase numbers as of this session — corrected alongside this charter.
+- **v6 (2026-06-06)** — **Phase 2 polish round shipped** (audit `version: 15`, endpoint `version: 5`). The pressing lookup now has three search paths and graceful fallback: (1) **artist + title**, auto-run when the modal opens, **relevance-ranked** (candidates that don't match the searched artist/title are dropped; vinyl/LP only breaks ties among real matches — fixes a wrong-artist bug where format-only ranking floated junk to the top); (2) **catalog # or barcode** off the sleeve — queries BOTH Discogs `catno` AND `barcode` fields and merges (a sleeve number can be either); (3) a **flexible Discogs search box** — free text to search-and-pick, or paste a release URL/ID to jump to one exact release (a search-page URL is rejected cleanly, no stray-digit fetches). **Empty-number fallback:** if a catalog/barcode search finds nothing (common — many sleeve numbers are distributor/reissue codes Discogs never indexed, e.g. UMG Back-to-Black product codes), it auto-re-runs as artist+title with a visible note. Confirmed: catalog number alone is NOT a single source of truth — fallbacks are load-bearing, not clutter.
 - **v5 (2026-06-01)** — **Phase 2 shipped and live** (`/api/discogs/lookup` + `/audit.html` v10 deployed; `DISCOGS_TOKEN` set in Netlify; endpoint confirmed returning real candidates). Reconciled two drifts found while reading the live `audit.html`: (a) added the live **`condition`** field (Goldmine grade short-code, default `VG`) to the schema; (b) corrected the cover mechanism — audit-page uploads POST to **`/api/save-cover`** which returns a hosted `cover_url`, NOT a `data:` URL as v3 stated. The lookup endpoint is intentionally **ungated** (pure read of public Discogs data; needs only `DISCOGS_TOKEN`).
 - **v4 (2026-06-01)** — Unparked **Phase 2 (Discogs lookup for pressing accuracy)** as an owner decision. Scoped as a manual, per-record, propose-and-confirm lookup: a pure-read lookup endpoint returns Discogs candidates; accepting a pressing writes via the existing single-upsert path. Five additive optional fields (`discogs_release_id`, `label`, `catalog_no`, `country`, `format`). No auto-sync, no background enrichment. Discogs token handled server-side like the edit secret.
 - **v3 (2026-06-01)** — Adopted the cover-art source policy: Apple Music primary, Wikipedia Special:FilePath fallback, audit-page data-URL upload as the durable backstop. Dropped Cover Art Archive as a primary source after it link-rotted on Portishead *Dummy*. Catalog at 93 records (duplicates cleared, flagged records resolved).
@@ -13,7 +15,7 @@
 
 ## Identity
 
-**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~75 LPs; the catalog currently holds 93 records (real seeding done, duplicates cleared and flagged titles resolved). She works primarily from mobile (iPhone, Safari).
+**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~100 LPs; the catalog currently holds 92 records. She works primarily from mobile (iPhone, Safari).
 
 The site is **publicly viewable but not advertised**: it's excluded from search engines (noindex), and the only people who edit it are those who hold the edit secret. It is not a private/login-walled site — anyone with the URL can view the gallery.
 
@@ -56,10 +58,9 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ### Parked for future phases — do not start
 
-- Phase 3: Pricing & marketplace
-- Phase 4: Listing & selling
+- Phase 4: Listing & selling helpers (generate a ready-to-paste Discogs listing; the sale itself happens on Discogs)
 
-(Phase 2 was unparked in v4 — see the Phase 2 section below.) When asked about a still-parked feature, say "that's Phase N, parked" and stop.
+(Phase 2 pressing lookup shipped — see its section below. Phase 3 pricing/market data is ALSO already live: per-record "Refresh from Discogs" plus the home-page soft collection total. Only Phase 4 remains unbuilt.) When asked about a still-parked feature, say "that's Phase 4, parked" and stop.
 
 ---
 
@@ -229,7 +230,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `POST /api/records` — edit-secret required; upsert one record by `id`
 - `DELETE /api/records/:id` — edit-secret required; delete one record by `id`
 - `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled function runs the same nightly.
-- `GET  /api/discogs/lookup` *(Phase 2)* — queries Discogs for candidate pressings; returns JSON candidates. Pure read; never writes to the records store. Uses the Discogs token from a server-side env var.
+- `GET  /api/discogs/lookup` *(Phase 2)* — queries Discogs for candidate pressings; returns JSON candidates. Pure read; never writes to the records store. Uses the Discogs token from a server-side env var. Accepts: `artist`+`title` (relevance-ranked, vinyl-first tiebreak), `id`/`catno` (searches both `catno` and `barcode`, merged), `release_id` (a bare ID or `/release/NNNN` URL → one exact release), and `q` (free text). Only non-empty params are forwarded to Discogs.
 - `POST /api/save-cover` — edit-secret required; accepts `{recordId, contentType, dataBase64}`, stores the image server-side, returns `{cover_url}` (a hosted URL the caller then writes onto the record via `POST /api/records`).
 
 ---
