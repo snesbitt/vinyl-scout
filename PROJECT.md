@@ -94,6 +94,8 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ---
 
+## Hard Rules — NON-NEGOTIABLE
+
 ### 1. The catalog is sacred
 
 The previous version lost 29 records to a dedup race condition, with no restore path. The catalog now has **nightly + on-demand git backups** (`backups/YYYY-MM-DD.json`), so there is finally a real restore path — but the rules below still hold as defense in depth. A backup is a safety net, not a license to be careless.
