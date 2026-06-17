@@ -74,7 +74,7 @@
       "year": 1977,
       "genre": "Folk Rock",
       "cover_url": "https://raw.githubusercontent.com/snesbitt/vinyl-scout/main/covers/rec_074d36733f844dee.webp",
-      "notes": "Susan said 'Dark Star' — no such CSN album; Daylight Again likely",
+      "notes": "Susan said 'Dark Star' \u2014 no such CSN album; Daylight Again likely",
       "created_at": "2026-05-24T02:26:53Z",
       "discogs_release_id": 3904782,
       "price_low": 6.01,
@@ -231,7 +231,7 @@
       "year": null,
       "genre": "Reggae / Dub",
       "cover_url": "https://raw.githubusercontent.com/snesbitt/vinyl-scout/main/covers/rec_1407039b4361ee27.webp",
-      "notes": "artist uncertain — Errol Brown likely",
+      "notes": "artist uncertain \u2014 Errol Brown likely",
       "created_at": "2026-05-24T02:26:42Z",
       "condition": "NM"
     },
@@ -466,8 +466,8 @@
       "title": "Security",
       "year": 1986,
       "genre": "Art Rock",
-      "cover_url": "/covers/rec_57dacda6f09b4fbc.jpg",
-      "notes": "album TBD — verify",
+      "cover_url": null,
+      "notes": "album TBD \u2014 verify",
       "created_at": "2026-05-24T02:26:50Z",
       "discogs_release_id": 6547590,
       "label": "Geffen Records",
@@ -596,7 +596,7 @@
       "title": "Dummy",
       "year": 1994,
       "genre": "Trip Hop",
-      "cover_url": "/covers/rec_5d8e1f3aac09b762.jpg",
+      "cover_url": null,
       "notes": "",
       "created_at": "2026-05-23T20:50:00Z",
       "condition": "VG+"
@@ -678,7 +678,7 @@
       "year": 2009,
       "genre": "Blues",
       "cover_url": "https://dn721807.ca.archive.org/0/items/mbid-24c7c45d-a037-4856-a251-e1cd9db82278/mbid-24c7c45d-a037-4856-a251-e1cd9db82278-7302334053_thumb500.jpg",
-      "notes": "compilation — artist unclear",
+      "notes": "compilation \u2014 artist unclear",
       "created_at": "2026-05-24T02:26:44Z"
     },
     {
@@ -840,7 +840,7 @@
     {
       "id": "rec_90a9b70759083ecc",
       "artist": "Joan Sutherland",
-      "title": "Lakmé",
+      "title": "Lakm\u00e9",
       "year": 1998,
       "genre": "Opera / Classical",
       "cover_url": "https://raw.githubusercontent.com/snesbitt/vinyl-scout/main/covers/rec_90a9b70759083ecc.webp",
