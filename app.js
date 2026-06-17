@@ -1,5 +1,5 @@
 // Vinyl Scout — app.js
-// version: 21
+// version: 22
 // v21: soft collection value on home page — sums stored prices (price_median,
 //      price_low fallback) grouped by currency, shows "X of Y priced" coverage.
 //      Pure read of already-stored data; no network, no re-pricing.
