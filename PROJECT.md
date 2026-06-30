@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 7 · **Last revised:** 2026-06-06
+**Version:** 8 · **Last revised:** 2026-06-30
 
 **Changelog**
+- **v8 (2026-06-30)** — Three charter contradictions reconciled: (1) **Phase 3 now has its own section** documenting the soft collection-value display and per-record pricing UI (shipped 2026-06-06; not parked). (2) **Schema block now lists all Phase 3 additive fields** for pricing & community metrics. (3) **Record count unified at 92 throughout** (was 92 in Identity, inconsistently 93 in Glossary). Current `app.js` v22. The Blobs corruption (6 blank records before "Air", live count 100 vs. 92 clean) is unresolved and blocks any further writes until wiped and reseeded.
 - **v7 (2026-06-06)** — **Doc reconciliation + soft collection value shipped** (`app.js` v21). TWO things this charter had WRONG, now corrected against the live site: (1) **Pricing is NOT parked — it is LIVE.** A per-record Discogs market feature is deployed: each record's detail view has a "Refresh from Discogs" button pulling cheapest listing, sales-history median/high/low, last-sold date, copies-for-sale, and Have/Want community counts; records carry `price_low/median/high`, `price_currency`, `price_last_sold`, `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_updated_at`, `discogs_release_id`. (2) The home page now shows a **soft collection-value total** — sums stored `price_median` (falls back to `price_low`) grouped by currency, with "X of Y priced" coverage (currently ≈ €253.70 · 16 of 92). Pure read of stored data; no re-pricing on load, no background mutation. Catalog is 92 records. NOTE: the deployed About/roadmap pages still carried stale/aspirational copy and scrambled phase numbers as of this session — corrected alongside this charter.
 - **v6 (2026-06-06)** — **Phase 2 polish round shipped** (audit `version: 15`, endpoint `version: 5`). The pressing lookup now has three search paths and graceful fallback: (1) **artist + title**, auto-run when the modal opens, **relevance-ranked** (candidates that don't match the searched artist/title are dropped; vinyl/LP only breaks ties among real matches — fixes a wrong-artist bug where format-only ranking floated junk to the top); (2) **catalog # or barcode** off the sleeve — queries BOTH Discogs `catno` AND `barcode` fields and merges (a sleeve number can be either); (3) a **flexible Discogs search box** — free text to search-and-pick, or paste a release URL/ID to jump to one exact release (a search-page URL is rejected cleanly, no stray-digit fetches). **Empty-number fallback:** if a catalog/barcode search finds nothing (common — many sleeve numbers are distributor/reissue codes Discogs never indexed, e.g. UMG Back-to-Black product codes), it auto-re-runs as artist+title with a visible note. Confirmed: catalog number alone is NOT a single source of truth — fallbacks are load-bearing, not clutter.
 - **v5 (2026-06-01)** — **Phase 2 shipped and live** (`/api/discogs/lookup` + `/audit.html` v10 deployed; `DISCOGS_TOKEN` set in Netlify; endpoint confirmed returning real candidates). Reconciled two drifts found while reading the live `audit.html`: (a) added the live **`condition`** field (Goldmine grade short-code, default `VG`) to the schema; (b) corrected the cover mechanism — audit-page uploads POST to **`/api/save-cover`** which returns a hosted `cover_url`, NOT a `data:` URL as v3 stated. The lookup endpoint is intentionally **ungated** (pure read of public Discogs data; needs only `DISCOGS_TOKEN`).
@@ -47,20 +48,25 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ### OUT of scope for Phase 1 (do not build, do not "just add it while we're here")
 
-- ❌ Discogs API of any kind (search, sync, pricing, restore, lookup)
+- ❌ Discogs API of any kind (search, sync, pricing, restore, lookup) — *Phase 2 and 3 ship pressing lookup and pricing*
 - ❌ OCR / Tesseract
-- ❌ Grading / Goldmine pricing / marketplace
+- ❌ Grading as a pricing multiplier (recording condition is Phase 1; using it to adjust price is Phase 4)
 - ❌ User accounts / per-user login / third-party auth (the write-gate is a single shared secret, nothing more)
 - ❌ Dedup of any kind (banned — see Hard Rules)
 - ❌ Background enrichment / auto-backfill
 - ❌ Triage views (Inbox / Accepted / Passed)
 - ❌ "Nice to have" features Susan didn't ask for
 
+### Shipped phases — LIVE
+
+- **Phase 2 (2026-06-01):** Discogs lookup for pressing accuracy — see its section below
+- **Phase 3 (2026-06-06):** Pricing & collection-value display — see its section below
+
 ### Parked for future phases — do not start
 
-- Phase 4: Listing & selling helpers (generate a ready-to-paste Discogs listing; the sale itself happens on Discogs)
+- Phase 4: Listing & selling helpers (generate a ready-to-paste Discogs listing; the sale itself happens on Discogs) and grading-adjusted pricing
 
-(Phase 2 pressing lookup shipped — see its section below. Phase 3 pricing/market data is ALSO already live: per-record "Refresh from Discogs" plus the home-page soft collection total. Only Phase 4 remains unbuilt.) When asked about a still-parked feature, say "that's Phase 4, parked" and stop.
+When asked about a still-parked feature, say "that's Phase 4, parked" and stop.
 
 ---
 
@@ -86,11 +92,41 @@ Aesthetic: editorial / record-shop / library catalog card.
 - ❌ Auto-sync / background enrichment / auto-backfill of any kind — every Discogs call is one Susan triggers.
 - ❌ Bulk lookup or "look up everything" — one record per invocation.
 - ❌ Writing from the lookup endpoint — it is a pure read.
-- ❌ Pricing / marketplace / grading (that is Phase 3, still parked).
+- ❌ Pricing / marketplace / grading (that is Phase 3, now shipped).
 
 ### Prerequisite (Susan's action, not a code blocker)
 
 - A Discogs personal access token (Discogs → Settings → Developers). Added to Netlify env vars before the lookup endpoint can work.
+
+
+---
+
+## Phase 3 — Pricing & collection-value display (SHIPPED 2026-06-06)
+
+**The whole thing in one sentence**: Each record shows its current Discogs market data (pricing, sales history, community metrics) via a "Refresh from Discogs" button; the gallery home page displays a soft collection total (€/$ grouped by currency, with "X of Y priced" coverage).
+
+### Model (locked)
+
+- **Per-record refresh, not background enrichment.** Susan taps "Refresh from Discogs" on a record's detail view. The system queries Discogs's current marketplace statistics for that release and writes the data onto the record. No automatic re-fetching, no background mutation, no re-pricing on every page load.
+- **Read-only display on the home page.** The collection value total is computed from stored `price_median` (fallback to `price_low`) at request time, summed by currency, with a coverage badge ("16 of 92 priced"). No attempts to fill in missing prices.
+
+### In scope
+
+- One pricing endpoint (e.g. `GET /api/discogs/market`) — queries Discogs marketplace stats for a release, returns pricing and sales-history data as JSON. **Pure read; it cannot write to the records store.**
+- Per-record "Refresh from Discogs" affordance in the detail view; button triggers the endpoint and, on success, writes the response via the existing `POST /api/records` single-upsert path.
+- Home-page gallery footer: a collection-value total (e.g. "€253.70 · 16 of 92 priced") computed on each load from stored data.
+- Nine new optional, nullable fields via **additive migration**: `price_low`, `price_median`, `price_high`, `price_currency`, `price_last_sold`, `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_updated_at`. All sourced from Discogs marketplace snapshots, never hand-edited via the audit page.
+
+### OUT of scope for Phase 3
+
+- ❌ Automatic/background re-pricing — every price refresh is one Susan triggers.
+- ❌ Price-adjusted condition grading (e.g., VG+ adds 10%) — that is Phase 4, parked.
+- ❌ Buy/sell integrations or currency conversion — prices display as Discogs reports them.
+- ❌ Historical price tracking or charting — only the current snapshot is stored.
+
+### Prerequisite (Susan's action, not a code blocker)
+
+- Discogs marketplace data is public; the pricing endpoint uses the same token as Phase 2 lookup.
 
 ---
 
@@ -182,7 +218,7 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 }
 ```
 
-`condition` is a Goldmine grade **short code** stored on the record (one of `M, NM, VG+, VG, G+, G, F, P`), default `VG`, set via the audit page's grade dropdown and displayed as its spelled-out name. (Recording a grade is benign cataloging; the parked Phase 3 item is using grades as *pricing multipliers*, which is still not built.)
+`condition` is a Goldmine grade **short code** stored on the record (one of `M, NM, VG+, VG, G+, G, F, P`), default `VG`, set via the audit page's grade dropdown and displayed as its spelled-out name. (Recording a grade is benign cataloging; the parked Phase 4 item is using grades as *pricing multipliers*, which is still not built.)
 
 No other Phase 1 fields. `cover_url` may hold either an external URL (e.g. an Apple Music / Cover Art Archive image) or a `data:` URL produced by the audit page's browser-side compression.
 
@@ -197,6 +233,25 @@ No other Phase 1 fields. `cover_url` may hold either an external URL (e.g. an Ap
   "format": null | "string"
 }
 ```
+
+**Phase 3 additive fields (all optional, nullable; sourced from Discogs marketplace, never hand-edited):**
+
+```json
+{
+  "price_low": null | number,
+  "price_median": null | number,
+  "price_high": null | number,
+  "price_currency": null | "string",
+  "price_last_sold": null | "ISO timestamp",
+  "copies_available": null | number,
+  "have_count": null | number,
+  "want_count": null | number,
+  "rating_avg": null | number,
+  "rating_count": null | number,
+  "price_updated_at": null | "ISO timestamp"
+}
+```
+
 
 ---
 
@@ -233,6 +288,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `DELETE /api/records/:id` — edit-secret required; delete one record by `id`
 - `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled function runs the same nightly.
 - `GET  /api/discogs/lookup` *(Phase 2)* — queries Discogs for candidate pressings; returns JSON candidates. Pure read; never writes to the records store. Uses the Discogs token from a server-side env var. Accepts: `artist`+`title` (relevance-ranked, vinyl-first tiebreak), `id`/`catno` (searches both `catno` and `barcode`, merged), `release_id` (a bare ID or `/release/NNNN` URL → one exact release), and `q` (free text). Only non-empty params are forwarded to Discogs.
+- `GET  /api/discogs/market` *(Phase 3)* — queries Discogs marketplace stats for a given release; returns pricing, sales-history, and community metrics as JSON. Pure read; never writes. Accepts `release_id` (required; a Discogs release ID). Endpoint result is not cached — each query hits Discogs fresh, so Susan always sees current market data.
 - `POST /api/save-cover` — edit-secret required; accepts `{recordId, contentType, dataBase64}`, stores the image server-side, returns `{cover_url}` (a hosted URL the caller then writes onto the record via `POST /api/records`).
 
 ---
@@ -245,5 +301,8 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Audit page**: `/audit.html` — the hand-edit UI (inline edit, single delete, cover upload).
 - **Edit secret**: A single shared passphrase that gates `POST`/`DELETE`. Entered by Susan in the page UI, sent as a request header, validated server-side against an env var. Reads do not require it.
 - **Backup**: A JSON snapshot of all records committed to `backups/YYYY-MM-DD.json` in the repo, nightly and on demand.
-- **Phase 1**: This phase. Vision-identified records, no third parties.
-- **Catalog**: Susan's full collection. Reset empty after May 2026; now 93 records.
+- **Phase 1**: Barebones cataloging via vision (shipped May 2026).
+- **Phase 2**: Discogs pressing lookup (shipped June 1, 2026).
+- **Phase 3**: Pricing & collection-value display (shipped June 6, 2026).
+- **Phase 4**: Listing & selling helpers (parked).
+- **Catalog**: Susan's full collection. Reset empty after May 2026; now 92 records.
