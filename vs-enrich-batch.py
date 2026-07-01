@@ -69,7 +69,7 @@ def fetch_pricing(record_id, edit_secret, max_retries=3):
     for attempt in range(max_retries):
         try:
             headers = {"X-Edit-Key": edit_secret}
-            body = {"record_id": record_id}
+            body = {"recordId": record_id}
             result = post_json(API_PRICING, body, headers)
             if result.get("ok"):
                 return result.get("record")
