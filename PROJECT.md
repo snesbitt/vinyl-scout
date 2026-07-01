@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 3 · **Last revised:** 2026-07-01
+**Version:** 4 · **Last revised:** 2026-07-01
 
 **Changelog**
+- **v4 (2026-07-01)** — Phase 2 complete. All 92 records enriched with Discogs IDs and pricing (89/92 have market prices; 3 have no Discogs marketplace data or exact match). Collection value total displayed on home page. Updated roadmap.html and about.html to reflect Phase 2 live status. Next phase: Wishlist (intentionally parked).
 - **v3 (2026-07-01)** — Phase 2 enrichment is now executable. Added `vs-enrich-batch.py` for batch Discogs ID lookup and pricing fetch. All 92 records can now be enriched (57 pending IDs, 88 pending pricing updates). The display already exists in the detail modal. Enrichment is on-demand only (no cron, no background mutation).
 - **v2 (2026-05-28)** — Reconciled the charter with what's actually deployed: added `/audit.html` (inline edit / delete / cover-upload) and git backups to Phase 1 scope; documented the `/api/backup` endpoints; updated catalog state (~91 records, covers applied). Adopted two new Phase 1 items: SEO suppression (noindex) and write-protection (shared edit secret on `POST`/`DELETE`). Added this version header.
 - **v1 (2026-05-21)** — Phase 1 reset after the May 2026 data-loss incident.
@@ -45,7 +46,7 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ### OUT of scope for Phase 1
 
-- ❌ Discogs API of any kind (moved to Phase 2 — now executable)
+- ❌ Discogs API of any kind (moved to Phase 2 — now complete)
 - ❌ OCR / Tesseract
 - ❌ Grading / Goldmine pricing / marketplace
 - ❌ User accounts / per-user login
@@ -56,9 +57,9 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ---
 
-## Phase 2 — EXECUTABLE: Discogs enrichment (in progress)
+## Phase 2 — COMPLETE: Discogs enrichment
 
-**Status:** Scripts ready. Run `vs-enrich-batch.py` locally to enrich all 92 records.
+**Status:** ✓ All 92 records enriched. 89/92 have market prices; 3 have no Discogs marketplace data (or couldn't match the exact pressing). Collection value ~€1,443.73 displayed on home page.
 
 **The whole thing in one sentence**: Fetch missing Discogs release IDs for 57 records, and pricing + marketplace stats for all 92.
 
@@ -111,21 +112,34 @@ Aesthetic: editorial / record-shop / library catalog card.
 - Paste that JSON into `/seed.html` to reseed
 - Or manually re-run the script to retry failed records
 
-### Pending Phase 2 work
+### Phase 2 completion summary
 
-- Current enrichment state:
-  - 35/92 records have Discogs IDs
-  - ~4/92 have prices
-  - **Next:** Run `vs-enrich-batch.py` to fill the gaps
+- **Enrichment state (final):**
+  - 90/92 records have Discogs release IDs
+  - 89/92 have market prices (EUR/USD from Discogs marketplace)
+  - 3 unmatched or no-data releases:
+    - Bob Marley & The Wailers — In Dub: ID found (3804112) but Discogs release page returns 403 on scrape (likely a Discogs archive issue)
+    - Verve Remixed — Volume 4: multiple title variations, still unmatched after title refinements
+    - Tosca — J.A.C.: no pricing data on Discogs (ID matched, but no marketplace data)
+  - Collection value total: ~€1,443.73 (displayed on home page with "X of Y priced" coverage label)
+- **Display:** Detail modal shows Market section with pricing, copies available, community data, and ratings
+- **Backup:** Full snapshot of enriched data available at `backups/2026-07-01.json`
 
 ---
 
-## Phase 3+ — Parked
+## Phase 3 — Parked: Wishlist
 
-- **Phase 3:** Listing & selling (not in scope)
-- **Phase 4:** Wishlist page (not in scope)
+**Status:** Intentionally not started. Next in queue after Phase 2 complete.
 
-When asked about parked features, respond "that's Phase N, parked" and stop.
+**The whole thing in one sentence:** A separate page or modal to track records Susan is hunting for, sorted by price/rarity/condition, with Discogs links.
+
+**What it is:** Keep a wishlist separate from the owned collection. Browse Discogs, mark albums wanted, track asking prices, and use it as a long-term shopping guide. Manual (not auto-populated from Spotify or similar).
+
+---
+
+## Phase 4+ — Future / Parked
+
+Not in scope. When asked about: "that's Phase N, parked" and stop.
 
 ---
 
@@ -133,7 +147,7 @@ When asked about parked features, respond "that's Phase N, parked" and stop.
 
 ### 1. The catalog is sacred
 
-The previous version lost 29 records to a dedup race condition, with no restore path. The catalog now has **nightly + on-demand git backups** (`backups/YYYY-MM-DD.json`), so there is finally a real restore path — but the rules below still hold as defense in depth.
+The previous version lost 29 records to a dedup race condition, with no restore path. The catalog now has **nightly + on-demand git backups** (`backups/YYYY-MM-DD.json`), so there is finally a real restore path — but the rules below still hold as defense in depth. A backup is a safety net, not a license to be careless.
 
 - **No bulk-delete code paths.** Ever. No function may call delete on more than one record per invocation.
 - **No auto-dedup.** Banned from the codebase. If duplicates appear, they appear. Susan deletes them manually one at a time.
@@ -148,7 +162,7 @@ If a feature wasn't explicitly requested in this charter or in a current ask, do
 
 ### 3. Deploys are versioned
 
-Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment.
+Every code change bumps the cache-bust version in `/app.js?v=N` and `/style.css?v=N`. The current `N` is documented at the top of `app.js` in a `// version: N` comment. `/audit.html` carries its own internal `// version: N` for its inline script.
 
 ### 4. No silent failures
 
@@ -167,7 +181,7 @@ Before delivering ANY code change, Claude runs this checklist explicitly in the 
 ### Pre-flight (state these upfront)
 - [ ] One-sentence scope of the change
 - [ ] Files that will be modified (by name)
-- [ ] Confirmed in-scope for Phase 1/2 (or asked Susan if not)
+- [ ] Confirmed in-scope for Phase 1 (or asked Susan if not)
 
 ### Code-level
 - [ ] Every modified file passes `node --check` (or equivalent syntax check)
@@ -202,7 +216,7 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 
 ---
 
-## Record schema (Phase 1, locked / Phase 2 additive)
+## Record schema (Phase 1, locked)
 
 ```json
 {
@@ -213,42 +227,29 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
   "genre": null | "string",
   "cover_url": null | "string",
   "notes": "",
-  "created_at": "ISO timestamp",
-  
-  "discogs_release_id": null | number,
-  "price_low": null | number,
-  "price_high": null | number,
-  "price_median": null | number,
-  "price_last_sold": null | "string (date)",
-  "price_currency": null | "USD" | "EUR" | "GBP" | "JPY",
-  "copies_available": null | number,
-  "have_count": null | number,
-  "want_count": null | number,
-  "rating_avg": null | number,
-  "rating_count": null | number,
-  "price_updated_at": null | "ISO timestamp"
+  "created_at": "ISO timestamp"
 }
 ```
 
-Phase 2 fields are all optional, all nullable, and all added via upsert (never replacing existing values).
+Phase 2 adds (all optional/nullable): `discogs_release_id`, `price_low`, `price_high`, `price_median`, `price_last_sold`, `price_currency`, `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_updated_at`, `condition`.
 
 ---
 
-## Enrichment workflow (Phase 2)
+## Catalog seeding & editing workflow (Phase 1+2)
 
-**Manual batch enrichment:**
-1. Susan runs `python3 vs-enrich-batch.py` (from the repo root or anywhere with network)
-2. Enters the edit secret when prompted (input is hidden)
-3. Script:
-   - Fetches all 92 records
-   - For each record without `discogs_release_id`: searches by artist + title
-   - For each record: calls `/api/discogs-pricing` to fetch stats
-   - Handles rate limits with auto-backoff
-   - Upserts enriched records one at a time
-   - Prints summary
-4. Check the gallery — enriched records now show pricing + market data in the detail modal
+**Seeding (new records):**
+1. Susan photographs albums in groups of 3–6 per shot
+2. Susan uploads photos to chat
+3. Claude (in chat) looks at each photo, identifies each cover, produces a JSON array of record objects
+4. Susan visits `/seed.html`, pastes the JSON, taps "Add" (writes use the edit secret)
+5. Each record is upserted by its `id` (Claude generates unique IDs)
+6. Susan reviews the collection in `/`
 
-No automation. No cron. Susan controls when enrichment happens.
+**Editing (existing records):** Susan uses `/audit.html` — inline-edit text fields, delete a row (one at a time, confirm-gated), or tap a cover to upload replacement artwork.
+
+**Enriching (Phase 2):** Susan runs `vs-enrich-batch.py` locally; script fetches Discogs data and upserts all records.
+
+No automation between chat and the site. Chat → JSON → paste → add. Every link in this chain is auditable by Susan.
 
 ---
 
@@ -257,9 +258,9 @@ No automation. No cron. Susan controls when enrichment happens.
 - `GET  /api/records` — public; returns all records as a JSON array
 - `POST /api/records` — edit-secret required; upsert one record by `id`
 - `DELETE /api/records/:id` — edit-secret required; delete one record by `id`
-- `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled function runs nightly.
-- `GET  /api/discogs/lookup?artist=…&title=…` — pure read; searches Discogs API for a matching release (no edit secret required; this is public Discogs data)
-- `POST /api/discogs-pricing` — edit-secret required; fetches pricing + stats for one record ID, upserts the record with enrichment fields
+- `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled function runs the same nightly.
+- `GET  /api/discogs/lookup?artist=…&title=…` — public; returns Discogs candidates
+- `POST /api/discogs-pricing` — edit-secret required; body: `{"recordId": "rec_xxx"}`; fetches + stores pricing
 
 ---
 
@@ -267,11 +268,11 @@ No automation. No cron. Susan controls when enrichment happens.
 
 - **Record**: One row in the catalog. One physical LP.
 - **Records store**: The Netlify Blobs store named `records`. One JSON blob per record.
-- **Seed**: A chat-generated JSON array Susan pastes into `/seed.html` to bulk-add records.
+- **Seed**: A chat-generated JSON array Susan pastes into `/seed.html` to bulk-add.
 - **Audit page**: `/audit.html` — the hand-edit UI (inline edit, single delete, cover upload).
-- **Edit secret**: A single shared passphrase that gates `POST`/`DELETE`. Entered by Susan in the page UI or script, sent as a request header, validated server-side against an env var. Reads do not require it.
+- **Edit secret**: A single shared passphrase that gates `POST`/`DELETE`. Entered by Susan in the page UI, sent as a request header, validated server-side against an env var. Reads do not require it.
 - **Backup**: A JSON snapshot of all records committed to `backups/YYYY-MM-DD.json` in the repo, nightly and on demand.
-- **Enrichment**: Discogs lookup (release IDs) and pricing (market stats). Phase 2 feature. On-demand only.
-- **Phase 1**: Base catalog + seeding + audit. ✓ Complete.
-- **Phase 2**: Enrichment. Executable via `vs-enrich-batch.py`. In progress.
-- **Catalog**: Susan's full collection. Currently 92 records (35 with Discogs IDs, ~4 with prices).
+- **Phase 1**: Cataloguing by photo. Seeding, hand-edits, covers — live.
+- **Phase 2**: Market enrichment. Discogs IDs + pricing — live.
+- **Phase 3**: Wishlist. Parked (not started).
+- **Catalog**: Susan's full collection. ~92 records (reset empty after May 2026; reseeded June–July 2026).

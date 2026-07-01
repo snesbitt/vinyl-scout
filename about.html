@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#f1ebdc" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>About · The Vinyl Scout</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,13 +26,13 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v21 · June 2026</p>
+  <p class="article__kicker">How it works · v22 · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
-    LPs — what's owned, what condition it's in, and what each pressing is worth
-    on the secondary market. No accounts, no third-party tracking, no clever
-    automations that quietly delete data.
+    LPs — what's owned, what condition it's in, what each pressing is worth
+    on the secondary market, and which exact edition you own. Powered by Discogs API
+    enrichment for accurate pricing and pressing data. No accounts, no third-party tracking, no automations that quietly delete data.
   </p>
 
   <h2><span class="article__num">01</span>What it is</h2>
@@ -43,23 +44,30 @@
     is editable on <a href="/audit.html">/audit.html</a>.
   </p>
   <p>
+    Each record is enriched with Discogs data: accurate pressing ID, marketplace prices
+    (low, median, high from sales history), community ownership and wishlist counts,
+    and ratings. Prices refresh monthly via a batch script.
+  </p>
+  <p>
     The collection page itself — what you came from — is read-only: a searchable,
-    genre-filterable list or gallery. Tap any record for the detail view.
+    genre-filterable list or gallery. Tap any record for the detail view, which
+    shows the full Discogs marketplace snapshot.
   </p>
 
   <h2><span class="article__num">02</span>The stack</h2>
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> One Netlify Function (<code>/api/records</code>) that handles GET (list), POST (upsert by ID), and DELETE (single record by ID).</li>
+    <li><strong>API.</strong> Netlify Functions v2 for GET (list all records), POST (upsert by ID), DELETE (single record). Enrichment endpoints: <code>/api/discogs/lookup</code> (candidate matching by artist/title), and <code>/api/discogs-pricing</code> (fetch + store pricing & metadata). All write endpoints require an <code>X-Edit-Key</code> header.</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
 
   <h2><span class="article__num">03</span>The catalog record</h2>
   <p>
-    Every record is one JSON object. Phase 1 fields are the originals; Phase 2
-    adds condition, pricing, and Discogs enrichment.
+    Every record is one JSON object. Phase 1 fields are the originals; Phase 2 (live)
+    adds Discogs enrichment: condition, accurate pressing ID, marketplace pricing,
+    community data, and ratings.
   </p>
   <ul>
     <li><strong>id</strong> — opaque 16-character hex string (e.g. <code>rec_a1b2c3d4e5f60718</code>).</li>
@@ -78,57 +86,32 @@
     <li><strong>discogs_release_id</strong> — cached release ID for fast refreshes, optional.</li>
   </ul>
 
-  <h2 id="grading"><span class="article__num">04</span>Goldmine grading</h2>
+  <h2><span class="article__num">04</span>Condition grades</h2>
   <p>
-    Vinyl conditions follow the Goldmine standard, the lingua franca of record
-    collectors and dealers. Each grade carries an implicit multiplier against a
-    "Near Mint" reference price — used when the catalog later computes an asking
-    price from market data.
-  </p>
-  <div class="article__grades">
-    <dl>
-      <dt>M</dt>    <dd>Mint — sealed, never played, factory-perfect.</dd>             <dd class="article__mult">×1.20</dd>
-      <dt>NM</dt>   <dd>Near Mint — looks new, plays flawlessly. Reference grade.</dd>  <dd class="article__mult">×1.10</dd>
-      <dt>VG+</dt>  <dd>Very Good Plus — light wear, no surface issues you'd hear.</dd> <dd class="article__mult">×0.85</dd>
-      <dt>VG</dt>   <dd>Very Good — visible wear, light surface noise. <strong>Default.</strong></dd> <dd class="article__mult">×0.65</dd>
-      <dt>G+</dt>   <dd>Good Plus — noticeable wear, audible pops and crackle.</dd>     <dd class="article__mult">×0.45</dd>
-      <dt>G</dt>    <dd>Good — heavy wear, plays through but distractingly.</dd>        <dd class="article__mult">×0.30</dd>
-      <dt>F</dt>    <dd>Fair — barely playable.</dd>                                    <dd class="article__mult">×0.15</dd>
-      <dt>P</dt>    <dd>Poor — for completists or wall art.</dd>                        <dd class="article__mult">×0.05</dd>
-    </dl>
-  </div>
-  <p>
-    Grades are edited per-record on <a href="/audit.html">/audit.html</a> via the
-    rightmost dropdown. New records default to VG.
-  </p>
-
-  <h2><span class="article__num">05</span>Roadmap</h2>
-  <ul>
-    <li><strong>Phase 1 — complete.</strong> Vision-identified records, edit, delete, cover upload.</li>
-    <li><strong>Phase 2 — shipped (v17–v21).</strong> Condition tracking on every record (Goldmine grade, default VG, editable on Audit). Live Discogs market data: open any record's detail view and tap "Refresh from Discogs" to pull the current cheapest listing and the full sales-history Statistics block — range, median, last sold date, copies for sale, and the Have/Want community counts. One record per click; no automatic refresh, no batch.</li>
-    <li><strong>Phase 2.1 — in progress.</strong> Pressing-accurate metadata from Discogs (label, catalog number, country, pressing year) and a "pick the right pressing" picker on Audit, for when Discogs's first search result isn't the right release.</li>
-    <li><strong>Phase 3 — planned.</strong> Wishlist: keep a separate list of records you're hunting for.</li>
-    <li><strong>Phase 4 — planned.</strong> Pricing &amp; collection value: show an estimated total value based on market data.</li>
-  </ul>
-
-  <p><strong>What Discogs can and can't tell us.</strong>
-  The Discogs API exposes the current cheapest listing and the number of copies for sale right now. It does <em>not</em> expose historical completed-sale data (low, median, high, last-sold date) on any documented endpoint — Discogs has an open feature request from the community for exactly this. That data <em>is</em>, however, in the static HTML of every public release page, so on each refresh we run two requests in parallel: the API for live market state, and a fetch-and-parse of the release page's Statistics block for sales history and community counts. If Discogs ever changes their page layout or blocks the fetch, the Market block falls back gracefully to API-only data and a small debug payload lands in the browser console so we know to update the parser.</p>
-
-  <h2><span class="article__num">06</span>What it won't do</h2>
-  <p>
-    Three things, by charter, the Vinyl Scout will never do, because a previous
-    iteration learned them the hard way.
+    Vinyl Scout uses Goldmine grading (the US standard for record sleeves and discs). Each record stores its own condition code. Default is <em>VG</em> (Very Good).
   </p>
   <ul>
-    <li><strong>No bulk delete.</strong> Every delete is one record at a time, behind a confirm dialog.</li>
-    <li><strong>No auto-dedup.</strong> The earlier version's dedup logic raced with a polling loop and wiped 29 records. That code path is permanently banned.</li>
-    <li><strong>No background mutation.</strong> Read endpoints only read. Writes happen only on explicit user action.</li>
+    <li><strong>M</strong> — Mint. Never played, still sealed or in perfect condition.</li>
+    <li><strong>NM</strong> — Near Mint. Played once or twice, looks and sounds unplayed.</li>
+    <li><strong>VG+</strong> — Very Good Plus. Minor wear; fully playable with no defects.</li>
+    <li><strong>VG</strong> — Very Good. Light surface marks, plays without issue.</li>
+    <li><strong>G+</strong> — Good Plus. Noticeable wear, plays through, some surface noise.</li>
+    <li><strong>G</strong> — Good. Significant wear, plays but with some noise.</li>
+    <li><strong>F</strong> — Fair. Heavy wear, plays but may skip or have extended noise.</li>
+    <li><strong>P</strong> — Poor. Severely damaged, barely playable.</li>
   </ul>
 
-  <p class="article__footer">
-    The Vinyl Scout · vinylscout.org · Built with Claude · Source on
-    <a href="https://github.com/snesbitt/vinyl-scout">GitHub</a>
+  <h2><span class="article__num">05</span>Data & backups</h2>
+  <p>
+    Every record is backed up automatically. A nightly function commits the entire
+    catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. You can
+    also trigger a backup on demand from the API.
   </p>
+  <p>
+    The catalog is read-only for the public (anyone can browse). Edits require a
+    shared secret key, sent as a request header. There are no user accounts.
+  </p>
+
 </article>
 
 </body>
