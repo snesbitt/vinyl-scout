@@ -1,5 +1,9 @@
 // Vinyl Scout — app.js
-// version: 22
+// version: 23
+// v23: added Release Info section to detail modal — shows label, catalog number,
+//      country, format, and Discogs release ID (all already stored from Phase 2
+//      enrichment). Renders only non-null fields; field presence checked before
+//      writing any row.
 // v21: soft collection value on home page — sums stored prices (price_median,
 //      price_low fallback) grouped by currency, shows "X of Y priced" coverage.
 //      Pure read of already-stored data; no network, no re-pricing.
@@ -341,6 +345,43 @@
       + '</section>';
   }
 
+  function buildCatalogBlock(r) {
+    // v23: Release Info section — shows label, catalog number, country, format,
+    // and Discogs release ID. Only renders if there's at least one field present.
+    var label = (r.label && String(r.label).trim()) || null;
+    var catNo = (r.catalog_no && String(r.catalog_no).trim()) || null;
+    var country = (r.country && String(r.country).trim()) || null;
+    var format = (r.format && String(r.format).trim()) || null;
+    var discogsId = (r.discogs_release_id != null) ? r.discogs_release_id : null;
+
+    var hasAny = (label || catNo || country || format || discogsId);
+    if (!hasAny) return '';
+
+    var rows = '';
+    if (label) {
+      rows += '<dt>Label</dt><dd>' + escapeHtml(label) + '</dd>';
+    }
+    if (catNo) {
+      rows += '<dt>Catalog</dt><dd>' + escapeHtml(catNo) + '</dd>';
+    }
+    if (country) {
+      rows += '<dt>Country</dt><dd>' + escapeHtml(country) + '</dd>';
+    }
+    if (format) {
+      rows += '<dt>Format</dt><dd>' + escapeHtml(format) + '</dd>';
+    }
+    if (discogsId) {
+      var discogsUrl = 'https://www.discogs.com/release/' + escapeAttr(String(discogsId));
+      rows += '<dt>Discogs</dt><dd><a href="' + discogsUrl + '" target="_blank" rel="noopener">Release ' + escapeHtml(String(discogsId)) + '</a></dd>';
+    }
+
+    return ''
+      + '<section class="detail__catalog" aria-label="Release Info">'
+      +   '<h3 class="detail__h3">Release Info</h3>'
+      +   '<dl class="detail__prices">' + rows + '</dl>'
+      + '</section>';
+  }
+
   async function refreshPricing(id, btn) {
     var body = document.getElementById('detail-pricing-body');
     var origBtnText = btn.textContent;
@@ -424,6 +465,7 @@
       : '';
 
     var pricing = buildPricingBlock(r);
+    var catalog = buildCatalogBlock(r);
 
     inner.innerHTML = ''
       + '<div class="detail__cover">' + cover + '</div>'
@@ -432,6 +474,7 @@
       +   '<h2 class="detail__title" id="detail-title">' + escapeHtml(r.title || 'Untitled') + '</h2>'
       +   meta
       +   pricing
+      +   catalog
       +   notes
       + '</div>';
 
