@@ -1,6 +1,7 @@
 // netlify/functions/discogs-pricing.mjs
 // Vinyl Scout — Phase 3.1: on-demand market pricing from Discogs.
 //
+// v19: failed scrapes no longer clobber stored enrichment (see updated write below).
 // v18: get the FULL Statistics block (Have, Want, Last Sold, Low/Median/High)
 //      by scraping the public release page. Discogs's documented API exposes
 //      only the current lowest asking price via /marketplace/stats — they
@@ -451,23 +452,30 @@ export default async (req, context) => {
     }, 502);
   }
 
-  // v18: schema additions. price_last_sold is now a STRING date ("Apr 23, 2026")
-  // or null, NOT a number. Existing readers expecting a number need to handle
-  // the type change — only the detail-modal renderer reads it, and v18 updates
-  // that render path to expect a date string.
+  // v19: PRESERVE existing enrichment when the scrape fails.
+  // In production Discogs 403-blocks Netlify's datacenter IPs, so the scrape
+  // (median/high/have/want/rating/last-sold) almost always rejects. v18
+  // unconditionally wrote the scrape variables — null on failure — which
+  // wiped browser-scraped medians on every refresh (2026-07-01/02 incident:
+  // all 85 medians lost). Rule: a failed or empty scrape keeps the record's
+  // existing values; API fields update only when the API returned data.
+  // (v18 note still applies: price_last_sold is a STRING date or null.)
+  const scrapeUsable =
+    scrapeResult.status === 'fulfilled' && scrapeDebug.fields_found > 0;
+  const keep = (fresh, existing) => (fresh != null ? fresh : (existing != null ? existing : null));
   const updated = Object.assign({}, record, {
     discogs_release_id: releaseId,
-    price_low: priceLow,
-    price_high: priceHigh,
-    price_median: priceMedian,
-    price_last_sold: priceLastSold,
-    copies_available: copiesAvailable,
-    have_count: haveCount,
-    want_count: wantCount,
-    rating_avg: ratingAvg,
-    rating_count: ratingCount,
-    price_currency: currency || 'USD',
-    price_updated_at: new Date().toISOString()
+    price_low: keep(priceLow, record.price_low),
+    copies_available: keep(copiesAvailable, record.copies_available),
+    price_currency: currency || record.price_currency || 'USD',
+    price_updated_at: new Date().toISOString(),
+    price_high: scrapeUsable ? priceHigh : keep(null, record.price_high),
+    price_median: scrapeUsable ? priceMedian : keep(null, record.price_median),
+    price_last_sold: scrapeUsable ? priceLastSold : keep(null, record.price_last_sold),
+    have_count: scrapeUsable ? haveCount : keep(null, record.have_count),
+    want_count: scrapeUsable ? wantCount : keep(null, record.want_count),
+    rating_avg: scrapeUsable ? ratingAvg : keep(null, record.rating_avg),
+    rating_count: scrapeUsable ? ratingCount : keep(null, record.rating_count)
   });
 
   try {
