@@ -26,7 +26,7 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v22 · July 2026</p>
+  <p class="article__kicker">How it works · v25 · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
@@ -46,12 +46,13 @@
   <p>
     Each record is enriched with Discogs data: accurate pressing ID, marketplace prices
     (low, median, high from sales history), community ownership and wishlist counts,
-    and ratings. Prices refresh monthly via a batch script.
+    and ratings. The current lowest price refreshes on demand (per-record button or batch script). Median/high sales history is collected browser-side — Discogs serves release pages only to real browsers — and a refresh never overwrites it.
   </p>
   <p>
     The collection page itself — what you came from — is read-only: a searchable,
-    genre-filterable list or gallery. Tap any record for the detail view, which
-    shows the full Discogs marketplace snapshot.
+    genre-filterable list or gallery. Every card shows Low/Median/High prices and
+    community Have/Want counts. Tap any record for the detail view, which shows
+    the full Discogs marketplace snapshot, including the community rating.
   </p>
 
   <h2><span class="article__num">02</span>The stack</h2>
