@@ -1,5 +1,7 @@
 // Vinyl Scout — app.js
-// version: 24
+// version: 25
+// v25: header shows collection value only — dropped the 'X of Y priced'
+//      coverage label per Susan's ask.
 // v24: pricing on cards — gallery tiles and list rows show Low/Median/High
 //      plus Have/Want counts; detail modal Market block gains the community
 //      Rating row. Pure render of already-stored fields; no network calls.
@@ -156,7 +158,7 @@
         parts.push('\u2248 ' + formatPrice(v.byCur[cur], cur));
       }
     }
-    el.textContent = parts.join(' + ') + '  \u00b7  ' + v.priced + ' of ' + v.total + ' priced';
+    el.textContent = parts.join(' + ');
     el.hidden = false;
   }
 
