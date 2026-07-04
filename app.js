@@ -1,5 +1,8 @@
 // Vinyl Scout — app.js
-// version: 23
+// version: 24
+// v24: pricing on cards — gallery tiles and list rows show Low/Median/High
+//      plus Have/Want counts; detail modal Market block gains the community
+//      Rating row. Pure render of already-stored fields; no network calls.
 // v23: added Release Info section to detail modal — shows label, catalog number,
 //      country, format, and Discogs release ID (all already stored from Phase 2
 //      enrichment). Renders only non-null fields; field presence checked before
@@ -105,6 +108,22 @@
     var symbol = cur === 'EUR' ? '€' : '$';
     var n = Number(amount);
     return symbol + n.toFixed(2);
+  }
+
+  // v24: compact price + community strings for cards (gallery tiles, list rows).
+  function cardPriceParts(r) {
+    var cur = r.price_currency;
+    var lo = formatPrice(r.price_low, cur);
+    var med = formatPrice(r.price_median, cur);
+    var hi = formatPrice(r.price_high, cur);
+    var parts = [];
+    if (lo) parts.push('L ' + lo);
+    if (med) parts.push('M ' + med);
+    if (hi) parts.push('H ' + hi);
+    var hw = [];
+    if (r.have_count != null && !isNaN(r.have_count)) hw.push(Number(r.have_count) + ' HAVE');
+    if (r.want_count != null && !isNaN(r.want_count)) hw.push(Number(r.want_count) + ' WANT');
+    return { price: parts.join(' · '), community: hw.join(' · ') };
   }
 
   // Soft collection value: sum stored prices across the catalog. Pure read of
@@ -239,6 +258,7 @@
           +   '<span class="row__title">'  + escapeHtml(r.title  || '—') + '</span>'
           +   '<span class="row__year">'   + (r.year != null ? r.year : '') + '</span>'
           +   '<span class="row__genre">'  + escapeHtml(r.genre ? genreLabel(parentGenre(normalizeGenre(r.genre))) : '') + '</span>'
+          +   '<span class="row__price">'  + escapeHtml(cardPriceParts(r).price) + '</span>'
           + '</button>';
       }).join('');
     } else {
@@ -254,6 +274,9 @@
         var meta = metaParts.length
           ? '<div class="tile__meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
           : '';
+        var cp = cardPriceParts(r);
+        if (cp.price) meta += '<div class="tile__meta tile__price">' + escapeHtml(cp.price) + '</div>';
+        if (cp.community) meta += '<div class="tile__meta">' + escapeHtml(cp.community) + '</div>';
         var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
         return ''
           + '<button type="button" class="tile" '
@@ -326,6 +349,11 @@
         if (haveN != null) hwParts.push(haveN + ' have');
         if (wantN != null) hwParts.push(wantN + ' want');
         rows += '<dt>Community</dt><dd>' + hwParts.join(' · ') + '</dd>';
+      }
+      var ratingAvgV = (r.rating_avg != null && !isNaN(r.rating_avg)) ? Number(r.rating_avg) : null;
+      var ratingCntV = (r.rating_count != null && !isNaN(r.rating_count)) ? Number(r.rating_count) : null;
+      if (ratingAvgV != null) {
+        rows += '<dt>Rating</dt><dd>' + ratingAvgV.toFixed(2) + ' / 5' + (ratingCntV ? ' · ' + ratingCntV + ' ratings' : '') + '</dd>';
       }
 
       dataHtml = '<dl class="detail__prices">' + rows + '</dl>';
