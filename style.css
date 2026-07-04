@@ -445,7 +445,7 @@ main {
   white-space: nowrap;
   min-width: 0;
 }
-.gallery .tile__price { color: var(--ink-soft); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5; }
+.gallery .tile__meta.tile__price { color: var(--ink-soft); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5; }
 .gallery .tile__meta {
   display: block;
   margin-top: 4px;
