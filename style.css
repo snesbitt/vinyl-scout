@@ -1,5 +1,7 @@
 /* Vinyl Scout — style.css
-   version: 19
+   version: 20
+   v20(css): pricing on cards — .tile__price tone; .row__price column in the
+   list view (5-column desktop grid; full-width price line on mobile).
    v13: Condition is now spelled out inline in the detail meta line ("Very Good"),
    dropping the dark pill + "Legend" link. Storage value still uses short codes
    (VG, NM, etc.). Audit dropdown shows spelled names but stores the codes. */
@@ -304,7 +306,7 @@ main {
 .list { display: flex; flex-direction: column; }
 .list .row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.8fr) 70px minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) 56px minmax(0, 0.8fr) minmax(0, 1.3fr);
   gap: 24px;
   padding: 13px 12px;
   margin: 0 -12px;
@@ -353,6 +355,16 @@ main {
   letter-spacing: 0.14em;
   color: var(--ink-faint);
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list .row__price {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -433,6 +445,7 @@ main {
   white-space: nowrap;
   min-width: 0;
 }
+.gallery .tile__price { color: var(--ink-soft); }
 .gallery .tile__meta {
   display: block;
   margin-top: 4px;
@@ -933,7 +946,8 @@ main {
     grid-template-columns: 1fr auto;
     grid-template-areas:
       "artist year"
-      "title  genre";
+      "title  genre"
+      "price  price";
     gap: 2px 12px;
     padding: 12px;
     min-height: 56px;
@@ -942,6 +956,7 @@ main {
   .list .row__title  { grid-area: title;  font-size: 14px; }
   .list .row__year   { grid-area: year;   font-size: 10px; align-self: start; }
   .list .row__genre  { grid-area: genre;  font-size: 9px;  align-self: end; }
+  .list .row__price  { grid-area: price;  font-size: 9px;  text-align: left; margin-top: 2px; }
 
   .gallery {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
