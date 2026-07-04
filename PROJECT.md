@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 4 · **Last revised:** 2026-07-01
+**Version:** 5 · **Last revised:** 2026-07-04
 
 **Changelog**
+- **v5 (2026-07-04)** — Median-wipe incident diagnosed and fixed. The Jul 1–2 batch enrichment run overwrote every stored median and community stat with nulls: Discogs 403-blocks Netlify's datacenter IPs, so the server-side release-page scrape always fails in production, and pricing v18 wrote its (null) scrape variables unconditionally. **Function v19:** a failed or empty scrape now preserves the record's existing enrichment; API-sourced fields (`price_low`, `copies_available`) update only when the API returns data. Full dataset restored via browser-side re-scrape: 91/92 records carry median/high/have/want/rating/last-sold (one release has no Discogs sales history at all). **UI v24/v25 + CSS v20:** gallery tiles and list rows show Low/Median/High plus Have/Want; detail modal adds the community Rating row; header shows collection value only. Collection value ≈ €2,178.21.
 - **v4 (2026-07-01)** — Phase 2 complete. All 92 records enriched with Discogs IDs and pricing (89/92 have market prices; 3 have no Discogs marketplace data or exact match). Collection value total displayed on home page. Updated roadmap.html and about.html to reflect Phase 2 live status. Next phase: Wishlist (intentionally parked).
 - **v3 (2026-07-01)** — Phase 2 enrichment is now executable. Added `vs-enrich-batch.py` for batch Discogs ID lookup and pricing fetch. All 92 records can now be enriched (57 pending IDs, 88 pending pricing updates). The display already exists in the detail modal. Enrichment is on-demand only (no cron, no background mutation).
 - **v2 (2026-05-28)** — Reconciled the charter with what's actually deployed: added `/audit.html` (inline edit / delete / cover-upload) and git backups to Phase 1 scope; documented the `/api/backup` endpoints; updated catalog state (~91 records, covers applied). Adopted two new Phase 1 items: SEO suppression (noindex) and write-protection (shared edit secret on `POST`/`DELETE`). Added this version header.
@@ -59,7 +60,9 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ## Phase 2 — COMPLETE: Discogs enrichment
 
-**Status:** ✓ All 92 records enriched. 89/92 have market prices; 3 have no Discogs marketplace data (or couldn't match the exact pressing). Collection value ~€1,443.73 displayed on home page.
+**Status:** ✓ All 92 records enriched — 92/92 priced, 91/92 with median/high sales history (one release has never sold on Discogs). Collection value ≈ €2,178.21 displayed on home page.
+
+**Median data caveat (v19):** median/high/have/want/rating/last-sold come from the Discogs release *page*, which Discogs serves only to real browsers — server-side scrapes get 403. That data is collected browser-side (Claude-assisted session). The pricing function (v19) preserves it: when the scrape fails, a refresh only updates `price_low` and `copies_available`, never nulling stored enrichment.
 
 **The whole thing in one sentence**: Fetch missing Discogs release IDs for 57 records, and pricing + marketplace stats for all 92.
 
