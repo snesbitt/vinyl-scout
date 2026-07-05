@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 7 · **Last revised:** 2026-07-04
+**Version:** 8 · **Last revised:** 2026-07-04
 
 **Changelog**
+- **v8 (2026-07-04)** — Wishlist matured through v10 in one sitting with Susan: album-art thumbnails on every row (Discogs lookup thumb at import; release-page og:image backfill); MEDIAN sale price is the bare headline number (cheapest listing ‘€x listed’ for never-sold releases); compact single-line rows (titles ellipsize, price block never wraps); optimistic add/delete (fixes the double-click-to-delete illusion caused by Netlify Blobs read-lag — the UI now updates its own list on success instead of re-fetching); intro copy clarified (max price is optional and explained). Wishlist sources now: Your Top Songs 2025 top-50, seven of Susan's playlists, and the ‘Rudy Van Gelder (minus the crap)’ jazz list — ~50 items, 100% artwork, ~95% priced. Format lesson encoded: a ‘12"’ in a release TITLE is not vinyl (the Dimitri From Paris ‘Thinking Of You 12" Remixes’ releases are digital Files); the remix rule now verifies the actual format and hunts remixer vinyl compilations (Le Chic Remix 2×12 carries those mixes). E2E QA: all six pages 200; unauthorized writes 401 on records and wishlist; 93 records / 92 medians / ≈€2,233; wishlist 50 items.
 - **v7 (2026-07-04)** — Wishlist is now Spotify-fed. One-time import + weekly sync pull Susan's 50 most-played tracks (Spotify 'Your Top Songs' playlist, read via her browser), collapse them to unique albums, exclude albums already owned or already wishlisted, and add only releases that exist on vinyl (Discogs lookup; digital-only releases are skipped). First import: 13 albums added, 1 skipped as owned, 33 skipped digital-only. Sync never deletes wishlist items — pruning is manual. Also: record #93 added (Madonna — Confessions II, 2xLP Pink Translucent, Mint, fully enriched; collection ≈ €2,233).
 - **v6 (2026-07-04)** — **Phase 3 shipped: Wishlist.** New `/wishlist.html` page and `/api/wishlist` function (separate Blobs store `wishlist`; GET public, POST/DELETE gated by the same edit secret; single-item operations only, per Hard Rules). Items carry artist, title, max_price, discogs_release_id, notes, and scout-written current_ask. Agentic layer (lives outside the repo, in Susan's Claude app): a weekly Claude-driven run refreshes record medians AND scans Discogs sell pages for wishlist items, flagging any ask ≤ max_price as a FIND; a daily read-only watchdog checks record count vs. latest backup, median presence, and site availability, alerting Susan on anomalies. Hard-Rules note: these are Susan-sanctioned automations (approved 2026-07-04) — enrichment writes remain single-item upserts through the gated API, and the watchdog never writes.
 - **v5 (2026-07-04)** — Median-wipe incident diagnosed and fixed. The Jul 1–2 batch enrichment run overwrote every stored median and community stat with nulls: Discogs 403-blocks Netlify's datacenter IPs, so the server-side release-page scrape always fails in production, and pricing v18 wrote its (null) scrape variables unconditionally. **Function v19:** a failed or empty scrape now preserves the record's existing enrichment; API-sourced fields (`price_low`, `copies_available`) update only when the API returns data. Full dataset restored via browser-side re-scrape: 91/92 records carry median/high/have/want/rating/last-sold (one release has no Discogs sales history at all). **UI v24/v25 + CSS v20:** gallery tiles and list rows show Low/Median/High plus Have/Want; detail modal adds the community Rating row; header shows collection value only. Collection value ≈ €2,178.21.
@@ -238,6 +239,8 @@ If ANY item is in doubt, stop and ask Susan before proceeding.
 
 Phase 2 adds (all optional/nullable): `discogs_release_id`, `price_low`, `price_high`, `price_median`, `price_last_sold`, `price_currency`, `copies_available`, `have_count`, `want_count`, `rating_avg`, `rating_count`, `price_updated_at`, `condition`.
 
+**Wishlist item schema (Phase 3, store `wishlist`):** `id` (`wish_<8-byte-hex>`), `artist`, `title`, `max_price` (nullable — set by Susan; enables the green FIND state), `currency`, `discogs_release_id`, `discogs_url`, `cover_url`, `notes` (source playlist), `current_ask` (cheapest listing, scout-written), `ask_updated_at`, `price_median` (scout-written), `created_at`.
+
 ---
 
 ## Catalog seeding & editing workflow (Phase 1+2)
@@ -266,6 +269,9 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `GET  /api/backup?key=…` — reads the store, commits `backups/YYYY-MM-DD.json` to the repo; pure read of the store. Scheduled function runs the same nightly.
 - `GET  /api/discogs/lookup?artist=…&title=…` — public; returns Discogs candidates
 - `POST /api/discogs-pricing` — edit-secret required; body: `{"recordId": "rec_xxx"}`; fetches + stores pricing
+- `GET  /api/wishlist` — public; returns all wishlist items as a JSON array
+- `POST /api/wishlist` — edit-secret required; upsert one item by `id`
+- `DELETE /api/wishlist/:id` — edit-secret required; delete one item by `id`
 
 ---
 
@@ -281,3 +287,4 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Phase 2**: Market enrichment. Discogs IDs + pricing — live.
 - **Phase 3**: Wishlist. Parked (not started).
 - **Catalog**: Susan's full collection. ~92 records (reset empty after May 2026; reseeded June–July 2026).
+—
