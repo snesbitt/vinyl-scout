@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=20" />
   <style>
-    /* Wishlist — version: 8 (bare price, no MEDIAN label) */
+    /* Wishlist — version: 9 (optimistic add/delete — Blobs reads lag writes, so trust the local list) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 6px 12px 6px 6px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: nowrap; }
@@ -161,7 +161,8 @@
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
       $('f-artist').value = ''; $('f-title').value = ''; $('f-max').value = ''; $('f-url').value = ''; $('f-notes').value = '';
-      load();
+      items.push(item);
+      render();
     } catch (err) { showError('Add failed: ' + err.message); }
   }
 
@@ -172,7 +173,8 @@
       var res = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE', headers: { 'X-Edit-Key': secret() } });
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
-      load();
+      items = items.filter(function (x) { return x.id !== id; });
+      render();
     } catch (err) { showError('Delete failed: ' + err.message); }
   }
 
