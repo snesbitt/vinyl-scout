@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 5 · **Last revised:** 2026-07-04
+**Version:** 6 · **Last revised:** 2026-07-04
 
 **Changelog**
+- **v6 (2026-07-04)** — **Phase 3 shipped: Wishlist.** New `/wishlist.html` page and `/api/wishlist` function (separate Blobs store `wishlist`; GET public, POST/DELETE gated by the same edit secret; single-item operations only, per Hard Rules). Items carry artist, title, max_price, discogs_release_id, notes, and scout-written current_ask. Agentic layer (lives outside the repo, in Susan's Claude app): a weekly Claude-driven run refreshes record medians AND scans Discogs sell pages for wishlist items, flagging any ask ≤ max_price as a FIND; a daily read-only watchdog checks record count vs. latest backup, median presence, and site availability, alerting Susan on anomalies. Hard-Rules note: these are Susan-sanctioned automations (approved 2026-07-04) — enrichment writes remain single-item upserts through the gated API, and the watchdog never writes.
 - **v5 (2026-07-04)** — Median-wipe incident diagnosed and fixed. The Jul 1–2 batch enrichment run overwrote every stored median and community stat with nulls: Discogs 403-blocks Netlify's datacenter IPs, so the server-side release-page scrape always fails in production, and pricing v18 wrote its (null) scrape variables unconditionally. **Function v19:** a failed or empty scrape now preserves the record's existing enrichment; API-sourced fields (`price_low`, `copies_available`) update only when the API returns data. Full dataset restored via browser-side re-scrape: 91/92 records carry median/high/have/want/rating/last-sold (one release has no Discogs sales history at all). **UI v24/v25 + CSS v20:** gallery tiles and list rows show Low/Median/High plus Have/Want; detail modal adds the community Rating row; header shows collection value only. Collection value ≈ €2,178.21.
 - **v4 (2026-07-01)** — Phase 2 complete. All 92 records enriched with Discogs IDs and pricing (89/92 have market prices; 3 have no Discogs marketplace data or exact match). Collection value total displayed on home page. Updated roadmap.html and about.html to reflect Phase 2 live status. Next phase: Wishlist (intentionally parked).
 - **v3 (2026-07-01)** — Phase 2 enrichment is now executable. Added `vs-enrich-batch.py` for batch Discogs ID lookup and pricing fetch. All 92 records can now be enriched (57 pending IDs, 88 pending pricing updates). The display already exists in the detail modal. Enrichment is on-demand only (no cron, no background mutation).
@@ -130,13 +131,13 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 ---
 
-## Phase 3 — Parked: Wishlist
+## Phase 3 — COMPLETE: Wishlist
 
-**Status:** Intentionally not started. Next in queue after Phase 2 complete.
+**Status:** ✓ Live (2026-07-04). `/wishlist.html` + `/api/wishlist`.
 
-**The whole thing in one sentence:** A separate page or modal to track records Susan is hunting for, sorted by price/rarity/condition, with Discogs links.
+**The whole thing in one sentence:** A separate page tracking records Susan is hunting for, each with a max price, with a weekly scout that checks Discogs asking prices and flags finds.
 
-**What it is:** Keep a wishlist separate from the owned collection. Browse Discogs, mark albums wanted, track asking prices, and use it as a long-term shopping guide. Manual (not auto-populated from Spotify or similar).
+**How it works:** Items live in their own Blobs store (`wishlist`) behind the same edit-secret gate — wishlist writes can never touch the catalog. Susan adds items on the page (artist, title, max price, optional Discogs release URL, notes). The weekly Claude-driven scout reads each item's Discogs sell page through Susan's browser (server-side scrapes get 403'd), writes back `current_ask`, and reports anything at or under max price as a FIND — both in the weekly report and highlighted green on the page. Manual adds only (not auto-populated from Spotify or similar).
 
 ---
 
