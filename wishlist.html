@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=20" />
   <style>
-    /* Wishlist — version: 1 (Phase 3) */
+    /* Wishlist — version: 2 (plain-language copy: intro rewritten, ASK → CHEAPEST, Discogs link → see listings) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px 18px; margin-bottom: 12px; display: flex; justify-content: space-between; gap: 16px; align-items: baseline; flex-wrap: wrap; }
@@ -55,7 +55,7 @@
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
 
 <main class="wl-wrap">
-  <p class="wl-intro">Records being hunted. The weekly scout checks Discogs asking prices — anything at or under its max lights up green.</p>
+  <p class="wl-intro">The hunt list. Every Monday the scout checks the cheapest copy for sale of each record — when one dips to your max price, the card turns green.</p>
   <div id="wl-list"><div class="empty">Loading…</div></div>
 
   <section class="wl-form" aria-label="Add to wishlist">
@@ -114,8 +114,8 @@
     list.innerHTML = items.map(function (w) {
       var isFind = w.current_ask != null && w.max_price != null && Number(w.current_ask) <= Number(w.max_price);
       var nums = [];
+      nums.push(w.current_ask != null ? 'CHEAPEST ' + fmt(w.current_ask) : 'PRICE CHECK MONDAY');
       if (w.max_price != null) nums.push('MAX ' + fmt(w.max_price));
-      nums.push(w.current_ask != null ? 'ASK ' + fmt(w.current_ask) : 'ASK —');
       var rid = w.discogs_release_id;
       var link = rid ? 'https://www.discogs.com/sell/release/' + encodeURIComponent(rid) : 'https://www.discogs.com/search/?q=' + encodeURIComponent((w.artist || '') + ' ' + (w.title || '')) + '&type=release';
       return '<div class="wl-item' + (isFind ? ' wl-item--find' : '') + '">'
@@ -123,7 +123,7 @@
         + (w.notes ? '<div class="wl-notes">' + esc(w.notes) + '</div>' : '')
         + '</span>'
         + '<span class="wl-nums">' + (isFind ? '<span class="wl-find-badge">FIND! </span>' : '') + nums.join(' · ')
-        + ' · <a href="' + link + '" target="_blank" rel="noopener">Discogs</a>'
+        + ' · <a href="' + link + '" target="_blank" rel="noopener">see listings</a>'
         + '<button class="wl-del" data-id="' + esc(w.id) + '" aria-label="Remove">×</button></span>'
         + '</div>';
     }).join('');
