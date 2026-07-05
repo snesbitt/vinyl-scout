@@ -26,7 +26,7 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v25 · July 2026</p>
+  <p class="article__kicker">How it works · v8 charter · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
@@ -59,7 +59,7 @@
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2 for GET (list all records), POST (upsert by ID), DELETE (single record). Enrichment endpoints: <code>/api/discogs/lookup</code> (candidate matching by artist/title), and <code>/api/discogs-pricing</code> (fetch + store pricing & metadata). All write endpoints require an <code>X-Edit-Key</code> header.</li>
+    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single). Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title), <code>/api/discogs-pricing</code> (fetch + store pricing). Every write endpoint requires an <code>X-Edit-Key</code> header; reads are public.</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
@@ -102,7 +102,12 @@
     <li><strong>P</strong> — Poor. Severely damaged, barely playable.</li>
   </ul>
 
-  <h2><span class="article__num">05</span>Data & backups</h2>
+  <h2><span class="article__num">05</span>Wishlist</h2>
+  <p>
+    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>. Records come from two places: added by hand, or imported from Spotify — a weekly sync reads the most-played albums across the owner&rsquo;s playlists, keeps only those on vinyl, and skips anything already owned. Each row shows album art, the Discogs median sale price, and a link to current listings. Give any record a <em>max price</em> and its card turns green when a copy is listed at or below it. The weekly scout refreshes prices and checks for matches; nothing is auto-removed.
+  </p>
+
+  <h2><span class="article__num">06</span>Data & backups</h2>
   <p>
     Every record is backed up automatically. A nightly function commits the entire
     catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. You can
