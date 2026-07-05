@@ -11,10 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=20" />
   <style>
-    /* Wishlist — version: 5 (compact table rows, no notes sub-line, never-sold labels) */
+    /* Wishlist — version: 6 (album artwork thumbnails) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
-    .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 8px 14px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+    .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 6px 12px 6px 6px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .wl-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 2px; flex: 0 0 44px; background: var(--bg-soft); display: block; }
+    .wl-who { flex: 1 1 auto; }
     .wl-item--find { border-color: var(--good); box-shadow: 0 0 0 1px var(--good); }
     .wl-who { min-width: 0; }
     .wl-artist { font-weight: 600; font-size: 15px; color: var(--ink); }
@@ -121,6 +123,7 @@
       var rid = w.discogs_release_id;
       var link = rid ? 'https://www.discogs.com/sell/release/' + encodeURIComponent(rid) : 'https://www.discogs.com/search/?q=' + encodeURIComponent((w.artist || '') + ' ' + (w.title || '')) + '&type=release';
       return '<div class="wl-item' + (isFind ? ' wl-item--find' : '') + '">'
+        + (w.cover_url ? '<img class="wl-thumb" src="' + esc(w.cover_url) + '" alt="" loading="lazy">' : '<span class="wl-thumb" aria-hidden="true"></span>')
         + '<span class="wl-who"><span class="wl-artist">' + esc(w.artist) + '</span> — <span class="wl-title">' + esc(w.title) + '</span>'
         + '</span>'
         + '<span class="wl-nums">' + (isFind ? '<span class="wl-find-badge">FIND! </span>' : '') + nums.join(' · ')
