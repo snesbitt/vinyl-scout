@@ -1,5 +1,8 @@
 // Vinyl Scout — app.js
-// version: 25
+// version: 26
+// v26: gallery tiles show artist + album only — year/genre, pricing, and
+// Have/Want counts removed from tiles; all of it still lives in the
+// detail modal (Market + Release Info). List view unchanged.
 // v25: header shows collection value only — dropped the 'X of Y priced'
 //      coverage label per Susan's ask.
 // v24: pricing on cards — gallery tiles and list rows show Low/Median/High
@@ -270,15 +273,6 @@
         var cover = r.cover_url
           ? '<img src="' + escapeAttr(r.cover_url) + '" alt="" loading="lazy">'
           : '<div class="tile__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
-        var metaParts = [];
-        if (r.year != null) metaParts.push(r.year);
-        if (r.genre) metaParts.push(genreLabel(parentGenre(normalizeGenre(r.genre))));
-        var meta = metaParts.length
-          ? '<div class="tile__meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
-          : '';
-        var cp = cardPriceParts(r);
-        if (cp.price) meta += '<div class="tile__meta tile__price">' + escapeHtml(cp.price) + '</div>';
-        if (cp.community) meta += '<div class="tile__meta">' + escapeHtml(cp.community) + '</div>';
         var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
         return ''
           + '<button type="button" class="tile" '
@@ -288,7 +282,6 @@
           +   '<span class="tile__text">'
           +     '<span class="tile__artist">' + escapeHtml(r.artist || '—') + '</span>'
           +     '<span class="tile__title">'  + escapeHtml(r.title  || '—') + '</span>'
-          +     meta
           +   '</span>'
           + '</button>';
       }).join('');
