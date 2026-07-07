@@ -1,5 +1,8 @@
 // Vinyl Scout — app.js
-// version: 26
+// version: 27
+// v27: collection value also shown in US dollars — converts the EUR
+// total at the day's ECB rate (api.frankfurter.dev), fetched client-side
+// on load. If the rate fetch fails, the EUR figure shows alone.
 // v26: gallery tiles show artist + album only — year/genre, pricing, and
 // Have/Want counts removed from tiles; all of it still lives in the
 // detail modal (Market + Release Info). List view unchanged.
@@ -131,7 +134,20 @@
     return { price: parts.join(' · '), community: hw.join(' · ') };
   }
 
-  // Soft collection value: sum stored prices across the catalog. Pure read of
+  var fxUsd = null; // EUR -> USD, today's ECB rate (v27)
+async function loadFx() {
+try {
+var res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD');
+if (!res.ok) return;
+var data = await res.json();
+if (data && data.rates && data.rates.USD) {
+fxUsd = Number(data.rates.USD);
+renderCollectionValue();
+}
+} catch (e) { /* EUR-only display is fine */ }
+}
+
+// Soft collection value: sum stored prices across the catalog. Pure read of
   // already-stored data (no network, no re-pricing). Prefers price_median,
   // falls back to price_low. Groups by currency so we never add across them.
   function collectionValue() {
@@ -161,7 +177,11 @@
         parts.push('\u2248 ' + formatPrice(v.byCur[cur], cur));
       }
     }
-    el.textContent = parts.join(' + ');
+    var txt = parts.join(' + ');
+if (fxUsd && v.byCur.EUR) {
+txt += ' \u00b7 \u2248 $' + (v.byCur.EUR * fxUsd).toFixed(2) + ' USD';
+}
+el.textContent = txt;
     el.hidden = false;
   }
 
@@ -608,5 +628,6 @@
     });
 
     load();
+    loadFx();
   });
 })();
