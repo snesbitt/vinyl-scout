@@ -1,5 +1,5 @@
 // Vinyl Scout — app.js
-// version: 27
+// version: 28
 // v27: collection value also shown in US dollars — converts the EUR
 // total at the day's ECB rate (api.frankfurter.dev), fetched client-side
 // on load. If the rate fetch fails, the EUR figure shows alone.
@@ -174,12 +174,12 @@ renderCollectionValue();
     var parts = [];
     for (var cur in v.byCur) {
       if (Object.prototype.hasOwnProperty.call(v.byCur, cur)) {
-        parts.push('\u2248 ' + formatPrice(v.byCur[cur], cur));
+        parts.push('\u2248 ' + (cur === 'EUR' ? '€' : '$') + Math.round(v.byCur[cur]).toLocaleString('en-US'));
       }
     }
     var txt = parts.join(' + ');
 if (fxUsd && v.byCur.EUR) {
-txt += ' \u00b7 \u2248 $' + (v.byCur.EUR * fxUsd).toFixed(2) + ' USD';
+txt += ' \u00b7 \u2248 $' + Math.round(v.byCur.EUR * fxUsd).toLocaleString('en-US') + ' USD';
 }
 el.textContent = txt;
     el.hidden = false;
