@@ -4,11 +4,136 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guide · The Vinyl Scout</title>
-  <meta name="description" content="How this site's catalog, pricing, backups, and daily health check were built with Claude on GitHub and Netlify — and how to do the same for any collection." />
+  <meta name="description" content="A six-step how-to for building a self-maintaining catalog with Claude — which mode and which model to use for each step, plus pricing, backups, and a daily health check. Works for any collection." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=20" />
+  <style>
+    /* Guide-page-only additions: stepper nav, field-note aside, model grid.
+       Scoped to this page only — nothing here touches style.css. */
+    .stepper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 32px;
+      padding: 0;
+      list-style: none;
+    }
+    .stepper li { margin: 0; }
+    .stepper a {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      padding: 7px 12px;
+      transition: border-color 100ms, color 100ms;
+    }
+    .stepper a:hover { border-color: var(--accent); color: var(--accent); }
+    .stepper__n { color: var(--accent); font-weight: 600; }
+
+    .field-note {
+      margin: 0 0 36px;
+      padding: 18px 22px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--gold);
+      border-radius: 2px;
+    }
+    .field-note__kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin: 0 0 8px;
+    }
+    .field-note p {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 22px 0 16px;
+    }
+    .model-card {
+      border-radius: 6px;
+      padding: 16px 15px 18px;
+      border: 1px solid var(--rule);
+    }
+    .model-card__name {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 19px;
+      margin: 0 0 4px;
+      color: var(--ink);
+    }
+    .model-card__tag {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin: 0 0 10px;
+      line-height: 1.4;
+    }
+    .model-card__desc {
+      font-family: var(--sans);
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    .model-card--haiku  { background: #e6edf4; border-color: #93aec7; }
+    .model-card--sonnet { background: #f4ede2; border-color: #c9b891; }
+    .model-card--opus   { background: #eeeae3; border-color: #b3a98f; }
+    .model-card--fable  { background: #e9f0e6; border-color: #a4bd9a; }
+
+    .model-rule {
+      margin: 0 0 8px;
+      padding: 14px 18px;
+      background: var(--bg-soft);
+      border-radius: 2px;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--ink);
+    }
+    .model-rule strong { font-weight: 600; }
+
+    .article__closing-kicker {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin: 0 0 8px;
+    }
+    .article__divider {
+      margin: 52px 0 34px;
+      border-top: 1px solid var(--rule);
+    }
+
+    @media (max-width: 720px) {
+      .model-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      .model-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
@@ -28,16 +153,156 @@
   </header>
 
   <article class="article">
-    <p class="article__kicker">Field notes · replicate this for any collection · July 2026</p>
+    <p class="article__kicker">How-to · replicate this for any collection · July 2026</p>
     <h1>A catalog that looks after itself</h1>
     <p class="article__lede">
-      This site's catalog has been lost twice — once to a bad edit, once to a broken
-      deploy. Both times it was back within a day, because a set of small automated
-      jobs had been built around it with Claude. None of it required writing code by
-      hand. The same recipe works for books, watches, wine, or trading cards.
+      Six steps to a catalog that prices itself, backs itself up, and tells you when
+      something's wrong — built without writing code by hand. Follow them in order;
+      each one is useful on its own even if you stop there. The same recipe works
+      for books, watches, wine, or trading cards.
     </p>
 
-    <h2><span class="article__num">01</span>Start with the data</h2>
+    <div class="field-note">
+      <p class="field-note__kicker">Field note</p>
+      <p>
+        This site's catalog has been lost twice — once to a bad edit, once to a
+        broken deploy. Both times it was back within a day, because the automation
+        below already existed. That's the argument for building all six steps, not
+        just the ones that seem fun.
+      </p>
+    </div>
+
+    <ul class="stepper" aria-label="Jump to a step">
+      <li><a href="#step-01"><span class="stepper__n">01</span> Tools &amp; model</a></li>
+      <li><a href="#step-02"><span class="stepper__n">02</span> The data</a></li>
+      <li><a href="#step-03"><span class="stepper__n">03</span> Market prices</a></li>
+      <li><a href="#step-04"><span class="stepper__n">04</span> Backups</a></li>
+      <li><a href="#step-05"><span class="stepper__n">05</span> Health check</a></li>
+      <li><a href="#step-06"><span class="stepper__n">06</span> The plumbing</a></li>
+      <li><a href="#field-notes">Field notes</a></li>
+    </ul>
+
+    <h2 id="step-01"><span class="article__num">01</span>Pick your tools — and size the model to the job</h2>
+    <p>
+      Four modes, four jobs. Use <strong>Chat</strong> to decide what to build —
+      which fields to track, which grading system to use, drafting text like this
+      page. Use <strong>the terminal</strong> (Claude Code) to build it — the API,
+      the storage, and the backup function were written there, session by session,
+      with each deploy reviewed before it shipped. Use <strong>Cowork</strong> to
+      maintain it day to day — it works with files and a browser, and it shipped
+      this very page and adjusted the gallery layout without a terminal ever
+      opening. Use <strong>scheduled tasks</strong> for anything you'd otherwise
+      have to remember — weekly price refreshes, nightly backups, the daily check.
+      A feature typically moves through all four, left to right.
+    </p>
+
+    <figure style="margin: 28px 0; text-align: center;">
+      <svg viewBox="0 0 720 176" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Four columns: Chat to decide, Terminal to build, Cowork to maintain, Scheduled tasks to repeat, connected by arrows left to right">
+        <defs>
+          <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a89f8f"/>
+          </marker>
+        </defs>
+        <g font-family="'IBM Plex Sans', Helvetica, sans-serif">
+          <rect x="8" y="14" width="158" height="118" rx="8" fill="#f4ede2" stroke="#c9b891"/>
+          <text x="87" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#3d3426">Chat</text>
+          <text x="87" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#6b5f49">decide</text>
+          <text x="87" y="78" text-anchor="middle" font-size="10.5" fill="#5c5240">questions &amp; trade-offs</text>
+          <text x="87" y="94" text-anchor="middle" font-size="10.5" fill="#5c5240">what to build next</text>
+          <text x="87" y="110" text-anchor="middle" font-size="10.5" fill="#5c5240">drafting text</text>
+
+          <rect x="190" y="14" width="158" height="118" rx="8" fill="#eeeae3" stroke="#b3a98f"/>
+          <text x="269" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#3d3426">Terminal</text>
+          <text x="269" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#6b5f49">build</text>
+          <text x="269" y="78" text-anchor="middle" font-size="10.5" fill="#5c5240">Claude Code sessions</text>
+          <text x="269" y="94" text-anchor="middle" font-size="10.5" fill="#5c5240">wrote the app &amp; API</text>
+          <text x="269" y="110" text-anchor="middle" font-size="10.5" fill="#5c5240">owner reviews deploys</text>
+
+          <rect x="372" y="14" width="158" height="118" rx="8" fill="#e9f0e6" stroke="#a4bd9a"/>
+          <text x="451" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#2e4026">Cowork</text>
+          <text x="451" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#5a6e50">maintain</text>
+          <text x="451" y="78" text-anchor="middle" font-size="10.5" fill="#44543c">files &amp; a browser</text>
+          <text x="451" y="94" text-anchor="middle" font-size="10.5" fill="#44543c">commits to GitHub</text>
+          <text x="451" y="110" text-anchor="middle" font-size="10.5" fill="#44543c">shipped this page</text>
+
+          <rect x="554" y="14" width="158" height="118" rx="8" fill="#e6edf4" stroke="#93aec7"/>
+          <text x="633" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#233649">Scheduled tasks</text>
+          <text x="633" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#4d6377">repeat</text>
+          <text x="633" y="78" text-anchor="middle" font-size="10.5" fill="#3c4f60">weekly price refresh</text>
+          <text x="633" y="94" text-anchor="middle" font-size="10.5" fill="#3c4f60">nightly backup</text>
+          <text x="633" y="110" text-anchor="middle" font-size="10.5" fill="#3c4f60">daily health check</text>
+
+          <line x1="166" y1="73" x2="188" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
+          <line x1="348" y1="73" x2="370" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
+          <line x1="530" y1="73" x2="552" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
+
+          <text x="360" y="162" text-anchor="middle" font-size="10.5" font-style="italic" fill="#8a8172">a feature moves left to right: decided in chat, built in the terminal, maintained in Cowork, then runs on a schedule</text>
+        </g>
+      </svg>
+      <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
+        Which mode for which job.
+      </figcaption>
+    </figure>
+
+    <p>
+      The mode decides <em>where</em> the work happens. Separately, decide
+      <em>how much model</em> it needs — not every task deserves the same
+      horsepower, and running routine jobs on a heavier model than they need
+      is cost and time spent on nothing. Four tiers, roughly in order of what
+      they cost to run:
+    </p>
+
+    <div class="model-grid">
+      <div class="model-card model-card--haiku">
+        <p class="model-card__name">Haiku</p>
+        <p class="model-card__tag">routine · read-only · high frequency</p>
+        <p class="model-card__desc">
+          Fast and cheap — right for anything that runs on its own and doesn't
+          need much judgment. On this project it runs the nightly backup and
+          the daily health check.
+        </p>
+      </div>
+      <div class="model-card model-card--sonnet">
+        <p class="model-card__name">Sonnet</p>
+        <p class="model-card__tag">the default</p>
+        <p class="model-card__desc">
+          The right starting point for almost everything: an API endpoint, a
+          typical bug fix, a normal Cowork session. Most of steps 02–06 below
+          were built at this level. Default here unless a task clearly needs
+          more or less.
+        </p>
+      </div>
+      <div class="model-card model-card--opus">
+        <p class="model-card__name">Opus</p>
+        <p class="model-card__tag">hard problems · high stakes</p>
+        <p class="model-card__desc">
+          Reach for this when a mistake would be expensive or the reasoning
+          is genuinely hard — a schema decision, a bug that crosses several
+          files. The no-bulk-delete rule below came out of a conversation at
+          this level, after a data-loss incident.
+        </p>
+      </div>
+      <div class="model-card model-card--fable">
+        <p class="model-card__name">Fable</p>
+        <p class="model-card__tag">narrative &amp; prose · public-facing</p>
+        <p class="model-card__desc">
+          For words a real audience will read — a guide like this one, a
+          product page. Not needed for the plumbing: a project like this one
+          runs mostly on Sonnet and Haiku, and reaches for Fable only on the
+          rare page meant to be read, not run.
+        </p>
+      </div>
+    </div>
+
+    <p class="model-rule">
+      <strong>Rule of thumb:</strong> default to Sonnet. Drop to Haiku for
+      anything scheduled or read-only — it runs often, so the savings add up.
+      Reach for Opus only when getting it wrong is costly. Save Fable for the
+      writing that represents you, not the code running quietly in the
+      background.
+    </p>
+
+    <h2 id="step-02"><span class="article__num">02</span>Start with the data</h2>
     <p>
       Tell Claude what you collect and which fields matter — condition, year, what you
       paid, what it's worth now. From that description it can build a spreadsheet or a
@@ -46,7 +311,7 @@
       most of it spent entering items.
     </p>
 
-    <h2><span class="article__num">02</span>Add market prices</h2>
+    <h2 id="step-03"><span class="article__num">03</span>Add market prices</h2>
     <p>
       A <em>scheduled task</em> — a saved instruction that runs on its own, weekly in
       this case — looks up marketplace prices through a small server function that
@@ -59,7 +324,7 @@
       right listing once; after that they stay fixed.
     </p>
 
-    <h2><span class="article__num">03</span>Nightly backups</h2>
+    <h2 id="step-04"><span class="article__num">04</span>Automate nightly backups</h2>
     <p>
       Every night, a function commits the full catalog as a dated JSON file to the
       site's GitHub repository — the same place the code lives. Recovery after the
@@ -67,7 +332,7 @@
       ten minutes of work.
     </p>
 
-    <h2><span class="article__num">04</span>A daily health check</h2>
+    <h2 id="step-05"><span class="article__num">05</span>Build a daily health check</h2>
     <p>
       The last piece is a daily check that <strong>only reads, never writes</strong>.
       It counts the records, verifies the prices are still present, confirms last
@@ -98,7 +363,7 @@
       </figcaption>
     </figure>
 
-    <h2><span class="article__num">05</span>What it runs on</h2>
+    <h2 id="step-06"><span class="article__num">06</span>Keep the plumbing ordinary</h2>
     <p>
       The plumbing is deliberately ordinary. The code lives in a plain
       <strong>GitHub</strong> repository, and pushing a change there is the entire
@@ -165,70 +430,10 @@
       </figcaption>
     </figure>
 
-    <h2><span class="article__num">06</span>Chat, terminal, Cowork, or a schedule</h2>
-    <p>
-      "Built with Claude" means four different modes, and knowing which to reach for
-      saves real time. <strong>Chat</strong> is for deciding: which fields to track,
-      which grading system to use, drafting text like this page.
-      <strong>The terminal</strong> (Claude Code) is for building: the app itself —
-      the API, the storage, the backup function — was written there, session by
-      session, with the owner reviewing each deploy. <strong>Cowork</strong> is for
-      maintaining: it works with files and a browser, and it committed this very page
-      to GitHub and adjusted the gallery layout without a terminal ever being opened.
-      <strong>Scheduled tasks</strong> are for repeating: anything you'd otherwise
-      have to remember to do nightly or weekly. A feature typically moves through all
-      four, left to right.
-    </p>
+    <div class="article__divider"></div>
 
-    <figure style="margin: 28px 0; text-align: center;">
-      <svg viewBox="0 0 720 176" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Four columns: Chat to decide, Terminal to build, Cowork to maintain, Scheduled tasks to repeat, connected by arrows left to right">
-        <defs>
-          <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="#a89f8f"/>
-          </marker>
-        </defs>
-        <g font-family="'IBM Plex Sans', Helvetica, sans-serif">
-          <rect x="8" y="14" width="158" height="118" rx="8" fill="#f4ede2" stroke="#c9b891"/>
-          <text x="87" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#3d3426">Chat</text>
-          <text x="87" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#6b5f49">decide</text>
-          <text x="87" y="78" text-anchor="middle" font-size="10.5" fill="#5c5240">questions &amp; trade-offs</text>
-          <text x="87" y="94" text-anchor="middle" font-size="10.5" fill="#5c5240">what to build next</text>
-          <text x="87" y="110" text-anchor="middle" font-size="10.5" fill="#5c5240">drafting text</text>
-
-          <rect x="190" y="14" width="158" height="118" rx="8" fill="#eeeae3" stroke="#b3a98f"/>
-          <text x="269" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#3d3426">Terminal</text>
-          <text x="269" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#6b5f49">build</text>
-          <text x="269" y="78" text-anchor="middle" font-size="10.5" fill="#5c5240">Claude Code sessions</text>
-          <text x="269" y="94" text-anchor="middle" font-size="10.5" fill="#5c5240">wrote the app &amp; API</text>
-          <text x="269" y="110" text-anchor="middle" font-size="10.5" fill="#5c5240">owner reviews deploys</text>
-
-          <rect x="372" y="14" width="158" height="118" rx="8" fill="#e9f0e6" stroke="#a4bd9a"/>
-          <text x="451" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#2e4026">Cowork</text>
-          <text x="451" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#5a6e50">maintain</text>
-          <text x="451" y="78" text-anchor="middle" font-size="10.5" fill="#44543c">files &amp; a browser</text>
-          <text x="451" y="94" text-anchor="middle" font-size="10.5" fill="#44543c">commits to GitHub</text>
-          <text x="451" y="110" text-anchor="middle" font-size="10.5" fill="#44543c">shipped this page</text>
-
-          <rect x="554" y="14" width="158" height="118" rx="8" fill="#e6edf4" stroke="#93aec7"/>
-          <text x="633" y="38" text-anchor="middle" font-size="13" font-weight="600" fill="#233649">Scheduled tasks</text>
-          <text x="633" y="55" text-anchor="middle" font-size="10.5" font-style="italic" fill="#4d6377">repeat</text>
-          <text x="633" y="78" text-anchor="middle" font-size="10.5" fill="#3c4f60">weekly price refresh</text>
-          <text x="633" y="94" text-anchor="middle" font-size="10.5" fill="#3c4f60">nightly backup</text>
-          <text x="633" y="110" text-anchor="middle" font-size="10.5" fill="#3c4f60">daily health check</text>
-
-          <line x1="166" y1="73" x2="188" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
-          <line x1="348" y1="73" x2="370" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
-          <line x1="530" y1="73" x2="552" y2="73" stroke="#a89f8f" stroke-width="1.5" marker-end="url(#arrB)"/>
-
-          <text x="360" y="162" text-anchor="middle" font-size="10.5" font-style="italic" fill="#8a8172">a feature moves left to right: decided in chat, built in the terminal, maintained in Cowork, then runs on a schedule</text>
-        </g>
-      </svg>
-      <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
-        Which mode for which job.
-      </figcaption>
-    </figure>
-
-    <h2><span class="article__num">07</span>Notes from running it</h2>
+    <p class="article__closing-kicker">Field notes</p>
+    <h2 id="field-notes" style="margin-top:0;">What we'd pass on</h2>
     <p>
       Build in the order above — each step is useful even if you stop there. And
       expect the early stretch to be slower than the pitch. For the first months of
