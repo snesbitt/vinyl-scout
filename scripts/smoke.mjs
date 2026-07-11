@@ -77,6 +77,18 @@ await check('save-cover protection', async () => {
   ok('unauthenticated POST /api/save-cover → 401');
 });
 
+// 5b. Wishlist API is reachable and returns an array. Read-only check only —
+// deliberately does NOT test a POST/DELETE round trip here, since wishlist
+// writes are intentionally ungated (see PROJECT.md v12 / CLAUDE.md) and a
+// smoke-test write would insert real junk into Susan's live wishlist.
+await check('wishlist API', async () => {
+  const res = await fetch(BASE + '/api/wishlist');
+  assert(res.ok, 'GET /api/wishlist returned ' + res.status);
+  const data = await res.json();
+  assert(Array.isArray(data), 'response is not an array');
+  ok('GET /api/wishlist → ' + data.length + ' items, shape valid');
+});
+
 // 5. Discogs lookup is wired (400 on missing params = reachable, no token spent).
 await check('discogs lookup wired', async () => {
   const res = await fetch(BASE + '/api/discogs/lookup');
@@ -84,7 +96,16 @@ await check('discogs lookup wired', async () => {
   ok('GET /api/discogs/lookup (no params) → 400 (endpoint reachable)');
 });
 
-// 6. robots.txt disallows crawlers.
+// 6. Spotify preview endpoint is wired (Phase 4 — audio preview).
+await check('spotify preview wired', async () => {
+  const res = await fetch(BASE + '/api/spotify/preview?artist=Test&title=Test');
+  assert(res.ok, 'GET /api/spotify/preview returned ' + res.status);
+  const data = await res.json();
+  assert(typeof data.available === 'boolean', 'response missing available boolean');
+  ok('GET /api/spotify/preview -> available=' + data.available + (data.reason ? ' (' + data.reason + ')' : ''));
+});
+
+// 7. robots.txt disallows crawlers.
 await check('robots.txt', async () => {
   const res = await fetch(BASE + '/robots.txt');
   assert(res.ok, 'GET /robots.txt returned ' + res.status);

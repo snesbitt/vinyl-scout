@@ -1,5 +1,11 @@
 // Vinyl Scout — app.js
-// version: 28
+// version: 29
+// v29: Phase 4 — audio preview. Detail modal gets a "Play preview" button that
+//      lazy-fetches /api/spotify/preview (most-popular track on the album, not
+//      random) and plays it with a native <audio controls> element. No fetch
+//      happens until Susan taps play. Gracefully quiet if Spotify isn't
+//      configured yet, no match is found, or Spotify has no preview clip for
+//      the track. Any playing preview is paused when the modal closes.
 // v27: collection value also shown in US dollars — converts the EUR
 // total at the day's ECB rate (api.frankfurter.dev), fetched client-side
 // on load. If the rate fetch fails, the EUR figure shows alone.
@@ -425,6 +431,73 @@ el.textContent = txt;
       + '</section>';
   }
 
+  function buildAudioBlock(r) {
+    // v29: Phase 4 audio preview. Renders a placeholder with a Play button;
+    // the actual /api/spotify/preview fetch is lazy (only on tap) so opening
+    // the modal never spends a Spotify lookup nobody asked for.
+    return ''
+      + '<section class="detail__audio" aria-label="Preview">'
+      +   '<h3 class="detail__h3">Preview</h3>'
+      +   '<div class="detail__audio-body" id="detail-audio-body">'
+      +     '<button type="button" class="detail__audio-play js-audio-play" '
+      +       'data-artist="' + escapeAttr(r.artist || '') + '" '
+      +       'data-title="' + escapeAttr(r.title || '') + '">'
+      +       '▶ Play preview'
+      +     '</button>'
+      +   '</div>'
+      + '</section>';
+  }
+
+  async function playPreview(artist, title, btn) {
+    var body = document.getElementById('detail-audio-body');
+    var origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Looking up…';
+
+    try {
+      var qs = '?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title);
+      var res = await fetch('/api/spotify/preview' + qs);
+      var payload;
+      try { payload = await res.json(); }
+      catch (_) { payload = { error: 'HTTP ' + res.status }; }
+
+      if (!res.ok) {
+        var msg = (payload && payload.error) || ('HTTP ' + res.status);
+        if (body) body.innerHTML = '<p class="detail__audio-error">' + escapeHtml(msg) + '</p>';
+        return;
+      }
+
+      if (!payload.available) {
+        var note = payload.reason === 'not_configured'
+          ? 'Audio preview isn’t set up yet.'
+          : payload.reason === 'no_preview'
+            ? 'No preview clip available for this track.'
+            : 'No matching track found on Spotify.';
+        if (body) body.innerHTML = '<p class="detail__audio-empty">' + escapeHtml(note) + '</p>';
+        return;
+      }
+
+      var t = payload.track || {};
+      var label = [t.artists, t.name].filter(Boolean).join(' — ');
+      if (body) {
+        body.innerHTML = ''
+          + (label ? '<p class="detail__audio-track">' + escapeHtml(label) + '</p>' : '')
+          + '<audio class="detail__audio-player" id="detail-audio-player" controls autoplay preload="auto" src="' + escapeAttr(t.preview_url) + '"></audio>';
+      }
+    } catch (err) {
+      if (body) body.innerHTML = '<p class="detail__audio-error">Network error: ' + escapeHtml(err.message) + '</p>';
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+
+  function stopAnyPreview() {
+    var player = document.getElementById('detail-audio-player');
+    if (player) {
+      try { player.pause(); } catch (e) {}
+    }
+  }
+
   async function refreshPricing(id, btn) {
     var body = document.getElementById('detail-pricing-body');
     var origBtnText = btn.textContent;
@@ -509,6 +582,7 @@ el.textContent = txt;
 
     var pricing = buildPricingBlock(r);
     var catalog = buildCatalogBlock(r);
+    var audio = buildAudioBlock(r);
 
     inner.innerHTML = ''
       + '<div class="detail__cover">' + cover + '</div>'
@@ -516,6 +590,7 @@ el.textContent = txt;
       +   '<p class="detail__artist">' + escapeHtml(r.artist || 'Unknown') + '</p>'
       +   '<h2 class="detail__title" id="detail-title">' + escapeHtml(r.title || 'Untitled') + '</h2>'
       +   meta
+      +   audio
       +   pricing
       +   catalog
       +   notes
@@ -542,6 +617,7 @@ el.textContent = txt;
 
   function closeDetail() {
     if (!detailOpen) return;
+    stopAnyPreview();
     var modal = $('detail');
     modal.hidden = true;
     document.body.classList.remove('has-detail');
@@ -604,6 +680,11 @@ el.textContent = txt;
       if (refreshBtn) {
         var id = refreshBtn.dataset.id;
         if (id) refreshPricing(id, refreshBtn);
+        return;
+      }
+      var playBtn = e.target.closest && e.target.closest('.js-audio-play');
+      if (playBtn) {
+        playPreview(playBtn.dataset.artist || '', playBtn.dataset.title || '', playBtn);
         return;
       }
       if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') {

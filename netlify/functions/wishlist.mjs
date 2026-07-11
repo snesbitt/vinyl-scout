@@ -4,29 +4,22 @@ export const config = {
   path: "/api/wishlist/:id?"
 };
 
-// Phase 3 — Wishlist. Same contract as records.mjs: GET is public, POST and
-// DELETE require X-Edit-Key === EDIT_SECRET (fails closed if unset). Separate
-// Blobs store ('wishlist') so wishlist writes can never touch the catalog.
-// Hard Rules apply here too: single-item upserts and deletes only — no bulk
-// code paths, no dedup, no background mutation.
-function checkWriteAuth(req) {
-  const expected = process.env.EDIT_SECRET;
-  const provided = req.headers.get('x-edit-key');
-  return !!(expected && provided && provided === expected);
-}
+// Phase 3 — Wishlist. Separate Blobs store ('wishlist') so wishlist writes
+// can never touch the catalog store.
+//
+// v2 (2026-07-11): POST/DELETE are UNGATED — no X-Edit-Key check — per
+// Susan's explicit request: typing the edit passphrase on mobile every
+// session wasn't practical for a page she uses casually and often. This is
+// a deliberate, requested exception to the edit-secret pattern used
+// elsewhere (records.mjs, save-cover.mjs still require it). Anyone with the
+// site URL can add/remove wishlist items; the catalog itself is unaffected
+// and remains fully gated. Hard Rules still apply regardless of auth:
+// single-item upserts and deletes only — no bulk code paths, no dedup, no
+// background mutation.
 
 export default async (req, context) => {
   try {
     const method = (req.method || '').toUpperCase();
-
-    if (method === 'POST' || method === 'DELETE') {
-      if (!checkWriteAuth(req)) {
-        return new Response(JSON.stringify({ error: 'unauthorized — wrong or missing edit passphrase' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
 
     const store = getStore('wishlist');
 

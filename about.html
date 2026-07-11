@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=19" />
+  <link rel="stylesheet" href="/style.css?v=21" />
 </head>
 <body>
 
@@ -29,13 +29,14 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v8 charter · July 2026</p>
+  <p class="article__kicker">How it works · v12 charter · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
     LPs — what's owned, what condition it's in, what each pressing is worth
     on the secondary market, and which exact edition you own. Powered by Discogs API
-    enrichment for accurate pricing and pressing data. No accounts, no third-party tracking, no automations that quietly delete data.
+    enrichment for accurate pricing and pressing data, and a Spotify-powered audio
+    preview of each album's most popular track. No accounts, no third-party tracking, no automations that quietly delete data.
   </p>
 
   <h2><span class="article__num">01</span>What it is</h2>
@@ -55,14 +56,16 @@
     The collection page itself — what you came from — is read-only: a searchable,
     genre-filterable list or gallery. Every card shows Low/Median/High prices and
     community Have/Want counts. Tap any record for the detail view, which shows
-    the full Discogs marketplace snapshot, including the community rating.
+    the full Discogs marketplace snapshot, including the community rating, and —
+    where available — a Play button that previews the album's most popular track
+    via Spotify.
   </p>
 
   <h2><span class="article__num">02</span>The stack</h2>
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single). Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title), <code>/api/discogs-pricing</code> (fetch + store pricing). Every write endpoint requires an <code>X-Edit-Key</code> header; reads are public.</li>
+    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single). Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title), <code>/api/discogs-pricing</code> (fetch + store pricing). Audio: <code>/api/spotify/preview</code> (most-popular-track preview lookup, read-only). Every write endpoint requires an <code>X-Edit-Key</code> header; reads are public.</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
@@ -110,7 +113,16 @@
     A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>. Records come from three places: added by hand, or imported from Spotify — a weekly sync reads the most-played albums across the owner&rsquo;s designated playlists, keeps only those on vinyl, and skips anything already owned &mdash; or imported from the owner&rsquo;s Amazon cart, which the same weekly sync reads (and never modifies). Each row shows album art, the Discogs median sale price, and a link to current listings. The weekly scout refreshes prices; nothing is auto-removed, and anything deleted by hand is never auto-re-added.
   </p>
 
-  <h2><span class="article__num">06</span>Data & backups</h2>
+  <h2><span class="article__num">06</span>Audio preview</h2>
+  <p>
+    Every record's detail view has a Play button that fetches the album's most
+    popular track from Spotify (by track popularity, not randomly) and plays a
+    short preview clip in place. It's a pure lookup — nothing is stored — and
+    quietly says so if Spotify isn't configured, no track matches, or Spotify
+    has no preview clip for that particular track.
+  </p>
+
+  <h2><span class="article__num">07</span>Data & backups</h2>
   <p>
     Every record is backed up automatically. A nightly function commits the entire
     catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. You can

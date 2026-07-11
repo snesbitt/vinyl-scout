@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=20" />
+  <link rel="stylesheet" href="/style.css?v=21" />
   <style>
-    /* Wishlist — version: 11 (max-price/FIND feature removed per Susan, 2026-07-06) */
+    /* Wishlist — version: 12 (edit-secret gate removed per Susan, 2026-07-11 — mobile-impractical) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 6px 12px 6px 6px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: nowrap; }
@@ -29,8 +29,6 @@
     .wl-form h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 14px; }
     .wl-form .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
     .wl-form input { font-family: var(--mono); font-size: 16px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--bg); color: var(--ink); flex: 1 1 180px; min-height: 44px; }
-    .wl-secret { margin-top: 18px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .wl-secret input { flex: 0 1 220px; }
     @media (max-width: 720px) { .wl-wrap { padding: 0 18px 64px; } }
   </style>
 </head>
@@ -72,12 +70,6 @@
       <input id="f-notes" placeholder="Notes (pressing, condition wanted…)" autocomplete="off" />
     </div>
     <button id="f-add" class="btn" type="button">Add to wishlist</button>
-    <div class="wl-secret">
-      <label for="f-secret">Edit secret:</label>
-      <input id="f-secret" type="password" autocomplete="off" />
-      <button id="f-secret-save" class="btn btn--ghost btn--sm" type="button">Save</button>
-      <span id="f-secret-status"></span>
-    </div>
   </section>
 </main>
 
@@ -89,7 +81,6 @@
   function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
   function showError(msg) { var el = $('error-banner'); el.textContent = msg; el.hidden = false; }
   function clearError() { var el = $('error-banner'); el.textContent = ''; el.hidden = true; }
-  function secret() { return localStorage.getItem('vinyl_edit_secret') || ''; }
   function fmt(n) { return (n == null || isNaN(n)) ? null : '€' + Number(n).toFixed(2); }
 
   var items = [];
@@ -133,7 +124,6 @@
     var artist = $('f-artist').value.trim();
     var title = $('f-title').value.trim();
     if (!artist || !title) { showError('Artist and title are required.'); return; }
-    if (!secret()) { showError('Enter and save the edit secret first (bottom of the page).'); return; }
     var url = $('f-url').value.trim();
     var m = url.match(/release\/(\d+)/);
     var hex = ''; var bytes = new Uint8Array(8); crypto.getRandomValues(bytes);
@@ -152,7 +142,7 @@
       created_at: new Date().toISOString()
     };
     try {
-      var res = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Edit-Key': secret() }, body: JSON.stringify(item) });
+      var res = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
       $('f-artist').value = ''; $('f-title').value = ''; $('f-url').value = ''; $('f-notes').value = '';
@@ -163,9 +153,8 @@
 
   async function delItem(id) {
     if (!confirm('Remove this record from the wishlist?')) return;
-    if (!secret()) { showError('Enter and save the edit secret first.'); return; }
     try {
-      var res = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE', headers: { 'X-Edit-Key': secret() } });
+      var res = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE' });
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
       items = items.filter(function (x) { return x.id !== id; });
@@ -179,15 +168,6 @@
       var btn = e.target.closest && e.target.closest('.wl-del');
       if (btn && btn.dataset.id) delItem(btn.dataset.id);
     });
-    $('f-secret-save').addEventListener('click', function () {
-      var v = $('f-secret').value.trim();
-      if (!v) { showError('Secret is empty.'); return; }
-      localStorage.setItem('vinyl_edit_secret', v);
-      $('f-secret').value = '';
-      $('f-secret-status').textContent = 'saved ✓';
-      clearError();
-    });
-    if (secret()) { $('f-secret-status').textContent = 'saved ✓'; }
     load();
   });
 })();

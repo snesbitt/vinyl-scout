@@ -1,5 +1,8 @@
 /* Vinyl Scout — style.css
-   version: 20
+   version: 21
+   v21: Phase 4 — .detail__audio* rules for the audio preview section (Play
+   button, native <audio> player, empty/error states), styled to match the
+   existing .detail__pricing block.
    v20(css): pricing on cards — .tile__price tone; .row__price column in the
    list view (5-column desktop grid; full-width price line on mobile).
    v13: Condition is now spelled out inline in the detail meta line ("Very Good"),
@@ -666,6 +669,71 @@ main {
   font-style: italic;
 }
 .detail__prices-error {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  background: rgba(181,48,38,0.06);
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
+}
+
+.detail__audio {
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.detail__audio-body {
+  margin-top: 10px;
+}
+.detail__audio-play {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 100ms, color 100ms;
+}
+.detail__audio-play:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.detail__audio-play:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.detail__audio-track {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.detail__audio-player {
+  width: 100%;
+  max-width: 100%;
+  height: 40px;
+}
+.detail__audio-empty {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.detail__audio-error {
   margin: 4px 0 0;
   padding: 10px 12px;
   font-family: var(--mono);

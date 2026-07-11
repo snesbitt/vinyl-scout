@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 11 · **Last revised:** 2026-07-06
+**Version:** 12 · **Last revised:** 2026-07-11
 
 **Changelog**
+- **v12 (2026-07-11)** — **Phase 4 shipped: Audio Preview.** Added `netlify/functions/spotify-preview.mjs` (`GET /api/spotify/preview?artist=&title=`, pure read, ungated) and a "Preview" section with a Play button in the collection detail modal (app.js v29, style.css v21). Spotify client-credentials search finds the most popular track on the matched album and returns its preview clip; gracefully reports `available:false` (not an error) when Spotify isn't configured, no track matches, or Spotify has no preview clip for that track. Built ahead of the phase queue at Susan's direct request — wishlist playback (mentioned in the original roadmap sketch) is not yet built, collection-only for now. Also: removed the forced edit-secret gate on `/api/wishlist` POST/DELETE and the matching secret-entry UI on `/wishlist.html`, per Susan's request (impractical to type a passphrase on mobile every session) — wishlist writes are now open to anyone with the URL, same public-but-unadvertised posture as the rest of the site; the catalog's own edit-secret gate (`/api/records`) is unchanged.
 - **v11 (2026-07-06)** — Weekly maintenance run. Discogs market data refreshed for all 93 records (92 with sales history updated; Rob Garza *Dust Ups* still never-sold, left unchanged); collection value ≈ €2,228 (sum of medians). All 48 pre-existing wishlist items re-scouted (median + cheapest ask + timestamps). Spotify sync added 18 albums, all verified vinyl pressings with median/ask/cover populated at creation: Röyksopp *Junior* & *Melody A.M.*, Goldfrapp *Supernature* & *Black Cherry*, Sade *Lovers Rock*, Massive Attack *Heligoland*, Talvin Singh *OK*, Kruder & Dorfmeister *1995* & *G-Stoned*, Thievery Corporation *Babylon Rewound*, *Radio Retaliation* & *Symphonik*, plus six from the Rudy Van Gelder playlist (Wayne Shorter *Speak No Evil*, Lee Morgan *The Sidewinder*, Eric Dolphy *Out To Lunch*, Herbie Hancock *Empyrean Isles*, Tina Brooks *True Blue*, Kenny Dorham *Quiet Kenny*). Skipped: Pitch Black *Rhythm, Sound and Movement* and Michael Gray *Take Me Back* (no confirmed vinyl pressing). Wishlist now 68 items (68 covers, 67 asks, 65 medians). E2E QA green: six pages 200, unauthorized writes/deletes 401, delete round-trip clean. No user-facing feature changes.
 - **v10 (2026-07-06)** — Removed the max-price / green-FIND feature at Susan’s request (wishlist v11): max-price input, FIND badge, and green-card styling deleted; new items store max_price:null. The weekly scout still refreshes medians, cheapest asks, and covers — it just no longer computes FIND matches. about.html updated to match.
 - **v9 (2026-07-06)** — Amazon cart becomes a wishlist source. One-time import with Susan added 12 records from her Amazon saved-for-later (Sade Diamond Life, Bill Evans Portrait In Jazz + Bill Evans Trio Sunday At The Village Vanguard (OJC), Aphex Twin SAW 85-92, Tania Maria Wild!, Adam F Circles (F-Jams), Goldie Timeless gold-on-clear splatter, Segovia Granada, Marvin Gaye I Want You, Weather Report Heavy Weather, Afro-Cuban All Stars A Toda Cuba Le Gusta, Thievery Corporation The Cosmic Game 20th Anniv) — each matched to the specific pressing the Amazon listing names, priced and artworked; skipped books and the unofficial-only Miles Davis/Bill Evans Master Takes box. Weekly Monday job gains Job C2: read-only Amazon cart sync (active cart + saved-for-later, never modifies the cart). Sync rules tightened per Susan: Spotify sweep limited to her designated playlists only (no full-library enumeration), and a persistent no-re-add rule via sync-state.json — items Susan deletes are never auto-re-added. Wishlist: 50 items, 100% artwork, 48 medians / 49 asks. E2E QA green: 6 pages 200, auth gate all 401, delete round-trip clean; collection 93 records / 92 medians / ≈€2,227.79.
@@ -142,11 +143,29 @@ Aesthetic: editorial / record-shop / library catalog card.
 
 **The whole thing in one sentence:** A separate page tracking records Susan is hunting for, each with a max price, with a weekly scout that checks Discogs asking prices and flags finds.
 
-**How it works:** Items live in their own Blobs store (`wishlist`) behind the same edit-secret gate — wishlist writes can never touch the catalog. Susan adds items on the page (artist, title, max price, optional Discogs release URL, notes). The weekly Claude-driven scout reads each item's Discogs sell page through Susan's browser (server-side scrapes get 403'd), writes back `current_ask`, and reports anything at or under max price as a FIND — both in the weekly report and highlighted green on the page. Adds come two ways: manual on the page, and a weekly Spotify sync that imports her most-played albums (vinyl-matchable only; never deletes).
+**How it works:** Items live in their own Blobs store (`wishlist`), separate from the catalog store so wishlist writes can never touch it. **As of 2026-07-11, wishlist POST/DELETE are ungated** (no edit-secret check) — Susan asked for this because typing a passphrase on mobile every session wasn't practical for a page she uses casually. This is a deliberate exception to the edit-secret pattern used everywhere else; anyone with the site URL can add or remove wishlist items. Susan adds items on the page (artist, title, optional Discogs release URL, notes). The weekly Claude-driven scout reads each item's Discogs sell page through Susan's browser (server-side scrapes get 403'd) and writes back `current_ask`/`price_median`. Adds come two ways: manual on the page, and a weekly Spotify sync that imports her most-played albums (vinyl-matchable only; never deletes).
 
 ---
 
-## Phase 4+ — Future / Parked
+## Phase 4 — LIVE: Audio Preview
+
+**Status:** ✓ Built and deployed (2026-07-11), out of the normal phase order, at Susan's direct request.
+
+**The whole thing in one sentence:** A "Preview" section in the collection detail modal with a Play button that fetches the most popular track on that album from Spotify and plays its preview clip.
+
+**How it works:**
+- `GET /api/spotify/preview?artist=&title=` (`netlify/functions/spotify-preview.mjs`) — pure read, ungated, same reasoning as `discogs-lookup.mjs`
+- Uses Spotify's client-credentials flow (`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`, set in the Netlify UI) — no user-facing Spotify login
+- Searches Spotify tracks scoped to `artist:"…" album:"…"`, ranks by `popularity` (most popular track on the album, not random), returns that track's `preview_url`
+- Frontend (`app.js` `buildAudioBlock`/`playPreview`) lazy-fetches only when Susan taps Play. A native `<audio controls>` element plays the clip; closing the modal pauses it.
+- **Graceful degradation, not an error:** if `SPOTIFY_CLIENT_ID`/`SECRET` aren't set yet, no track matches, or Spotify has no preview clip for the matched track (Spotify has restricted `preview_url` availability for many API apps since late 2024), the UI shows a quiet muted note — never the persistent error-banner treatment reserved for actual failures.
+- **Scope note:** the original roadmap sketch for this phase mentioned playback from both the collection and the wishlist. Only the collection detail modal has it so far — wishlist playback is a possible follow-up, not yet built.
+
+**Setup still needed:** Susan creates a Spotify app (developer.spotify.com/dashboard) and sets `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` in the Netlify UI. Until then, the Play button reports "Audio preview isn't set up yet" — expected, not a bug.
+
+---
+
+## Phase 5+ — Future / Parked
 
 Not in scope. When asked about: "that's Phase N, parked" and stop.
 
@@ -273,8 +292,9 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `GET  /api/discogs/lookup?artist=…&title=…` — public; returns Discogs candidates
 - `POST /api/discogs-pricing` — edit-secret required; body: `{"recordId": "rec_xxx"}`; fetches + stores pricing
 - `GET  /api/wishlist` — public; returns all wishlist items as a JSON array
-- `POST /api/wishlist` — edit-secret required; upsert one item by `id`
-- `DELETE /api/wishlist/:id` — edit-secret required; delete one item by `id`
+- `POST /api/wishlist` — **ungated as of 2026-07-11** (was edit-secret required); upsert one item by `id`
+- `DELETE /api/wishlist/:id` — **ungated as of 2026-07-11** (was edit-secret required); delete one item by `id`
+- `GET  /api/spotify/preview?artist=…&title=…` — public; pure read; returns the most-popular-track preview for that album, or a graceful `available:false` reason
 
 ---
 
@@ -288,6 +308,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Backup**: A JSON snapshot of all records committed to `backups/YYYY-MM-DD.json` in the repo, nightly and on demand.
 - **Phase 1**: Cataloguing by photo. Seeding, hand-edits, covers — live.
 - **Phase 2**: Market enrichment. Discogs IDs + pricing — live.
-- **Phase 3**: Wishlist. Parked (not started).
-- **Catalog**: Susan's full collection. ~92 records (reset empty after May 2026; reseeded June–July 2026).
+- **Phase 3**: Wishlist. Live (2026-07-04). Writes ungated as of 2026-07-11 (see above).
+- **Phase 4**: Audio preview. Live (2026-07-11) — built ahead of the queue at Susan's direct request.
+- **Catalog**: Susan's full collection. 93 records (reset empty after May 2026; reseeded June–July 2026).
 —

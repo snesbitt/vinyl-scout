@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=19" />
+  <link rel="stylesheet" href="/style.css?v=21" />
   <style>
     .roadmap-intro { max-width: 860px; margin: 30px auto 0; padding: 0 32px; font-family: var(--sans); font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
     .roadmap { max-width: 860px; margin: 8px auto 0; padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 26px; }
@@ -57,7 +57,7 @@
 <h2 class="collection-title">Roadmap</h2>
 
 <p class="roadmap-intro">
-  Vinyl Scout is built in deliberate phases. Phases 1&ndash;3 are live; the rest are planned and intentionally not started yet &mdash; each one is added only once the phase before it is solid.
+  Vinyl Scout is built in deliberate phases. Phases 1&ndash;4 are live. Phase 4 (Listen) is the one phase pulled forward out of order, at the owner&rsquo;s request &mdash; see the note below.
 </p>
 
 <main class="roadmap">
@@ -98,22 +98,22 @@
     </div>
   </section>
 
-</main>
-
-  <div class="phase phase--future">
+  <section class="phase phase--live">
     <div class="phase__rail">4</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">Listen</h3>
-        <span class="phase__status">Planned</span>
+        <span class="phase__status phase__status--live">Live</span>
       </div>
-      <p class="phase__focus">15-second audio previews</p>
-      <p class="phase__covers">Tap any record &mdash; collection or wishlist &mdash; to hear a 15-second sample of the album, so you can check a record before buying or remember why it&rsquo;s on the list. Planned, not started.</p>
+      <p class="phase__focus">Audio previews</p>
+      <p class="phase__covers">Tap any record in the collection to hear a short preview clip of the album&rsquo;s most popular track, powered by Spotify. Currently on the collection detail view only &mdash; wishlist playback is a possible follow-up, not yet built.</p>
     </div>
-  </div>
+  </section>
+
+</main>
 
   <p class="roadmap-note">
-  Phases are sequential. A later phase is never started early, and nothing is added to an earlier phase just because it would be easy to slot in.
+  Phases are normally sequential — a later phase isn&rsquo;t started early, and nothing gets added to an earlier phase just because it would be easy to slot in. Phase 4 (Listen) was the one deliberate exception: pulled forward and built at the owner&rsquo;s explicit request.
 </p>
 
 </body>
