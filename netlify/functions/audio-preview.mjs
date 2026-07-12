@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 4
+// version: 5
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -221,14 +221,16 @@ function fuzzyTitlesMatch(a, b, artist) {
   return true;
 }
 
-// Loose substring containment (used below) is only trustworthy when the
-// title being matched FROM (our stored title, always passed as `b` at every
-// call site) has enough distinctive content of its own. A short/generic
-// title like "Christmastime" is a substring of dozens of unrelated holiday
-// compilations by construction — containment there proves nothing. Confirmed
-// as a real false positive 2026-07-11: without this gate, The Swingle
-// Singers' "Christmastime" matched an unrelated Trisha Yearwood Christmas
-// track whose album title happened to contain the word.
+// Whether a title carries enough distinctive content to trust on its OWN,
+// with no artist scoping to back it up — a short/generic title like
+// "Christmastime" or "IV" is a substring of dozens of unrelated releases by
+// construction. NOT applied universally: passes that are structurally
+// scoped to a specific, confirmed artist (walking that artist's own Deezer
+// catalog) don't need this — a short title like Led Zeppelin's "IV" is
+// perfectly safe there because the scoping itself is the corroboration.
+// Only the free-text pass, whose final candidate filter never actually
+// checks the returned track's artist, needs this extra gate (see
+// titlesMatchRequireSpecific below).
 function isSpecificEnoughForContainment(title) {
   return significantTokens(title, { stripGeneric: true }).length >= 2;
 }
@@ -242,19 +244,33 @@ function titlesMatchIgnoringLive(a, b) {
   var na = normalizeTitle(a).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   var nb = normalizeTitle(b).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (!isSpecificEnoughForContainment(b)) return false;
-  return na.includes(nb) || nb.includes(na);
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 function titlesMatch(a, b, artist) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (isSpecificEnoughForContainment(b) && (na.includes(nb) || nb.includes(na))) return true;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
   if (fuzzyTitlesMatch(a, b, artist)) return true;
   return titlesMatchIgnoringLive(a, b);
+}
+
+// Used ONLY by the free-text Deezer pass (a) — the one pass whose candidate
+// filter matches purely on album title and never actually checks the
+// returned track's own credited artist, so a generic/short title has no
+// corroboration at all there (unlike pass (b), which is structurally
+// scoped to a specific artist's own catalog by construction, or pass (c),
+// which uses the separate, stricter titlesMatchStrict). Confirmed as a real
+// false-positive path 2026-07-11: without this gate, The Swingle Singers'
+// "Christmastime" matched an unrelated Trisha Yearwood Christmas track
+// purely on generic title overlap, since pass (a) had no way to notice the
+// track wasn't actually by the right artist.
+function titlesMatchRequireSpecific(a, b, artist) {
+  if (!isSpecificEnoughForContainment(b)) {
+    return normalizeTitle(a) === normalizeTitle(b);
+  }
+  return titlesMatch(a, b, artist);
 }
 
 // Stricter variant with NO loose substring-containment shortcut — only exact
@@ -374,7 +390,7 @@ async function tryDeezerFreeText(artist, title) {
   const items = Array.isArray(data && data.data) ? data.data : [];
 
   const matches = items.filter(function (t) {
-    return t && t.album && titlesMatch(t.album.title, title, artist);
+    return t && t.album && titlesMatchRequireSpecific(t.album.title, title, artist);
   });
   if (!matches.length) return null;
 
