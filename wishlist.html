@@ -9,9 +9,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=23" />
+  <link rel="stylesheet" href="/style.css?v=24" />
   <style>
-    /* Wishlist — version: 12 (edit-secret gate removed per Susan, 2026-07-11 — mobile-impractical) */
+    /* Wishlist — version: 13. Manual add form simplified to just artist +
+       title (Discogs URL and Notes fields removed per Susan's request,
+       2026-07-12) — and now calls /api/discogs/lookup itself at add-time to
+       fill in cover_url + discogs_release_id automatically. Previously the
+       manual-add path never looked anything up, so every manually-added item
+       had no cover art unless Susan happened to paste a Discogs URL herself
+       (confirmed live: 1/56 items had no cover_url — Anita Baker's "Rapture",
+       added with no URL — backfilled separately). Items added by the
+       automated weekly sync (Spotify/Amazon cart) already got covers this
+       way; this brings the manual form to parity. Lookup failures degrade
+       gracefully — the item still gets added with no cover_url, same as
+       before, never blocks the add. (edit-secret gate removed per Susan,
+       2026-07-11 — mobile-impractical) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 6px 12px 6px 6px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: nowrap; }
@@ -62,12 +74,6 @@
     <div class="row">
       <input id="f-artist" placeholder="Artist (required)" autocomplete="off" />
       <input id="f-title" placeholder="Title (required)" autocomplete="off" />
-    </div>
-    <div class="row">
-      <input id="f-url" placeholder="Discogs release URL (optional)" autocomplete="off" />
-    </div>
-    <div class="row">
-      <input id="f-notes" placeholder="Notes (pressing, condition wanted…)" autocomplete="off" />
     </div>
     <button id="f-add" class="btn" type="button">Add to wishlist</button>
   </section>
@@ -120,23 +126,50 @@
     }).join('');
   }
 
+  // Best-effort Discogs lookup for cover art + a release reference — never
+  // blocks the add. If Discogs is unreachable or nothing matches, the item
+  // still gets added with no cover_url, same graceful behavior as before.
+  async function lookupCover(artist, title) {
+    try {
+      var qs = '?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title);
+      var res = await fetch('/api/discogs/lookup' + qs);
+      if (!res.ok) return {};
+      var data = await res.json();
+      var best = Array.isArray(data.candidates) && data.candidates.length ? data.candidates[0] : null;
+      if (!best) return {};
+      return {
+        cover_url: best.thumb || null,
+        discogs_release_id: best.discogs_release_id || null,
+        discogs_url: best.discogs_release_id ? 'https://www.discogs.com/release/' + best.discogs_release_id : null
+      };
+    } catch (err) {
+      return {}; // graceful — a lookup failure never blocks adding the item
+    }
+  }
+
   async function addItem() {
     var artist = $('f-artist').value.trim();
     var title = $('f-title').value.trim();
     if (!artist || !title) { showError('Artist and title are required.'); return; }
-    var url = $('f-url').value.trim();
-    var m = url.match(/release\/(\d+)/);
+
+    var addBtn = $('f-add');
+    var origText = addBtn.textContent;
+    addBtn.disabled = true;
+    addBtn.textContent = 'Adding…';
+
     var hex = ''; var bytes = new Uint8Array(8); crypto.getRandomValues(bytes);
     for (var i = 0; i < bytes.length; i++) { hex += bytes[i].toString(16).padStart(2, '0'); }
+    var found = await lookupCover(artist, title);
     var item = {
       id: 'wish_' + hex,
       artist: artist,
       title: title,
       max_price: null,
       currency: 'EUR',
-      discogs_release_id: m ? parseInt(m[1], 10) : null,
-      discogs_url: url || null,
-      notes: $('f-notes').value.trim() || '',
+      discogs_release_id: found.discogs_release_id || null,
+      discogs_url: found.discogs_url || null,
+      cover_url: found.cover_url || null,
+      notes: '',
       current_ask: null,
       ask_updated_at: null,
       created_at: new Date().toISOString()
@@ -145,10 +178,11 @@
       var res = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
-      $('f-artist').value = ''; $('f-title').value = ''; $('f-url').value = ''; $('f-notes').value = '';
+      $('f-artist').value = ''; $('f-title').value = '';
       items.push(item);
       render();
     } catch (err) { showError('Add failed: ' + err.message); }
+    finally { addBtn.disabled = false; addBtn.textContent = origText; }
   }
 
   async function delItem(id) {

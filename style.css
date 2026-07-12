@@ -1,5 +1,8 @@
 /* Vinyl Scout — style.css
-   version: 23
+   version: 24
+   v24: .detail__audio-youtube — sizing for the YouTube iframe embed used by
+   the new tier-4 last-resort preview provider (no native <audio> possible
+   since YouTube gives no direct audio file, only an embeddable video).
    v23: .detail__audio-provider — small "via Deezer"/"via Apple Music" credit
    line shown under a playing preview when it didn't come from Spotify.
    v22: .detail__audio-spotify-link — "Listen on Spotify" fallback link shown
@@ -728,6 +731,16 @@ main {
   width: 100%;
   max-width: 100%;
   height: 40px;
+}
+.detail__audio-youtube {
+  /* YouTube's iframe embed needs real video dimensions, unlike the native
+     <audio> element's slim 40px bar used by the other three providers. */
+  height: 200px;
+  border-radius: 3px;
+  border: 1px solid var(--rule);
+}
+@media (min-width: 480px) {
+  .detail__audio-youtube { height: 260px; }
 }
 .detail__audio-empty {
   margin: 4px 0 0;

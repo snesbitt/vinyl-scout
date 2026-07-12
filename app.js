@@ -1,5 +1,12 @@
 // Vinyl Scout — app.js
-// version: 31
+// version: 32
+// v32: Audio preview handles the new tier-4 YouTube fallback (last resort,
+//      only reached when Spotify/Deezer/iTunes all miss — see
+//      netlify/functions/audio-preview.mjs v8). YouTube gives no direct
+//      audio file (no preview_url), only an embeddable video (embed_url) —
+//      renders a capped-at-30s <iframe> instead of the native <audio>
+//      element in that case. stopAnyPreview() clears the iframe's src to
+//      actually stop playback (iframes have no .pause()).
 // v31: Audio preview now calls /api/audio/preview (multi-provider: Spotify ->
 //      Deezer -> iTunes, see netlify/functions/audio-preview.mjs) instead of
 //      the Spotify-only /api/spotify/preview. Handles the new `provider`
@@ -478,7 +485,7 @@ el.textContent = txt;
         return;
       }
 
-      var providerNames = { spotify: 'Spotify', deezer: 'Deezer', itunes: 'Apple Music' };
+      var providerNames = { spotify: 'Spotify', deezer: 'Deezer', itunes: 'Apple Music', youtube: 'YouTube' };
       var providerLabel = providerNames[payload.provider] || null;
 
       if (!payload.available) {
@@ -503,10 +510,21 @@ el.textContent = txt;
 
       var t = payload.track || {};
       var label = [t.artists, t.name].filter(Boolean).join(' — ');
+      // YouTube (tier 4, last resort) never has a preview_url — it gives no
+      // direct audio file, only an embeddable video. Render an iframe capped
+      // to the same ~30s clip convention (via the embed_url's own start/end
+      // params, which actually stop playback there) instead of the native
+      // <audio> element used by the other three providers.
+      var playerHtml = (payload.provider === 'youtube' && t.embed_url)
+        ? '<iframe class="detail__audio-player detail__audio-youtube" id="detail-audio-player" '
+          + 'src="' + escapeAttr(t.embed_url) + '" '
+          + 'title="YouTube preview" frameborder="0" '
+          + 'allow="autoplay; encrypted-media" allowfullscreen></iframe>'
+        : '<audio class="detail__audio-player" id="detail-audio-player" controls autoplay preload="auto" src="' + escapeAttr(t.preview_url) + '"></audio>';
       if (body) {
         body.innerHTML = ''
           + (label ? '<p class="detail__audio-track">' + escapeHtml(label) + '</p>' : '')
-          + '<audio class="detail__audio-player" id="detail-audio-player" controls autoplay preload="auto" src="' + escapeAttr(t.preview_url) + '"></audio>'
+          + playerHtml
           + (providerLabel ? '<p class="detail__audio-provider">via ' + escapeHtml(providerLabel) + '</p>' : '');
       }
     } catch (err) {
@@ -519,7 +537,13 @@ el.textContent = txt;
   function stopAnyPreview() {
     var player = document.getElementById('detail-audio-player');
     if (player) {
-      try { player.pause(); } catch (e) {}
+      // <iframe> (YouTube) has no .pause() — the only reliable stop is to
+      // clear its src so the embedded player unloads entirely.
+      if (player.tagName === 'IFRAME') {
+        try { player.src = ''; } catch (e) {}
+      } else {
+        try { player.pause(); } catch (e) {}
+      }
     }
   }
 
