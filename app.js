@@ -1,5 +1,9 @@
 // Vinyl Scout — app.js
-// version: 29
+// version: 30
+// v30: When Spotify has no preview clip for the matched track (its own
+//      platform-wide preview_url restriction — confirmed 2026-07-11 to affect
+//      all 93 catalog records, not a bug in this code), show a "Listen on
+//      Spotify" link using the track's spotify_url instead of a dead end.
 // v29: Phase 4 — audio preview. Detail modal gets a "Play preview" button that
 //      lazy-fetches /api/spotify/preview (most-popular track on the album, not
 //      random) and plays it with a native <audio controls> element. No fetch
@@ -473,7 +477,17 @@ el.textContent = txt;
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
             : 'No matching track found on Spotify.';
-        if (body) body.innerHTML = '<p class="detail__audio-empty">' + escapeHtml(note) + '</p>';
+        var t2 = payload.track || {};
+        var link = (payload.reason === 'no_preview' && t2.spotify_url)
+          ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.spotify_url) + '" target="_blank" rel="noopener">Listen on Spotify ↗</a>'
+          : '';
+        var label2 = [t2.artists, t2.name].filter(Boolean).join(' — ');
+        if (body) {
+          body.innerHTML = ''
+            + (label2 ? '<p class="detail__audio-track">' + escapeHtml(label2) + '</p>' : '')
+            + '<p class="detail__audio-empty">' + escapeHtml(note) + '</p>'
+            + link;
+        }
         return;
       }
 

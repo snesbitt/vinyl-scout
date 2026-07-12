@@ -1,5 +1,7 @@
 /* Vinyl Scout — style.css
-   version: 21
+   version: 22
+   v22: .detail__audio-spotify-link — "Listen on Spotify" fallback link shown
+   when Spotify has no preview clip for the matched track.
    v21: Phase 4 — .detail__audio* rules for the audio preview section (Play
    button, native <audio> player, empty/error states), styled to match the
    existing .detail__pricing block.
@@ -744,6 +746,17 @@ main {
   background: rgba(181,48,38,0.06);
   border-left: 2px solid var(--accent);
   border-radius: 2px;
+}
+.detail__audio-spotify-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-decoration: underline;
+  min-height: 44px;
+  line-height: 44px;
 }
 
 .detail__notes {
