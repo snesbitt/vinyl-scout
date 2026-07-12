@@ -63,6 +63,7 @@
 export const config = { path: "/api/audio/preview" };
 
 function json(body, status) {
+  if (body && body._debug === null) delete body._debug; // omit when not in debug mode
   return new Response(JSON.stringify(body), {
     status: status || 200,
     headers: { "Content-Type": "application/json" },
@@ -268,7 +269,7 @@ async function tryDeezer(artist, title) {
 // treated as "no result", never surfaced as an error.
 // ---------------------------------------------------------------------------
 
-async function tryItunes(artist, title) {
+async function tryItunes(artist, title, debugInfo) {
   try {
     const q = new URLSearchParams();
     q.set("term", artist + " " + title);
@@ -276,12 +277,16 @@ async function tryItunes(artist, title) {
     q.set("limit", "25");
 
     const res = await fetch("https://itunes.apple.com/search?" + q.toString());
+    if (debugInfo) debugInfo.httpStatus = res.status;
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "";
+    if (debugInfo) debugInfo.contentType = contentType;
     if (!contentType.includes("json")) return null; // redirected to an HTML page, etc.
 
     const data = await res.json();
     const items = Array.isArray(data && data.results) ? data.results : [];
+    if (debugInfo) debugInfo.resultCount = items.length;
+    if (debugInfo) debugInfo.collectionNames = items.slice(0, 10).map(function (t) { return t && t.collectionName; });
     const match = items.find(function (t) {
       return t && titlesMatch(t.collectionName, title);
     });
@@ -296,6 +301,7 @@ async function tryItunes(artist, title) {
       popularity: null, // iTunes exposes no popularity/play-count signal
     };
   } catch (e) {
+    if (debugInfo) debugInfo.error = e.message;
     return null; // best-effort tier — never throw
   }
 }
@@ -314,6 +320,13 @@ export default async (req) => {
     return json({ error: "Provide both artist and title" }, 400);
   }
 
+  // Temporary diagnostic mode (?debug=1): surfaces per-tier raw results and
+  // errors in the response so matching-logic bugs can be told apart from
+  // genuine catalog absence without needing server log access. Read-only,
+  // adds a `_debug` key to the normal response, changes no behavior.
+  const debugMode = url.searchParams.get("debug") === "1";
+  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, itunes: {} } : null;
+
   // Tier 1: Spotify. A hard failure here (auth/network) degrades to
   // "not attempted" rather than aborting the whole lookup — Deezer/iTunes
   // can still succeed even if Spotify's credentials or API are having a bad
@@ -324,30 +337,42 @@ export default async (req) => {
     const spotifyResult = await trySpotify(artist, title);
     spotifyConfigured = spotifyResult.configured;
     spotifyTrack = spotifyResult.track;
+    if (debug) debug.spotify = { configured: spotifyConfigured, track: spotifyTrack };
   } catch (e) {
     console.error("Spotify tier failed", e.message);
+    if (debug) debug.spotify = { error: e.message };
   }
 
   if (spotifyTrack && spotifyTrack.preview_url) {
-    return json({ available: true, reason: null, provider: "spotify", track: spotifyTrack }, 200);
+    return json({ available: true, reason: null, provider: "spotify", track: spotifyTrack, _debug: debug }, 200);
   }
 
   // Tier 2: Deezer.
   let deezerTrack = null;
   try {
-    deezerTrack = await tryDeezer(artist, title);
+    if (debug) {
+      const freeText = await tryDeezerFreeText(artist, title);
+      debug.deezerFreeText = { track: freeText };
+      const byCatalog = await tryDeezerByArtistCatalog(artist, title);
+      debug.deezerCatalog = { track: byCatalog };
+      deezerTrack = (freeText && freeText.preview_url) ? freeText : (byCatalog && byCatalog.preview_url) ? byCatalog : (freeText || byCatalog || null);
+    } else {
+      deezerTrack = await tryDeezer(artist, title);
+    }
   } catch (e) {
     console.error("Deezer tier failed", e.message);
+    if (debug) debug.deezerFreeText.error = e.message;
   }
 
   if (deezerTrack && deezerTrack.preview_url) {
-    return json({ available: true, reason: null, provider: "deezer", track: deezerTrack }, 200);
+    return json({ available: true, reason: null, provider: "deezer", track: deezerTrack, _debug: debug }, 200);
   }
 
   // Tier 3: iTunes (best-effort, never throws).
-  const itunesTrack = await tryItunes(artist, title);
+  const itunesTrack = await tryItunes(artist, title, debug ? debug.itunes : null);
+  if (debug) debug.itunes.track = itunesTrack;
   if (itunesTrack && itunesTrack.preview_url) {
-    return json({ available: true, reason: null, provider: "itunes", track: itunesTrack }, 200);
+    return json({ available: true, reason: null, provider: "itunes", track: itunesTrack, _debug: debug }, 200);
   }
 
   // Nothing playable anywhere. Prefer whichever tier at least matched a
@@ -355,14 +380,14 @@ export default async (req) => {
   // external_url/popularity data is the richest when present.
   const bestMatchOnly = spotifyTrack || deezerTrack || itunesTrack;
   if (bestMatchOnly) {
-    return json({ available: false, reason: "no_preview", provider: bestMatchOnly.provider, track: bestMatchOnly }, 200);
+    return json({ available: false, reason: "no_preview", provider: bestMatchOnly.provider, track: bestMatchOnly, _debug: debug }, 200);
   }
 
   if (!spotifyConfigured) {
     // Spotify unconfigured AND no other provider matched at all — still not
     // an error; Deezer/iTunes not matching is a real (if rare) outcome.
-    return json({ available: false, reason: "no_match", provider: null, track: null }, 200);
+    return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
   }
 
-  return json({ available: false, reason: "no_match", provider: null, track: null }, 200);
+  return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
 };
