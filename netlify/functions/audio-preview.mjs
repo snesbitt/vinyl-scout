@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 5
+// version: 6
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -157,6 +157,23 @@ function significantTokens(s, opts) {
 // concerts by the same artist with near-identical titles but different
 // years). If both titles carry a year and none match, treat as different
 // recordings regardless of how similar the rest of the wording is.
+// Whole-word substring containment — NOT the same as raw String#includes.
+// Bug found live 2026-07-11: with plain `.includes()`, a short title like
+// Led Zeppelin's "IV" matched "Live EP" (an unrelated 2025 live compilation)
+// because the LETTERS "iv" appear inside the letters of "Live" — nothing to
+// do with the word "IV" as a title. Pass (b) (artist-catalog walk) is scoped
+// to the correct artist, but artist-scoping alone doesn't stop a 2-letter
+// title from accidentally appearing as a letter-substring of some unrelated
+// album by that same artist ("Live", "Arrival", "Drive", etc. all contain
+// "iv"). Confirmed: Led Zeppelin's real Deezer catalog has "Led Zeppelin IV
+// (Deluxe Edition)" and "Led Zeppelin IV (Remaster)", both of which contain
+// "iv" as a genuine standalone WORD — this function matches those correctly
+// while rejecting "Live EP", which does not.
+function containsWholeWords(haystack, needle) {
+  if (!haystack || !needle) return false;
+  return (" " + haystack + " ").indexOf(" " + needle + " ") !== -1;
+}
+
 function yearsIn(s) {
   var matches = String(s || "").match(/\b(1[5-9]\d\d|20\d\d)\b/g) || [];
   return new Set(matches);
@@ -244,14 +261,14 @@ function titlesMatchIgnoringLive(a, b) {
   var na = normalizeTitle(a).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   var nb = normalizeTitle(b).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   if (!na || !nb) return false;
-  return na === nb || na.includes(nb) || nb.includes(na);
+  return na === nb || containsWholeWords(na, nb) || containsWholeWords(nb, na);
 }
 
 function titlesMatch(a, b, artist) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return false;
-  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  if (na === nb || containsWholeWords(na, nb) || containsWholeWords(nb, na)) return true;
   if (fuzzyTitlesMatch(a, b, artist)) return true;
   return titlesMatchIgnoringLive(a, b);
 }
