@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 1
+// version: 2
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -14,14 +14,19 @@
 //                  match quality and popularity data are the best of the
 //                  three; and because SPOTIFY_CLIENT_ID/SECRET are already
 //                  configured.
-//   2. Deezer    — public /search endpoint, NO auth/API key required. Returns
-//                  a `rank` field (Deezer's own popularity score) and a
-//                  `preview` MP3 URL directly on the CDN. Empirically
-//                  confirmed 2026-07-11 to have real, working previews for
-//                  every record tested that Spotify failed on (Moon Safari,
-//                  Rumours, Thievery Corporation). Preview URLs are signed
-//                  and expire after a few hours — fine here since we only
-//                  ever fetch fresh, on tap, never cache them.
+//   2. Deezer    — NO auth/API key required. Two-pass lookup (v2, 2026-07-11):
+//                  (a) a fast free-text /search hit, then (b) if that misses,
+//                  an artist-catalog walk: search/artist -> that artist's full
+//                  /albums list -> fuzzy-match the album title -> that album's
+//                  /tracks, picking the highest-`rank` track with a preview.
+//                  Pass (b) exists because pass (a)'s relevance ranking
+//                  empirically buries real matches under more "popular"
+//                  generic tracks — confirmed live on 2026-07-11: The Cure's
+//                  "The Head on the Door" and "Japanese Whispers" both exist
+//                  on Deezer and were only found by pass (b); pass (a) alone
+//                  returned zero relevant results for either. Preview URLs
+//                  are signed and expire after a few hours — fine here since
+//                  we only ever fetch fresh, on tap, never cache them.
 //   3. iTunes    — Apple's public Search API (itunes.apple.com/search), also
 //                  no auth required. Tried last and wrapped defensively: a
 //                  live browser check on 2026-07-11 showed the legacy
@@ -37,6 +42,12 @@
 //                  "most popular track" guarantee does NOT hold for this
 //                  tier — it picks the first track under the matched album,
 //                  which is usually (not always) the most iconic one.
+//
+// Known real gap (not a bug): some vinyl-edition titles genuinely don't exist
+// under any name on any of these three catalogs (confirmed live 2026-07-11
+// for k.d. lang's "Absolute Torch and Twang" — checked her full 29-album
+// Deezer catalog directly, it isn't there under any title). No amount of
+// matching-logic improvement recovers a title that was never digitized.
 //
 // PURE READ. Never touches the Netlify Blobs "records" store, never writes
 // anything. Not gated by the edit secret — same reasoning as
@@ -144,14 +155,17 @@ async function trySpotify(artist, title) {
 }
 
 // ---------------------------------------------------------------------------
-// Tier 2: Deezer — no auth required
+// Tier 2: Deezer — no auth required. Two-pass: fast free-text search first,
+// then (if that misses) a slower but more accurate artist-catalog walk.
 // ---------------------------------------------------------------------------
 
-async function tryDeezer(artist, title) {
+// Pass (a): fast free-text track search. NOT field-filtered (artist:""
+// album:"") — empirically much more forgiving of naming differences between
+// our vinyl-edition titles and Deezer's digital catalog titles. But its
+// relevance ranking sometimes buries a real match under more "popular"
+// generic tracks that also contain the query words — see pass (b).
+async function tryDeezerFreeText(artist, title) {
   const q = new URLSearchParams();
-  // Free-text search, NOT field-filtered (artist:"" album:"") — empirically
-  // much more forgiving of naming differences between our vinyl-edition
-  // titles and Deezer's digital catalog titles.
   q.set("q", artist + " " + title);
   q.set("limit", "50");
 
@@ -176,6 +190,74 @@ async function tryDeezer(artist, title) {
     external_url: best.link || null,
     popularity: (typeof best.rank === "number") ? best.rank : null,
   };
+}
+
+// Pass (b): walk the actual artist catalog instead of trusting free-text
+// relevance ranking. Slower (several sequential requests) but recovers real
+// matches that pass (a) misses — confirmed live 2026-07-11 for The Cure's
+// "The Head on the Door" and "Japanese Whispers", both genuinely on Deezer
+// but never surfaced by /search for those queries.
+async function tryDeezerByArtistCatalog(artist, title) {
+  const artistSearch = new URLSearchParams();
+  artistSearch.set("q", artist);
+  artistSearch.set("limit", "5");
+  const artistRes = await fetch("https://api.deezer.com/search/artist?" + artistSearch.toString());
+  if (!artistRes.ok) throw new Error("Deezer artist search returned HTTP " + artistRes.status);
+  const artistData = await artistRes.json();
+  const candidates = Array.isArray(artistData && artistData.data) ? artistData.data : [];
+
+  for (const candidate of candidates) {
+    if (!candidate || !candidate.id) continue;
+
+    // Fetch the artist's album list, following pagination up to ~200 albums
+    // (enough for even quite prolific catalogs; caps total requests per
+    // candidate at 2).
+    let albums = [];
+    let next = "https://api.deezer.com/artist/" + candidate.id + "/albums?limit=100";
+    let pages = 0;
+    while (next && pages < 2) {
+      const albumsRes = await fetch(next);
+      if (!albumsRes.ok) break;
+      const albumsData = await albumsRes.json();
+      albums = albums.concat(Array.isArray(albumsData && albumsData.data) ? albumsData.data : []);
+      next = albumsData && albumsData.next ? albumsData.next : null;
+      pages++;
+    }
+
+    const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title); });
+    if (!albumMatch) continue;
+
+    const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
+    if (!tracksRes.ok) continue;
+    const tracksData = await tracksRes.json();
+    const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
+    const withPreview = tracks.filter(function (t) { return t && t.preview; });
+    if (!withPreview.length) continue;
+
+    withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+    const best = withPreview[0];
+
+    return {
+      provider: "deezer",
+      name: best.title || null,
+      artists: candidate.name || null,
+      preview_url: best.preview || null,
+      external_url: best.link || null,
+      popularity: (typeof best.rank === "number") ? best.rank : null,
+    };
+  }
+
+  return null;
+}
+
+async function tryDeezer(artist, title) {
+  const freeText = await tryDeezerFreeText(artist, title);
+  if (freeText && freeText.preview_url) return freeText;
+
+  const byCatalog = await tryDeezerByArtistCatalog(artist, title);
+  if (byCatalog && byCatalog.preview_url) return byCatalog;
+
+  return freeText || byCatalog || null;
 }
 
 // ---------------------------------------------------------------------------
