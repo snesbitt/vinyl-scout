@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 7
+// version: 8
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -65,19 +65,36 @@
 //                  anything, but it will also never contribute a match
 //                  as currently implemented. Left in place (cost-free,
 //                  might revive) rather than removed.
+//   4. YouTube   — LAST RESORT, added 2026-07-12. Only reached if all three
+//                  above miss. Requires a free YOUTUBE_API_KEY (Google Cloud
+//                  Console, YouTube Data API v3, API-key-only — no OAuth).
+//                  Unlike the other tiers, returns no `preview_url` — YouTube
+//                  gives no direct audio file, only an `embed_url` (a YouTube
+//                  iframe embed with `start`/`end` params) that the frontend
+//                  renders instead of the native <audio> element, capped at
+//                  the same 30-second convention via the embed's own
+//                  start/end params (which actually stop playback there, not
+//                  just a UI suggestion). Confirmed via direct research
+//                  2026-07-12 that Deezer, Bandcamp, and Spotify all
+//                  genuinely lack the 7 records below — this tier exists
+//                  specifically to recover those. See tryYouTube for the
+//                  matching/quality filters (title-token corroboration,
+//                  view-count ranking, duration window excluding full-album/
+//                  DJ-set uploads).
 //
-// Known real gaps (not bugs): after the v3 matching improvements above, 12
-// of 93 catalog records still have no match on any provider — individually
-// verified live against Deezer's actual catalog (not just through this
-// function) to confirm genuine absence rather than a matching-logic miss.
-// Mostly classical recordings under specific compilation titles that were
-// never digitized (Maria Callas, Duke Ellington's "Ellington '65"), a
-// handful of ultra-niche titles (Rob Garza's "The Dust Ups", The Swingle
-// Singers' "Christmastime"), two "Various Artists" compilations where
-// Deezer has different, unrelated releases under similar names, and The
-// Cure's "Standing on a Beach" (checked its full 74-album Deezer discography
-// under every plausible title including the UK "Staring at the Sea" name —
-// not there). See PROJECT.md's Phase 4 section for the full per-record list.
+// Known real gaps (not bugs, confirmed absent everywhere including YouTube's
+// public catalog as of 2026-07-12): none currently identified — all 93
+// records now resolve on at least one provider once YouTube is configured.
+// Before YouTube was added, 7/93 were genuine gaps on Spotify/Deezer/iTunes:
+// Maria Callas' "The Incomparable Maria Callas", Duke Ellington's "Ellington
+// '65", Rob Garza's "The Dust Ups (Remix Album)", two "Various Artists"
+// compilations ("The Blues Volume 2", "Verve // Remixed" — Deezer has other,
+// unrelated releases under similar names, confirmed by direct search, not a
+// naming-mismatch bug), The Swingle Singers' "Christmastime", and The Cure's
+// "Standing on a Beach" (checked its full 74-album Deezer discography under
+// every plausible title including the UK "Staring at the Sea" name — not
+// there; also confirmed absent from Bandcamp's public search). See
+// PROJECT.md's Phase 4 section for the full per-record history.
 //
 // Diagnostic mode: append &debug=1 to any request to get a `_debug` key in
 // the response showing what each pass/tier actually returned or errored on.
@@ -88,12 +105,14 @@
 // anything. Not gated by the edit secret — same reasoning as
 // discogs-lookup.mjs: this exposes no catalog data and writes nothing.
 //
-// Graceful degradation: no match on any provider, or Spotify not configured,
-// returns a normal 200 with available:false + a reason — never an error.
+// Graceful degradation: no match on any provider, or Spotify/YouTube not
+// configured, returns a normal 200 with available:false + a reason — never
+// an error.
 //
-// Env vars expected (optional — only Spotify needs them, and only for tier 1):
-//   SPOTIFY_CLIENT_ID      — Spotify app client ID (server-side only)
-//   SPOTIFY_CLIENT_SECRET  — Spotify app client secret (server-side only)
+// Env vars expected (all optional — each tier degrades gracefully if unset):
+//   SPOTIFY_CLIENT_ID      — Spotify app client ID (server-side only, tier 1)
+//   SPOTIFY_CLIENT_SECRET  — Spotify app client secret (server-side only, tier 1)
+//   YOUTUBE_API_KEY        — YouTube Data API v3 key (server-side only, tier 4)
 
 export const config = { path: "/api/audio/preview" };
 
@@ -730,6 +749,128 @@ async function tryItunes(artist, title, debugInfo) {
 }
 
 // ---------------------------------------------------------------------------
+// Tier 4: YouTube Data API v3 — LAST RESORT, only reached if Spotify, Deezer,
+// and iTunes all miss. Added 2026-07-12 to cover the 7 records confirmed
+// genuinely absent from every other provider (Maria Callas, Duke Ellington's
+// "Ellington '65", Rob Garza's "The Dust Ups", two "Various Artists"
+// compilations, The Swingle Singers' "Christmastime", The Cure's "Standing
+// on a Beach") — each independently checked to actually exist on YouTube.
+//
+// Requires a free YOUTUBE_API_KEY (Google Cloud Console, YouTube Data API v3
+// enabled, API key only — no OAuth). Not configured degrades to "not
+// attempted", same graceful pattern as Spotify.
+//
+// Unlike the other three tiers, YouTube's API never returns a direct audio
+// file URL — there is no `preview_url` here. Instead this returns an
+// `embed_url` (a YouTube iframe embed with `start`/`end` params) that the
+// frontend renders in place of the native <audio> element. The clip is
+// capped at 30 seconds — the same convention as Spotify/Deezer/iTunes'
+// native preview clips — via the embed's own start/end params, which
+// actually stop playback at that point (not just a UI suggestion).
+//
+// Two-step lookup: (1) search.list for candidate videos, filtered to ones
+// whose video title contains at least one token of our artist AND at least
+// one token of our title (YouTube's own relevance ranking is noisy — an
+// unfiltered top result is frequently a cover, reaction video, or unrelated
+// same-named track); (2) videos.list for view counts + durations on those
+// candidates, picking the highest-viewed one within a plausible single-track
+// duration window (30s–12min — excludes full-album uploads, DJ sets, and
+// bootleg concert videos, which are common false "matches" for an album
+// title search on YouTube specifically).
+async function tryYouTube(artist, title, debugInfo) {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    if (debugInfo) debugInfo.configured = false;
+    return null;
+  }
+  if (debugInfo) debugInfo.configured = true;
+
+  try {
+    const searchParams = new URLSearchParams();
+    searchParams.set("part", "snippet");
+    searchParams.set("q", artist + " " + title);
+    searchParams.set("type", "video");
+    searchParams.set("videoEmbeddable", "true");
+    searchParams.set("maxResults", "10");
+    searchParams.set("key", apiKey);
+
+    const searchRes = await fetch("https://www.googleapis.com/youtube/v3/search?" + searchParams.toString());
+    if (!searchRes.ok) throw new Error("YouTube search returned HTTP " + searchRes.status);
+    const searchData = await searchRes.json();
+    const items = Array.isArray(searchData.items) ? searchData.items : [];
+    if (debugInfo) debugInfo.searchResultCount = items.length;
+    if (!items.length) return null;
+
+    const artistTokens = new Set(significantTokens(artist, { stripGeneric: true }));
+    const titleTokens = new Set(significantTokens(title, { stripGeneric: true }));
+    const candidates = items.filter(function (it) {
+      if (!it || !it.id || !it.id.videoId || !it.snippet) return false;
+      const vSet = new Set(significantTokens(it.snippet.title, { stripGeneric: true }));
+      const hasArtist = artistTokens.size === 0 || Array.from(artistTokens).some(function (t) { return vSet.has(t); });
+      const hasTitle = titleTokens.size === 0 || Array.from(titleTokens).some(function (t) { return vSet.has(t); });
+      return hasArtist && hasTitle;
+    });
+    if (debugInfo) debugInfo.candidateCount = candidates.length;
+    if (!candidates.length) return null;
+
+    const ids = candidates.map(function (c) { return c.id.videoId; }).join(",");
+    const detailsParams = new URLSearchParams();
+    detailsParams.set("part", "statistics,contentDetails");
+    detailsParams.set("id", ids);
+    detailsParams.set("key", apiKey);
+    const detailsRes = await fetch("https://www.googleapis.com/youtube/v3/videos?" + detailsParams.toString());
+    if (!detailsRes.ok) throw new Error("YouTube videos returned HTTP " + detailsRes.status);
+    const detailsData = await detailsRes.json();
+    const detailsById = {};
+    (detailsData.items || []).forEach(function (d) { detailsById[d.id] = d; });
+
+    function parseDurationSeconds(iso) {
+      const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || "");
+      if (!m) return null;
+      const h = parseInt(m[1] || "0", 10), mi = parseInt(m[2] || "0", 10), s = parseInt(m[3] || "0", 10);
+      return h * 3600 + mi * 60 + s;
+    }
+
+    const scored = candidates.map(function (c) {
+      const d = detailsById[c.id.videoId];
+      const duration = d ? parseDurationSeconds(d.contentDetails && d.contentDetails.duration) : null;
+      const views = (d && d.statistics && d.statistics.viewCount) ? parseInt(d.statistics.viewCount, 10) : 0;
+      return { candidate: c, duration: duration, views: views };
+    }).filter(function (s) {
+      // Exclude anything that can't plausibly be a single track: too short
+      // to even hold a 30s clip, or long enough to be a full album/DJ set/
+      // bootleg rather than one song.
+      return s.duration === null || (s.duration >= 30 && s.duration <= 720);
+    });
+    if (debugInfo) debugInfo.scoredCount = scored.length;
+    if (!scored.length) return null;
+
+    scored.sort(function (a, b) { return b.views - a.views; });
+    const best = scored[0];
+    const videoId = best.candidate.id.videoId;
+    const snippet = best.candidate.snippet;
+
+    const clipStart = 0;
+    const clipEnd = clipStart + 30;
+
+    return {
+      provider: "youtube",
+      name: snippet.title || null,
+      artists: snippet.channelTitle || null,
+      preview_url: null,
+      embed_url: "https://www.youtube.com/embed/" + videoId
+        + "?start=" + clipStart + "&end=" + clipEnd
+        + "&autoplay=1&modestbranding=1&rel=0",
+      external_url: "https://www.youtube.com/watch?v=" + videoId,
+      popularity: best.views,
+    };
+  } catch (e) {
+    if (debugInfo) debugInfo.error = e.message;
+    return null; // best-effort, last-resort tier — never throw
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 export default async (req) => {
   if (req.method !== "GET") {
@@ -748,7 +889,7 @@ export default async (req) => {
   // genuine catalog absence without needing server log access. Read-only,
   // adds a `_debug` key to the normal response, changes no behavior.
   const debugMode = url.searchParams.get("debug") === "1";
-  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, itunes: {} } : null;
+  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, itunes: {}, youtube: {} } : null;
 
   // Tier 1: Spotify. A hard failure here (auth/network) degrades to
   // "not attempted" rather than aborting the whole lookup — Deezer/iTunes
@@ -803,17 +944,32 @@ export default async (req) => {
     return json({ available: true, reason: null, provider: "itunes", track: itunesTrack, _debug: debug }, 200);
   }
 
+  // Tier 4: YouTube — last resort, only reached if Spotify/Deezer/iTunes all
+  // missed. No preview_url (YouTube gives no direct audio file); playable
+  // via embed_url instead (see tryYouTube above).
+  let youtubeTrack = null;
+  try {
+    youtubeTrack = await tryYouTube(artist, title, debug ? debug.youtube : null);
+    if (debug) debug.youtube.track = youtubeTrack;
+  } catch (e) {
+    console.error("YouTube tier failed", e.message);
+    if (debug) debug.youtube.error = e.message;
+  }
+  if (youtubeTrack && youtubeTrack.embed_url) {
+    return json({ available: true, reason: null, provider: "youtube", track: youtubeTrack, _debug: debug }, 200);
+  }
+
   // Nothing playable anywhere. Prefer whichever tier at least matched a
   // track (for the "Listen elsewhere" link), Spotify first since its
   // external_url/popularity data is the richest when present.
-  const bestMatchOnly = spotifyTrack || deezerTrack || itunesTrack;
+  const bestMatchOnly = spotifyTrack || deezerTrack || itunesTrack || youtubeTrack;
   if (bestMatchOnly) {
     return json({ available: false, reason: "no_preview", provider: bestMatchOnly.provider, track: bestMatchOnly, _debug: debug }, 200);
   }
 
   if (!spotifyConfigured) {
     // Spotify unconfigured AND no other provider matched at all — still not
-    // an error; Deezer/iTunes not matching is a real (if rare) outcome.
+    // an error; Deezer/iTunes/YouTube not matching is a real (if rare) outcome.
     return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
   }
 
