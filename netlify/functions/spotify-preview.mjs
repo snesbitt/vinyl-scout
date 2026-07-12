@@ -1,5 +1,5 @@
 // netlify/functions/spotify-preview.mjs
-// version: 1
+// version: 2
 // Phase 4 — Audio preview. Given an artist + album title, finds the most
 // popular track on that album via Spotify's search API and returns its
 // preview clip (when Spotify makes one available for this app).
@@ -49,7 +49,9 @@ async function getAppToken(clientId, clientSecret) {
     body: "grant_type=client_credentials",
   });
   if (!res.ok) {
-    const err = new Error("Spotify auth returned HTTP " + res.status);
+    const bodyText = await res.text().catch(function () { return ""; });
+    console.error("Spotify token request failed", res.status, bodyText.slice(0, 500));
+    const err = new Error("Spotify auth returned HTTP " + res.status + (bodyText ? " — " + bodyText.slice(0, 200) : ""));
     err.upstream = true;
     throw err;
   }
@@ -100,7 +102,9 @@ export default async (req) => {
       headers: { "Authorization": "Bearer " + token },
     });
     if (!res.ok) {
-      const err = new Error("Spotify search returned HTTP " + res.status);
+      const bodyText = await res.text().catch(function () { return ""; });
+      console.error("Spotify search failed", res.status, bodyText.slice(0, 500));
+      const err = new Error("Spotify search returned HTTP " + res.status + (bodyText ? " — " + bodyText.slice(0, 200) : ""));
       err.upstream = true;
       throw err;
     }
