@@ -127,3 +127,22 @@ provider actually has a playable clip. This happened because Spotify's own
 `preview_url` restriction turned out to affect 100% of this catalog (0/93
 records) — see PROJECT.md's Phase 4 section for the full investigation and
 the empirical Deezer/iTunes validation behind the switch.
+
+`audio-preview.mjs` is now at **version: 7** after five further same-day
+matching-logic revisions (v3–v7) — see PROJECT.md's Phase 4 section for the
+full changelog. The short version: don't trust an `available:true` count
+increase by itself. Every fix in that round (and every fix that will follow
+it) was verified by tracing the actual matched track back to its real Deezer
+album/artist via direct API calls, not just checking that the count went up
+— that discipline is what caught two separate wrong-track bugs (v6, v7) that
+a plain "did the number improve" check would have missed entirely, including
+one (v7) that was hiding behind a result that LOOKED like a successful fix
+from an earlier revision (v5's Led Zeppelin *IV* "recovery" was actually
+still playing the wrong track, just from a different unrelated album, until
+v6 caught it). If this file is touched again, re-run the full 93-record
+sweep (not just the specific records you're working on) after any matching-
+logic change — two of this session's regressions/bugs (v4's regression, v6's
+own discovery) were only found because of records outside the original
+target list. A local Node regression-test harness (extract the matching
+functions with `sed`, append test cases, run with plain `node`) was used
+before every deploy this session and is cheap enough to be worth recreating.
