@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 2
+// version: 3
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -14,40 +14,75 @@
 //                  match quality and popularity data are the best of the
 //                  three; and because SPOTIFY_CLIENT_ID/SECRET are already
 //                  configured.
-//   2. Deezer    — NO auth/API key required. Two-pass lookup (v2, 2026-07-11):
-//                  (a) a fast free-text /search hit, then (b) if that misses,
-//                  an artist-catalog walk: search/artist -> that artist's full
-//                  /albums list -> fuzzy-match the album title -> that album's
-//                  /tracks, picking the highest-`rank` track with a preview.
-//                  Pass (b) exists because pass (a)'s relevance ranking
-//                  empirically buries real matches under more "popular"
-//                  generic tracks — confirmed live on 2026-07-11: The Cure's
-//                  "The Head on the Door" and "Japanese Whispers" both exist
-//                  on Deezer and were only found by pass (b); pass (a) alone
-//                  returned zero relevant results for either. Preview URLs
-//                  are signed and expire after a few hours — fine here since
-//                  we only ever fetch fresh, on tap, never cache them.
+//   2. Deezer    — NO auth/API key required. Three-pass lookup, each pass
+//                  only run if the previous one didn't yield a preview:
+//                  (a) fast free-text /search hit;
+//                  (b) artist-catalog walk: search/artist -> that artist's
+//                      full /albums list -> match the album title -> that
+//                      album's /tracks, picking the highest-`rank` track
+//                      with a preview. Recovers matches pass (a)'s relevance
+//                      ranking buries under more "popular" generic tracks —
+//                      confirmed live for The Cure's "The Head on the Door",
+//                      "Japanese Whispers", and k.d. lang's "Absolute Torch
+//                      and Twang" (all three genuinely on Deezer, none
+//                      surfaced by free-text search).
+//                  (c) title-only album search, ignoring our stored artist
+//                      name entirely. Exists because some vinyl-era reggae/
+//                      dub albums are catalogued under a producer or
+//                      backing-band credit rather than the mixing-engineer
+//                      name on our sleeve — confirmed live for "Errol Brown
+//                      & The Revolutionaries" (Deezer: just "The
+//                      Revolutionaries") and "The Scientist"'s "...Evil
+//                      Curse of the Vampires" (Deezer: "Junjo Presents: The
+//                      Evil Curse Of The Vampires" by "Roots Radics").
+//                  All three passes use the same title-matching function:
+//                  exact/substring match first, then a guarded fuzzy overlap
+//                  match (>=2 shared significant words AND >=50% overlap of
+//                  the shorter title's words, AND rejected outright if both
+//                  titles name different specific years) for cases like a
+//                  classical recording repackaged with a different pairing
+//                  piece (Karajan's Mozart Requiem: our "...in D Minor K626"
+//                  vs Deezer's "...; Coronation Mass" — same recording,
+//                  different sleeve), plus a narrow "ignore the word live"
+//                  pass for the common "Live in X" vs "In X" naming gap
+//                  (Oscar Peterson: our "Live in Russia" vs Deezer's "Oscar
+//                  Peterson In Russia"). The year-conflict guard specifically
+//                  exists because a looser match would have wrongly recovered
+//                  a *different* 1966 Horowitz Carnegie Hall recital against
+//                  our catalog's 1967-1968 one — confirmed as a real near-miss
+//                  during testing, not a hypothetical. Preview URLs are
+//                  signed and expire after a few hours — fine here since we
+//                  only ever fetch fresh, on tap, never cache them.
 //   3. iTunes    — Apple's public Search API (itunes.apple.com/search), also
-//                  no auth required. Tried last and wrapped defensively: a
-//                  live browser check on 2026-07-11 showed the legacy
-//                  itunes.apple.com/search path redirecting to an Apple
-//                  marketing page rather than returning JSON, which may be a
-//                  browser-only redirect (server-side fetches, like this
-//                  function makes, often aren't affected by that kind of
-//                  UA-based redirect) or may mean the endpoint is on its way
-//                  out. Either way: if it fails, errors, or redirects, this
-//                  step silently no-ops and we fall through to "no match" —
-//                  it can only add coverage, never break anything. Also note
-//                  iTunes' API exposes no popularity/play-count field, so the
-//                  "most popular track" guarantee does NOT hold for this
-//                  tier — it picks the first track under the matched album,
-//                  which is usually (not always) the most iconic one.
+//                  no auth required. Tried last and wrapped defensively.
+//                  CONFIRMED DEAD as of 2026-07-11 (not just suspected): a
+//                  direct server-side request — including with a real
+//                  browser User-Agent header — returns HTTP 200 but a
+//                  non-JSON (HTML) body every time, meaning Apple's legacy
+//                  /search endpoint now unconditionally redirects regardless
+//                  of caller. The defensive content-type check correctly
+//                  no-ops this rather than throwing, so it can never break
+//                  anything, but it will also never contribute a match
+//                  as currently implemented. Left in place (cost-free,
+//                  might revive) rather than removed.
 //
-// Known real gap (not a bug): some vinyl-edition titles genuinely don't exist
-// under any name on any of these three catalogs (confirmed live 2026-07-11
-// for k.d. lang's "Absolute Torch and Twang" — checked her full 29-album
-// Deezer catalog directly, it isn't there under any title). No amount of
-// matching-logic improvement recovers a title that was never digitized.
+// Known real gaps (not bugs): after the v3 matching improvements above, 12
+// of 93 catalog records still have no match on any provider — individually
+// verified live against Deezer's actual catalog (not just through this
+// function) to confirm genuine absence rather than a matching-logic miss.
+// Mostly classical recordings under specific compilation titles that were
+// never digitized (Maria Callas, Duke Ellington's "Ellington '65"), a
+// handful of ultra-niche titles (Rob Garza's "The Dust Ups", The Swingle
+// Singers' "Christmastime"), two "Various Artists" compilations where
+// Deezer has different, unrelated releases under similar names, and The
+// Cure's "Standing on a Beach" (checked its full 74-album Deezer discography
+// under every plausible title including the UK "Staring at the Sea" name —
+// not there). See PROJECT.md's Phase 4 section for the full per-record list.
+//
+// Diagnostic mode: append &debug=1 to any request to get a `_debug` key in
+// the response showing what each pass/tier actually returned or errored on.
+// Pure read, changes no behavior, just makes matching-logic bugs visible
+// without needing Netlify's server log dashboard.
 //
 // PURE READ. Never touches the Netlify Blobs "records" store, never writes
 // anything. Not gated by the edit secret — same reasoning as
@@ -81,11 +116,82 @@ function normalizeTitle(s) {
     .trim();
 }
 
+// Common English filler words stripped before fuzzy overlap scoring. Kept
+// deliberately small — anything that could be a meaningful distinguishing
+// word (an artist name, a place, "live", a number) is NOT in this list.
+var TITLE_STOPWORDS = new Set([
+  "the", "a", "an", "of", "in", "on", "at", "and", "or", "to", "by",
+  "with", "for", "is", "are", "this", "that", "from",
+]);
+
+function significantTokens(s) {
+  return normalizeTitle(s).split(" ").filter(function (w) {
+    return w.length > 0 && !TITLE_STOPWORDS.has(w);
+  });
+}
+
+// Distinct 4-digit numbers 1500-2099 in a string — used to catch "same
+// wording, different specific recording" cases (e.g. two different live
+// concerts by the same artist with near-identical titles but different
+// years). If both titles carry a year and none match, treat as different
+// recordings regardless of how similar the rest of the wording is.
+function yearsIn(s) {
+  var matches = String(s || "").match(/\b(1[5-9]\d\d|20\d\d)\b/g) || [];
+  return new Set(matches);
+}
+
+function yearsConflict(a, b) {
+  var ya = yearsIn(a), yb = yearsIn(b);
+  if (!ya.size || !yb.size) return false;
+  for (var y of ya) if (yb.has(y)) return false;
+  return true;
+}
+
+// Fuzzy fallback for real matches whose titles diverge more than simple
+// substring containment allows — e.g. a compilation packaged with a
+// different pairing piece ("Mozart: Requiem; 'Coronation Mass'" vs our
+// "Mozart: Requiem in D Minor K626"), or a title with words reordered/added
+// on both sides ("Junjo Presents: The Evil Curse Of The Vampires" vs our
+// "Rids the World of the Evil Curse of the Vampires"). Confirmed live
+// 2026-07-11 against Deezer's real catalog for both examples above.
+// Deliberately conservative: requires at least 2 shared significant words
+// AND at least half of the shorter title's significant words to overlap,
+// AND rejects outright if both titles name different specific years (guards
+// against matching a different concert/performance that happens to share
+// most of its wording — confirmed necessary via a real near-miss: a 1966
+// Horowitz Carnegie Hall recital vs. our catalog's 1967-1968 one).
+function fuzzyTitlesMatch(a, b) {
+  if (yearsConflict(a, b)) return false;
+  var ta = significantTokens(a);
+  var tb = significantTokens(b);
+  if (!ta.length || !tb.length) return false;
+  var setA = new Set(ta), setB = new Set(tb);
+  var overlap = 0;
+  setA.forEach(function (t) { if (setB.has(t)) overlap++; });
+  var minSize = Math.min(setA.size, setB.size);
+  var ratio = overlap / minSize;
+  return overlap >= 2 && ratio >= 0.5;
+}
+
+// Scoped to titles that are otherwise near-identical once a leading/embedded
+// "live" qualifier is set aside — a common live-album naming variance across
+// reissues, not a general loosening of the match. Confirmed live 2026-07-11:
+// Oscar Peterson's "Live in Russia" only exists on Deezer as "Oscar Peterson
+// In Russia" — dropping "live" turns it into a clean substring match.
+function titlesMatchIgnoringLive(a, b) {
+  var na = normalizeTitle(a).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
+  var nb = normalizeTitle(b).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
 function titlesMatch(a, b) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return false;
-  return na === nb || na.includes(nb) || nb.includes(na);
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  if (fuzzyTitlesMatch(a, b)) return true;
+  return titlesMatchIgnoringLive(a, b);
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +357,53 @@ async function tryDeezerByArtistCatalog(artist, title) {
   return null;
 }
 
+// Pass (c): search Deezer's album index by TITLE ONLY, ignoring our stored
+// artist name entirely. Exists for a specific, confirmed real-world case:
+// vinyl-era reggae/dub albums are often catalogued (correctly, by Deezer)
+// under a producer or backing-band credit rather than the name printed on
+// our sleeve — e.g. our "Errol Brown & The Revolutionaries" (the mixing
+// engineer credited alongside the band) is on Deezer as just "The
+// Revolutionaries"; our "The Scientist" (mixing-engineer credit) is on
+// Deezer as "Roots Radics" under a "Junjo Presents:" producer-credited title.
+// Pass (a)/(b) can never find these because they both start from OUR artist
+// name. Confirmed live 2026-07-11 for both examples above. Uses the same
+// titlesMatch (containment + guarded fuzzy overlap) as the other passes, so
+// carries the same false-positive protections (year-conflict guard, minimum
+// 2-word overlap) — a title-only search is inherently less constrained than
+// an artist-scoped one, so precision here matters more, not less.
+async function tryDeezerByAlbumTitleSearch(title) {
+  const q = new URLSearchParams();
+  q.set("q", title);
+  q.set("limit", "25");
+
+  const res = await fetch("https://api.deezer.com/search/album?" + q.toString());
+  if (!res.ok) throw new Error("Deezer album search returned HTTP " + res.status);
+  const data = await res.json();
+  const albums = Array.isArray(data && data.data) ? data.data : [];
+
+  const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title); });
+  if (!albumMatch) return null;
+
+  const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
+  if (!tracksRes.ok) return null;
+  const tracksData = await tracksRes.json();
+  const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
+  const withPreview = tracks.filter(function (t) { return t && t.preview; });
+  if (!withPreview.length) return null;
+
+  withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+  const best = withPreview[0];
+
+  return {
+    provider: "deezer",
+    name: best.title || null,
+    artists: (albumMatch.artist && albumMatch.artist.name) || null,
+    preview_url: best.preview || null,
+    external_url: best.link || null,
+    popularity: (typeof best.rank === "number") ? best.rank : null,
+  };
+}
+
 async function tryDeezer(artist, title) {
   const freeText = await tryDeezerFreeText(artist, title);
   if (freeText && freeText.preview_url) return freeText;
@@ -258,7 +411,10 @@ async function tryDeezer(artist, title) {
   const byCatalog = await tryDeezerByArtistCatalog(artist, title);
   if (byCatalog && byCatalog.preview_url) return byCatalog;
 
-  return freeText || byCatalog || null;
+  const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title);
+  if (byAlbumTitle && byAlbumTitle.preview_url) return byAlbumTitle;
+
+  return freeText || byCatalog || byAlbumTitle || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +486,7 @@ export default async (req) => {
   // genuine catalog absence without needing server log access. Read-only,
   // adds a `_debug` key to the normal response, changes no behavior.
   const debugMode = url.searchParams.get("debug") === "1";
-  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, itunes: {} } : null;
+  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, itunes: {} } : null;
 
   // Tier 1: Spotify. A hard failure here (auth/network) degrades to
   // "not attempted" rather than aborting the whole lookup — Deezer/iTunes
@@ -360,7 +516,12 @@ export default async (req) => {
       debug.deezerFreeText = { track: freeText };
       const byCatalog = await tryDeezerByArtistCatalog(artist, title);
       debug.deezerCatalog = { track: byCatalog };
-      deezerTrack = (freeText && freeText.preview_url) ? freeText : (byCatalog && byCatalog.preview_url) ? byCatalog : (freeText || byCatalog || null);
+      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title);
+      debug.deezerAlbumTitle = { track: byAlbumTitle };
+      deezerTrack = (freeText && freeText.preview_url) ? freeText
+        : (byCatalog && byCatalog.preview_url) ? byCatalog
+        : (byAlbumTitle && byAlbumTitle.preview_url) ? byAlbumTitle
+        : (freeText || byCatalog || byAlbumTitle || null);
     } else {
       deezerTrack = await tryDeezer(artist, title);
     }
