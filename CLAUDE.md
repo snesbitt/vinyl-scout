@@ -32,7 +32,8 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
       discogs-pricing.mjs/api/discogs-pricing POST · writes record · scrapes
       wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE UNGATED (see below)
       audio-preview.mjs  /api/audio/preview  GET ungated · pure read (audio
-                         preview, multi-provider: Spotify -> Deezer -> iTunes)
+                         preview, multi-provider: Spotify -> Deezer -> iTunes
+                         -> YouTube last-resort, needs YOUTUBE_API_KEY)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -79,6 +80,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 | GITHUB_BRANCH  | save-cover, run-backup           | Target branch (default main)               | optional               |
 | SPOTIFY_CLIENT_ID     | audio-preview.mjs         | Spotify client-credentials auth (tier 1 only)| Audio preview (Spotify tier) |
 | SPOTIFY_CLIENT_SECRET | audio-preview.mjs         | Spotify client-credentials auth (tier 1 only)| Audio preview (Spotify tier) |
+| YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview (YouTube tier 4, last resort) — **not yet set as of 2026-07-12**; get one free from Google Cloud Console (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, tier 4 gracefully reports "not configured" with zero effect on the other three tiers. |
 
 Secrets are managed by Susan in the Netlify UI. Agents never echo, log, or pass
 a token value on a command line or in a commit.
@@ -128,8 +130,8 @@ provider actually has a playable clip. This happened because Spotify's own
 records) — see PROJECT.md's Phase 4 section for the full investigation and
 the empirical Deezer/iTunes validation behind the switch.
 
-`audio-preview.mjs` is now at **version: 7** after five further same-day
-matching-logic revisions (v3–v7) — see PROJECT.md's Phase 4 section for the
+`audio-preview.mjs` went through five further same-day matching-logic
+revisions (v3–v7) on 2026-07-11 — see PROJECT.md's Phase 4 section for the
 full changelog. The short version: don't trust an `available:true` count
 increase by itself. Every fix in that round (and every fix that will follow
 it) was verified by tracing the actual matched track back to its real Deezer
@@ -146,3 +148,31 @@ own discovery) were only found because of records outside the original
 target list. A local Node regression-test harness (extract the matching
 functions with `sed`, append test cases, run with plain `node`) was used
 before every deploy this session and is cheap enough to be worth recreating.
+
+`audio-preview.mjs` is now at **version: 8** (2026-07-12) — added a YouTube
+tier 4, last-resort fallback for the 7 records confirmed genuinely absent
+from Spotify/Deezer/iTunes (see PROJECT.md's Phase 4 section). Needs
+`YOUTUBE_API_KEY`, which is **not yet set** — Susan needs to create a free
+Google Cloud Console API key herself (account/credential setup an agent
+shouldn't do unattended). Until then this tier gracefully reports "not
+configured," same pattern as Spotify when unconfigured, with zero effect on
+the other three tiers. Once the key is set, re-run the 7 gap records to
+confirm real coverage before treating this as fully closed. Unlike the other
+three tiers, YouTube returns no `preview_url` (no direct audio file) — only
+an `embed_url` that the frontend (`app.js` v32) renders as a 30-second-capped
+`<iframe>` instead of the native `<audio>` element.
+
+Also on 2026-07-12: `wishlist.html`'s manual-add form never called the
+Discogs lookup at all, so manually-added items got no `cover_url` unless
+Susan pasted a Discogs URL herself — confirmed live via 1/56 items affected
+(Anita Baker's "Rapture"). Fixed in `wishlist.html` v13 by having the add
+flow call `/api/discogs/lookup` itself (best-effort, never blocks the add on
+failure); the Discogs URL and Notes fields were also dropped from the form
+per Susan's request in the same pass. If a similar "some records are missing
+X" report comes in again, check whether the manual-add path independently
+duplicates whatever enrichment the automated sync paths do — this bug and
+the wishlist's separate `current_ask`/`price_median` gap (populated only by
+the external weekly scout, not by anything in this repo, so newly-added
+items always start as "NEVER SOLD" until the following Monday) are the same
+shape of problem: manual adds bypass enrichment that automated adds get for
+free.
