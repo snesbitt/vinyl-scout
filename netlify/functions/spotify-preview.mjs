@@ -1,5 +1,5 @@
 // netlify/functions/spotify-preview.mjs
-// version: 2
+// version: 3
 // Phase 4 — Audio preview. Given an artist + album title, finds the most
 // popular track on that album via Spotify's search API and returns its
 // preview clip (when Spotify makes one available for this app).
@@ -90,11 +90,15 @@ export default async (req) => {
   // Track search returns full Track objects, which carry `popularity` and
   // `preview_url` directly — no second album->tracks round trip is needed
   // just to rank candidates by popularity.
+  //
+  // Spotify's /v1/search `limit` range was tightened to 0-10 (was 0-50) —
+  // using anything above 10 now fails with a 400 "Invalid limit". 10 is the
+  // max allowed and gives enough candidates to still rank by popularity.
   const q = 'artist:"' + artist.replace(/"/g, "") + '" album:"' + title.replace(/"/g, "") + '"';
   const search = new URLSearchParams();
   search.set("q", q);
   search.set("type", "track");
-  search.set("limit", "50");
+  search.set("limit", "10");
 
   let data;
   try {
