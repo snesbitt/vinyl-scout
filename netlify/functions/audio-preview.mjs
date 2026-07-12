@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 6
+// version: 7
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -141,6 +141,13 @@ var GENERIC_COMPILATION_WORDS = new Set([
   "volume", "vol", "christmas", "christmastime", "xmas", "remix", "remixed",
   "remixes", "blues", "jazz", "best", "greatest", "hits", "collection",
   "anthology", "classics", "various", "mix", "mixes", "compilation",
+  // Added 2026-07-11 alongside the artist-corroboration fix below — common,
+  // meaning-neutral reissue/box-set wrapper words in classical/reissue
+  // catalog titles ("Beethoven: COMPLETE Piano Sonatas", "Moon Safari
+  // DELUXE EDITION"). Needed so a genuine reissue title isn't treated as
+  // needing extra corroboration just for carrying one of these words.
+  "complete", "original", "deluxe", "edition", "remaster", "remastered",
+  "expanded", "anniversary", "definitive",
 ]);
 
 function significantTokens(s, opts) {
@@ -246,8 +253,8 @@ function fuzzyTitlesMatch(a, b, artist) {
 // catalog) don't need this — a short title like Led Zeppelin's "IV" is
 // perfectly safe there because the scoping itself is the corroboration.
 // Only the free-text pass, whose final candidate filter never actually
-// checks the returned track's artist, needs this extra gate (see
-// titlesMatchRequireSpecific below).
+// checks the returned track's artist for generic/short titles, needs this
+// extra gate — applied inline in tryDeezerFreeText below.
 function isSpecificEnoughForContainment(title) {
   return significantTokens(title, { stripGeneric: true }).length >= 2;
 }
@@ -271,23 +278,6 @@ function titlesMatch(a, b, artist) {
   if (na === nb || containsWholeWords(na, nb) || containsWholeWords(nb, na)) return true;
   if (fuzzyTitlesMatch(a, b, artist)) return true;
   return titlesMatchIgnoringLive(a, b);
-}
-
-// Used ONLY by the free-text Deezer pass (a) — the one pass whose candidate
-// filter matches purely on album title and never actually checks the
-// returned track's own credited artist, so a generic/short title has no
-// corroboration at all there (unlike pass (b), which is structurally
-// scoped to a specific artist's own catalog by construction, or pass (c),
-// which uses the separate, stricter titlesMatchStrict). Confirmed as a real
-// false-positive path 2026-07-11: without this gate, The Swingle Singers'
-// "Christmastime" matched an unrelated Trisha Yearwood Christmas track
-// purely on generic title overlap, since pass (a) had no way to notice the
-// track wasn't actually by the right artist.
-function titlesMatchRequireSpecific(a, b, artist) {
-  if (!isSpecificEnoughForContainment(b)) {
-    return normalizeTitle(a) === normalizeTitle(b);
-  }
-  return titlesMatch(a, b, artist);
 }
 
 // Stricter variant with NO loose substring-containment shortcut — only exact
@@ -317,6 +307,94 @@ function titlesMatchStrict(a, b) {
 function isGenericArtist(artist) {
   const n = normalizeTitle(artist);
   return n === "various" || n === "various artists" || n === "va" || n === "v a";
+}
+
+// True if a track's own credited artist plausibly IS our stored artist (loose
+// word-token overlap, not exact string equality — handles "Bob Marley" vs.
+// "Bob Marley & The Wailers", "The Modern Jazz Quartet" vs. itself, etc.).
+// Added after a real false positive found live 2026-07-11: Air's "Moon
+// Safari" free-text search surfaced "Sexy Boy (Vegyn Version)" — a remix
+// COVER by a completely different artist ("Vegyn"), filed on an album titled
+// "Blue Moon Safari" that happens to contain our title "Moon Safari" as a
+// genuine whole-word phrase (so the word-boundary containment fix alone
+// didn't catch it). The free-text pass (a) never checked WHO actually
+// performs the candidate track, only the album title — this closes that gap.
+// The real, correct match ("Sexy Boy" by Air, from the actual 1998 "Moon
+// Safari" album) was independently confirmed present via pass (c) and now
+// wins instead once pass (a)/(b) correctly reject the Vegyn remix.
+function artistsOverlap(trackArtist, ourArtist) {
+  if (!trackArtist || !ourArtist) return false;
+  var a = significantTokens(trackArtist, { stripGeneric: true });
+  var b = significantTokens(ourArtist, { stripGeneric: true });
+  if (!a.length || !b.length) return false;
+  var setB = new Set(b);
+  return a.some(function (t) { return setB.has(t); });
+}
+
+// Whether the extra words a longer title carries beyond a shorter, wholly-
+// contained title are "safe" wrapper words — the artist's own name/composer
+// prefix (a real, common classical-catalog convention: "Beethoven: Complete
+// Piano Sonatas" for our "Piano Sonatas"), or generic reissue filler
+// ("Complete", "Deluxe Edition"). If ALL the extra words fall into one of
+// those buckets, the containment match needs no further corroboration. If
+// even one extra word is something else entirely unrelated to our artist or
+// generic reissue language — e.g. "Blue" in "Blue Moon Safari" for our "Moon
+// Safari" — that's a real, unrelated title (a different release, often by a
+// different artist entirely) that happens to contain our words, and needs
+// the caller to separately confirm the actual track's credited artist.
+function extraWordsAreBenign(longer, shorter, artist) {
+  var longerWords = longer.split(" ").filter(Boolean);
+  var shorterWords = new Set(shorter.split(" ").filter(Boolean));
+  var artistTokens = new Set(significantTokens(artist || "", { stripGeneric: true }));
+  var extra = longerWords.filter(function (w) { return !shorterWords.has(w); });
+  return extra.every(function (w) {
+    return TITLE_STOPWORDS.has(w) || GENERIC_COMPILATION_WORDS.has(w) || artistTokens.has(w);
+  });
+}
+
+// Used ONLY by the artist-scoped Deezer passes (a: free-text, b: artist-
+// catalog walk) — both start from OUR stored artist name, which makes a
+// title match feel automatically trustworthy, but Deezer sometimes files an
+// unrelated tribute/remix/cover release (by a DIFFERENT artist) as an
+// "appears on" credit within our artist's own discography, or a free-text
+// query surfaces someone else's cover under a similarly-worded album. A
+// same-artist album match this direct+immediate (exact title, or containment
+// where the only extra words are the artist's own name / generic reissue
+// filler) is trusted outright. A containment match with unexplained extra
+// words, or the fuzzy/live-strip fallback paths, additionally requires the
+// CANDIDATE TRACK's own credited artist to plausibly correspond to our
+// stored artist — confirmed necessary live 2026-07-11: without this, Air's
+// "Moon Safari" matched a Vegyn remix filed under "Blue Moon Safari" (an
+// unrelated tribute compilation that happens to contain "Moon Safari" as a
+// real phrase, appearing in Air's own Deezer discography listing).
+function titlesMatchCorroborated(a, b, artist, trackArtist) {
+  var na = normalizeTitle(a);
+  var nb = normalizeTitle(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+
+  if (containsWholeWords(na, nb) || containsWholeWords(nb, na)) {
+    var longer = na.length >= nb.length ? na : nb;
+    var shorter = na.length >= nb.length ? nb : na;
+    if (extraWordsAreBenign(longer, shorter, artist)) return true;
+    return artistsOverlap(trackArtist, artist);
+  }
+
+  if (fuzzyTitlesMatch(a, b, artist)) return true;
+
+  var la = na.replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
+  var lb = nb.replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
+  if (la && lb) {
+    if (la === lb) return true;
+    if (containsWholeWords(la, lb) || containsWholeWords(lb, la)) {
+      var longerL = la.length >= lb.length ? la : lb;
+      var shorterL = la.length >= lb.length ? lb : la;
+      if (extraWordsAreBenign(longerL, shorterL, artist)) return true;
+      return artistsOverlap(trackArtist, artist);
+    }
+  }
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -407,7 +485,11 @@ async function tryDeezerFreeText(artist, title) {
   const items = Array.isArray(data && data.data) ? data.data : [];
 
   const matches = items.filter(function (t) {
-    return t && t.album && titlesMatchRequireSpecific(t.album.title, title, artist);
+    if (!t || !t.album || !t.artist) return false;
+    if (!isSpecificEnoughForContainment(title)) {
+      return normalizeTitle(t.album.title) === normalizeTitle(title);
+    }
+    return titlesMatchCorroborated(t.album.title, title, artist, t.artist.name);
   });
   if (!matches.length) return null;
 
@@ -456,27 +538,54 @@ async function tryDeezerByArtistCatalog(artist, title) {
       pages++;
     }
 
-    const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title, artist); });
-    if (!albumMatch) continue;
+    // Consider EVERY album in this candidate's catalog whose title matches —
+    // not just the first — because a matching title can belong to a
+    // mislabeled compilation that happens to appear in this artist's own
+    // Deezer discography (see artistsOverlap comment above: Air's real
+    // catalog listing includes "Blue Moon Safari", a Vegyn remix tribute
+    // album, alongside the real 1998 "Moon Safari"). If the first
+    // title-matching album turns out to have no track actually credited to
+    // this artist, fall through to the next matching album rather than
+    // giving up on this candidate entirely.
+    const albumMatches = albums.filter(function (a) { return a && titlesMatch(a.title, title, artist); });
 
-    const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
-    if (!tracksRes.ok) continue;
-    const tracksData = await tracksRes.json();
-    const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
-    const withPreview = tracks.filter(function (t) { return t && t.preview; });
-    if (!withPreview.length) continue;
+    for (const albumMatch of albumMatches) {
+      // Determine whether THIS album's title needs per-track artist
+      // corroboration before trusting any of its tracks (see
+      // titlesMatchCorroborated above) — computed once per album, since it
+      // depends only on the album title vs. our stored title, not the track.
+      const na = normalizeTitle(albumMatch.title);
+      const nb = normalizeTitle(title);
+      let needsCorroboration = na !== nb;
+      if (needsCorroboration && (containsWholeWords(na, nb) || containsWholeWords(nb, na))) {
+        const longer = na.length >= nb.length ? na : nb;
+        const shorter = na.length >= nb.length ? nb : na;
+        needsCorroboration = !extraWordsAreBenign(longer, shorter, artist);
+      }
 
-    withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
-    const best = withPreview[0];
+      const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
+      if (!tracksRes.ok) continue;
+      const tracksData = await tracksRes.json();
+      const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
+      const withPreview = tracks.filter(function (t) {
+        if (!t || !t.preview) return false;
+        if (!needsCorroboration) return true;
+        return t.artist && artistsOverlap(t.artist.name, artist);
+      });
+      if (!withPreview.length) continue;
 
-    return {
-      provider: "deezer",
-      name: best.title || null,
-      artists: candidate.name || null,
-      preview_url: best.preview || null,
-      external_url: best.link || null,
-      popularity: (typeof best.rank === "number") ? best.rank : null,
-    };
+      withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+      const best = withPreview[0];
+
+      return {
+        provider: "deezer",
+        name: best.title || null,
+        artists: (best.artist && best.artist.name) || candidate.name || null,
+        preview_url: best.preview || null,
+        external_url: best.link || null,
+        popularity: (typeof best.rank === "number") ? best.rank : null,
+      };
+    }
   }
 
   return null;
