@@ -1,5 +1,7 @@
 /* Vinyl Scout — style.css
-   version: 22
+   version: 23
+   v23: .detail__audio-provider — small "via Deezer"/"via Apple Music" credit
+   line shown under a playing preview when it didn't come from Spotify.
    v22: .detail__audio-spotify-link — "Listen on Spotify" fallback link shown
    when Spotify has no preview clip for the matched track.
    v21: Phase 4 — .detail__audio* rules for the audio preview section (Play
@@ -734,6 +736,14 @@ main {
   letter-spacing: 0.06em;
   color: var(--ink-faint);
   font-style: italic;
+}
+.detail__audio-provider {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
 }
 .detail__audio-error {
   margin: 4px 0 0;

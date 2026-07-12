@@ -1,5 +1,11 @@
 // Vinyl Scout — app.js
-// version: 30
+// version: 31
+// v31: Audio preview now calls /api/audio/preview (multi-provider: Spotify ->
+//      Deezer -> iTunes, see netlify/functions/audio-preview.mjs) instead of
+//      the Spotify-only /api/spotify/preview. Handles the new `provider`
+//      field: shows "via Deezer"/"via Apple Music" under a playing clip, and
+//      "Listen on <Provider> ↗" (not hardcoded Spotify) when a track matched
+//      but had no preview anywhere.
 // v30: When Spotify has no preview clip for the matched track (its own
 //      platform-wide preview_url restriction — confirmed 2026-07-11 to affect
 //      all 93 catalog records, not a bug in this code), show a "Listen on
@@ -437,8 +443,9 @@ el.textContent = txt;
 
   function buildAudioBlock(r) {
     // v29: Phase 4 audio preview. Renders a placeholder with a Play button;
-    // the actual /api/spotify/preview fetch is lazy (only on tap) so opening
-    // the modal never spends a Spotify lookup nobody asked for.
+    // the actual /api/audio/preview fetch is lazy (only on tap) so opening
+    // the modal never spends a lookup nobody asked for.
+    // v31: multi-provider (Spotify -> Deezer -> iTunes), see audio-preview.mjs.
     return ''
       + '<section class="detail__audio" aria-label="Preview">'
       +   '<h3 class="detail__h3">Preview</h3>'
@@ -460,7 +467,7 @@ el.textContent = txt;
 
     try {
       var qs = '?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title);
-      var res = await fetch('/api/spotify/preview' + qs);
+      var res = await fetch('/api/audio/preview' + qs);
       var payload;
       try { payload = await res.json(); }
       catch (_) { payload = { error: 'HTTP ' + res.status }; }
@@ -471,15 +478,18 @@ el.textContent = txt;
         return;
       }
 
+      var providerNames = { spotify: 'Spotify', deezer: 'Deezer', itunes: 'Apple Music' };
+      var providerLabel = providerNames[payload.provider] || null;
+
       if (!payload.available) {
         var note = payload.reason === 'not_configured'
           ? 'Audio preview isn’t set up yet.'
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
-            : 'No matching track found on Spotify.';
+            : 'No matching track found.';
         var t2 = payload.track || {};
-        var link = (payload.reason === 'no_preview' && t2.spotify_url)
-          ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.spotify_url) + '" target="_blank" rel="noopener">Listen on Spotify ↗</a>'
+        var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
+          ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + escapeHtml(providerLabel) + ' ↗</a>'
           : '';
         var label2 = [t2.artists, t2.name].filter(Boolean).join(' — ');
         if (body) {
@@ -496,7 +506,8 @@ el.textContent = txt;
       if (body) {
         body.innerHTML = ''
           + (label ? '<p class="detail__audio-track">' + escapeHtml(label) + '</p>' : '')
-          + '<audio class="detail__audio-player" id="detail-audio-player" controls autoplay preload="auto" src="' + escapeAttr(t.preview_url) + '"></audio>';
+          + '<audio class="detail__audio-player" id="detail-audio-player" controls autoplay preload="auto" src="' + escapeAttr(t.preview_url) + '"></audio>'
+          + (providerLabel ? '<p class="detail__audio-provider">via ' + escapeHtml(providerLabel) + '</p>' : '');
       }
     } catch (err) {
       if (body) body.innerHTML = '<p class="detail__audio-error">Network error: ' + escapeHtml(err.message) + '</p>';

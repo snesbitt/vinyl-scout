@@ -31,7 +31,8 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
       discogs-lookup.mjs /api/discogs/lookup GET ungated · pure read
       discogs-pricing.mjs/api/discogs-pricing POST · writes record · scrapes
       wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE UNGATED (see below)
-      spotify-preview.mjs/api/spotify/preview GET ungated · pure read (audio preview)
+      audio-preview.mjs  /api/audio/preview  GET ungated · pure read (audio
+                         preview, multi-provider: Spotify -> Deezer -> iTunes)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -76,8 +77,8 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 | GITHUB_TOKEN   | save-cover, run-backup           | Commits covers + backups via GitHub API    | Covers + backups       |
 | GITHUB_REPO    | save-cover, run-backup           | Target repo (default snesbitt/vinyl-scout) | optional               |
 | GITHUB_BRANCH  | save-cover, run-backup           | Target branch (default main)               | optional               |
-| SPOTIFY_CLIENT_ID     | spotify-preview.mjs       | Spotify client-credentials auth            | Audio preview          |
-| SPOTIFY_CLIENT_SECRET | spotify-preview.mjs       | Spotify client-credentials auth            | Audio preview          |
+| SPOTIFY_CLIENT_ID     | audio-preview.mjs         | Spotify client-credentials auth (tier 1 only)| Audio preview (Spotify tier) |
+| SPOTIFY_CLIENT_SECRET | audio-preview.mjs         | Spotify client-credentials auth (tier 1 only)| Audio preview (Spotify tier) |
 
 Secrets are managed by Susan in the Netlify UI. Agents never echo, log, or pass
 a token value on a command line or in a commit.
@@ -110,7 +111,7 @@ current. (This bit a 2026-07-11 session: a local clone ~9 days behind picked
 up the Phase 3 Wishlist build, the weekly scout automation, and `guide.html`
 only when the divergence was noticed and manually reconciled file-by-file.)
 
-Phase 4 (Audio Preview, `spotify-preview.mjs` + the detail-modal Play button)
+Phase 4 (Audio Preview, `audio-preview.mjs` + the detail-modal Play button)
 was built at Susan's explicit request, ahead of the phase queue — Wishlist,
 which was actually next in line, is Phase 3 and shipped earlier (2026-07-04).
 Audio preview currently covers the collection detail modal only; wishlist
@@ -118,3 +119,11 @@ playback was mentioned in the original roadmap sketch but is not yet built.
 `PROJECT.md` documents both as their own phases. When in doubt about what's
 actually live vs. what a phase label says, read the repo (or ask Susan)
 rather than trusting a "parked"/"planned" status by itself.
+
+Audio preview went through two implementations on 2026-07-11: an initial
+Spotify-only `spotify-preview.mjs` (retired), then `audio-preview.mjs`, which
+tries Spotify, then Deezer, then iTunes in sequence and returns whichever
+provider actually has a playable clip. This happened because Spotify's own
+`preview_url` restriction turned out to affect 100% of this catalog (0/93
+records) — see PROJECT.md's Phase 4 section for the full investigation and
+the empirical Deezer/iTunes validation behind the switch.
