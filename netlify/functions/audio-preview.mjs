@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 3
+// version: 4
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -124,9 +124,31 @@ var TITLE_STOPWORDS = new Set([
   "with", "for", "is", "are", "this", "that", "from",
 ]);
 
-function significantTokens(s) {
+// Words that are common filler *specifically in compilation/reissue titles*
+// rather than genuinely distinguishing content — "Volume 2", "Christmas(time)",
+// "Remixed" appear across thousands of unrelated releases by different
+// artists, so sharing only these words is not real evidence of a match.
+// Discovered as a genuine false-positive source during testing 2026-07-11:
+// without this list, the fuzzy matcher accepted "The Blues Volume 2" against
+// an unrelated Chuck Jackson compilation (shared "blues"/"volume"), "The
+// Swingle Singers — Christmastime" against a completely unrelated Trisha
+// Yearwood Christmas track (shared only "christmastime"), and "Verve //
+// Remixed" against an unrelated "Velvet Dreamer" remix single (shared only
+// "remix"/"remixed"). These words are excluded from the SIGNIFICANT-token
+// set used for fuzzy scoring only — they still count normally for the exact/
+// substring containment check, which is inherently safer.
+var GENERIC_COMPILATION_WORDS = new Set([
+  "volume", "vol", "christmas", "christmastime", "xmas", "remix", "remixed",
+  "remixes", "blues", "jazz", "best", "greatest", "hits", "collection",
+  "anthology", "classics", "various", "mix", "mixes", "compilation",
+]);
+
+function significantTokens(s, opts) {
+  var stripGeneric = opts && opts.stripGeneric;
   return normalizeTitle(s).split(" ").filter(function (w) {
-    return w.length > 0 && !TITLE_STOPWORDS.has(w);
+    if (w.length === 0 || TITLE_STOPWORDS.has(w)) return false;
+    if (stripGeneric && GENERIC_COMPILATION_WORDS.has(w)) return false;
+    return true;
   });
 }
 
@@ -155,22 +177,60 @@ function yearsConflict(a, b) {
 // "Rids the World of the Evil Curse of the Vampires"). Confirmed live
 // 2026-07-11 against Deezer's real catalog for both examples above.
 // Deliberately conservative: requires at least 2 shared significant words
-// AND at least half of the shorter title's significant words to overlap,
-// AND rejects outright if both titles name different specific years (guards
-// against matching a different concert/performance that happens to share
-// most of its wording — confirmed necessary via a real near-miss: a 1966
-// Horowitz Carnegie Hall recital vs. our catalog's 1967-1968 one).
-function fuzzyTitlesMatch(a, b) {
+// (with generic compilation filler like "volume"/"christmas"/"remixed", AND
+// the artist's own name if provided, excluded from counting — see
+// GENERIC_COMPILATION_WORDS and the artist-stripping below) AND at least
+// half of the shorter title's significant words to overlap, AND rejects
+// outright if both titles name different specific years (guards against
+// matching a different concert/performance that happens to share most of
+// its wording — confirmed necessary via a real near-miss: a 1966 Horowitz
+// Carnegie Hall recital vs. our catalog's 1967-1968 one).
+//
+// The `artist` param exists because an artist's own name is often baked
+// into a compilation's title on one or both sides (e.g. "Maria Callas -
+// Cinema" vs our "The Incomparable Maria Callas") — if the ONLY overlapping
+// words are the artist's own name repeated on both sides, that's circular:
+// of course a compilation of an artist's work mentions that artist, and it
+// says nothing about whether the CONTENT matches. Confirmed as a real false
+// positive 2026-07-11 without this check: an unrelated Bellini opera excerpt
+// matched purely because both titles contained "Maria Callas". At least one
+// overlapping word must be something OTHER than the artist's own name — this
+// still lets the artist's name count toward the raw overlap number (needed
+// for real matches like Horowitz's 1967 recital, where "Horowitz" + the
+// shared year "1967" together clear the bar), it just can't be the *only*
+// evidence.
+function fuzzyTitlesMatch(a, b, artist) {
   if (yearsConflict(a, b)) return false;
-  var ta = significantTokens(a);
-  var tb = significantTokens(b);
+  var ta = significantTokens(a, { stripGeneric: true });
+  var tb = significantTokens(b, { stripGeneric: true });
   if (!ta.length || !tb.length) return false;
   var setA = new Set(ta), setB = new Set(tb);
-  var overlap = 0;
-  setA.forEach(function (t) { if (setB.has(t)) overlap++; });
+  var overlapTokens = [];
+  setA.forEach(function (t) { if (setB.has(t)) overlapTokens.push(t); });
+  var overlap = overlapTokens.length;
   var minSize = Math.min(setA.size, setB.size);
   var ratio = overlap / minSize;
-  return overlap >= 2 && ratio >= 0.5;
+  if (!(overlap >= 2 && ratio >= 0.5)) return false;
+
+  if (artist) {
+    var artistTokens = new Set(significantTokens(artist, { stripGeneric: true }));
+    var hasNonArtistOverlap = overlapTokens.some(function (t) { return !artistTokens.has(t); });
+    if (!hasNonArtistOverlap) return false;
+  }
+
+  return true;
+}
+
+// Loose substring containment (used below) is only trustworthy when the
+// title being matched FROM (our stored title, always passed as `b` at every
+// call site) has enough distinctive content of its own. A short/generic
+// title like "Christmastime" is a substring of dozens of unrelated holiday
+// compilations by construction — containment there proves nothing. Confirmed
+// as a real false positive 2026-07-11: without this gate, The Swingle
+// Singers' "Christmastime" matched an unrelated Trisha Yearwood Christmas
+// track whose album title happened to contain the word.
+function isSpecificEnoughForContainment(title) {
+  return significantTokens(title, { stripGeneric: true }).length >= 2;
 }
 
 // Scoped to titles that are otherwise near-identical once a leading/embedded
@@ -182,16 +242,48 @@ function titlesMatchIgnoringLive(a, b) {
   var na = normalizeTitle(a).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   var nb = normalizeTitle(b).replace(/\blive\b/g, "").replace(/\s+/g, " ").trim();
   if (!na || !nb) return false;
-  return na === nb || na.includes(nb) || nb.includes(na);
+  if (na === nb) return true;
+  if (!isSpecificEnoughForContainment(b)) return false;
+  return na.includes(nb) || nb.includes(na);
 }
 
-function titlesMatch(a, b) {
+function titlesMatch(a, b, artist) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return false;
-  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
-  if (fuzzyTitlesMatch(a, b)) return true;
+  if (na === nb) return true;
+  if (isSpecificEnoughForContainment(b) && (na.includes(nb) || nb.includes(na))) return true;
+  if (fuzzyTitlesMatch(a, b, artist)) return true;
   return titlesMatchIgnoringLive(a, b);
+}
+
+// Stricter variant with NO loose substring-containment shortcut — only exact
+// (normalized) equality or the guarded fuzzy overlap match. Used wherever a
+// match can't be corroborated by a real, specific artist identity (a
+// title-only search, or an artist field that's itself a meaningless
+// placeholder like "Various Artists"). Containment is unsafe in those cases:
+// confirmed live 2026-07-11 that "Spotlights The Blues Volume 2" (an
+// unrelated compilation, one of literally hundreds credited to Deezer's
+// generic "Various Artists" profile) contains our title "The Blues Volume 2"
+// as a trailing substring — a real false-positive path that has nothing to
+// do with fuzzy-matching generic words, so the fix belongs here.
+function titlesMatchStrict(a, b) {
+  const na = normalizeTitle(a);
+  const nb = normalizeTitle(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  return fuzzyTitlesMatch(a, b);
+}
+
+// Deezer (and most catalogs) file countless unrelated compilations under a
+// generic "Various Artists" credit — it carries no real identity, so neither
+// an artist-scoped search nor loose title-containment against it is a
+// trustworthy signal. Records stored with this kind of placeholder artist
+// need the strict matcher and skip the artist-scoped Deezer passes entirely
+// (see tryDeezer).
+function isGenericArtist(artist) {
+  const n = normalizeTitle(artist);
+  return n === "various" || n === "various artists" || n === "va" || n === "v a";
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +374,7 @@ async function tryDeezerFreeText(artist, title) {
   const items = Array.isArray(data && data.data) ? data.data : [];
 
   const matches = items.filter(function (t) {
-    return t && t.album && titlesMatch(t.album.title, title);
+    return t && t.album && titlesMatch(t.album.title, title, artist);
   });
   if (!matches.length) return null;
 
@@ -331,7 +423,7 @@ async function tryDeezerByArtistCatalog(artist, title) {
       pages++;
     }
 
-    const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title); });
+    const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title, artist); });
     if (!albumMatch) continue;
 
     const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
@@ -366,12 +458,29 @@ async function tryDeezerByArtistCatalog(artist, title) {
 // Revolutionaries"; our "The Scientist" (mixing-engineer credit) is on
 // Deezer as "Roots Radics" under a "Junjo Presents:" producer-credited title.
 // Pass (a)/(b) can never find these because they both start from OUR artist
-// name. Confirmed live 2026-07-11 for both examples above. Uses the same
-// titlesMatch (containment + guarded fuzzy overlap) as the other passes, so
-// carries the same false-positive protections (year-conflict guard, minimum
-// 2-word overlap) — a title-only search is inherently less constrained than
-// an artist-scoped one, so precision here matters more, not less.
+// name. Confirmed live 2026-07-11 for both examples above. Uses
+// titlesMatchStrict — exact equality or the guarded fuzzy overlap, but NOT
+// loose substring containment — since a title-only search has no artist to
+// corroborate a match with, and containment alone is too easy to satisfy by
+// coincidence (a real false positive found live: "Spotlights The Blues
+// Volume 2" contains our title "The Blues Volume 2" as a trailing
+// substring, despite being a completely unrelated compilation).
+//
+// Extra guard specific to this pass: refuses to run at all when our title,
+// after stripping stopwords and generic compilation filler, has fewer than 2
+// distinctive words left. Passes (a)/(b) are safe with a generic title
+// ("Christmastime", "The Blues Volume 2") because they're scoped to a
+// specific artist's own catalog first — but with no artist anchor at all,
+// a generic title WILL exact-match some other, unrelated artist's release
+// with the same generic name. Confirmed as real false positives 2026-07-11:
+// without this guard, "The Swingle Singers — Christmastime" matched an
+// unrelated Trisha Yearwood Christmas track, and "Various — Verve //
+// Remixed" matched an unrelated "Velvet Dreamer" remix single — both purely
+// because the titles were too generic to mean anything without an artist.
 async function tryDeezerByAlbumTitleSearch(title) {
+  const distinctiveWords = significantTokens(title, { stripGeneric: true });
+  if (distinctiveWords.length < 2) return null;
+
   const q = new URLSearchParams();
   q.set("q", title);
   q.set("limit", "25");
@@ -381,7 +490,7 @@ async function tryDeezerByAlbumTitleSearch(title) {
   const data = await res.json();
   const albums = Array.isArray(data && data.data) ? data.data : [];
 
-  const albumMatch = albums.find(function (a) { return a && titlesMatch(a.title, title); });
+  const albumMatch = albums.find(function (a) { return a && titlesMatchStrict(a.title, title); });
   if (!albumMatch) return null;
 
   const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
@@ -405,6 +514,17 @@ async function tryDeezerByAlbumTitleSearch(title) {
 }
 
 async function tryDeezer(artist, title) {
+  // "Various Artists"-style placeholders carry no real identity to
+  // corroborate a match against — pass (a)'s free-text filter and pass (b)'s
+  // artist-catalog walk both ultimately rely on titlesMatch's loose
+  // substring containment against an uncorroborated candidate pool, which
+  // is unsafe when there's no genuine artist behind the query. Skip both
+  // and go straight to the specificity-gated, strictly-matched title-only
+  // search instead.
+  if (isGenericArtist(artist)) {
+    return await tryDeezerByAlbumTitleSearch(title);
+  }
+
   const freeText = await tryDeezerFreeText(artist, title);
   if (freeText && freeText.preview_url) return freeText;
 
@@ -449,7 +569,7 @@ async function tryItunes(artist, title, debugInfo) {
     if (debugInfo) debugInfo.resultCount = items.length;
     if (debugInfo) debugInfo.collectionNames = items.slice(0, 10).map(function (t) { return t && t.collectionName; });
     const match = items.find(function (t) {
-      return t && titlesMatch(t.collectionName, title);
+      return t && titlesMatch(t.collectionName, title, artist);
     });
     if (!match || !match.previewUrl) return null;
 
