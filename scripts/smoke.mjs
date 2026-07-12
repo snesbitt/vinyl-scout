@@ -96,13 +96,14 @@ await check('discogs lookup wired', async () => {
   ok('GET /api/discogs/lookup (no params) → 400 (endpoint reachable)');
 });
 
-// 6. Spotify preview endpoint is wired (Phase 4 — audio preview).
-await check('spotify preview wired', async () => {
-  const res = await fetch(BASE + '/api/spotify/preview?artist=Test&title=Test');
-  assert(res.ok, 'GET /api/spotify/preview returned ' + res.status);
+// 6. Audio preview endpoint is wired (Phase 4 — multi-provider: Spotify ->
+// Deezer -> iTunes; see netlify/functions/audio-preview.mjs).
+await check('audio preview wired', async () => {
+  const res = await fetch(BASE + '/api/audio/preview?artist=Test&title=Test');
+  assert(res.ok, 'GET /api/audio/preview returned ' + res.status);
   const data = await res.json();
   assert(typeof data.available === 'boolean', 'response missing available boolean');
-  ok('GET /api/spotify/preview -> available=' + data.available + (data.reason ? ' (' + data.reason + ')' : ''));
+  ok('GET /api/audio/preview -> available=' + data.available + (data.provider ? ' via ' + data.provider : '') + (data.reason ? ' (' + data.reason + ')' : ''));
 });
 
 // 7. robots.txt disallows crawlers.
