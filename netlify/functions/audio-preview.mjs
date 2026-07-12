@@ -276,7 +276,12 @@ async function tryItunes(artist, title, debugInfo) {
     q.set("entity", "song");
     q.set("limit", "25");
 
-    const res = await fetch("https://itunes.apple.com/search?" + q.toString());
+    const res = await fetch("https://itunes.apple.com/search?" + q.toString(), {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "application/json",
+      },
+    });
     if (debugInfo) debugInfo.httpStatus = res.status;
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "";
