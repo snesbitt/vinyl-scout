@@ -1,5 +1,16 @@
 // Vinyl Scout — app.js
-// version: 32
+// version: 33
+// v33: highlights the single highest-value record in the collection — a
+//      quiet one-line callout ("Most valuable — Artist, Title · €price")
+//      with a small thumbnail, rendered under the existing collection-value
+//      stat in the controls heading. Deliberately text-first, no badge and
+//      no change to the tile grid itself: Susan has twice pulled back from
+//      decorative additions here (the green "FIND" badge removed per v10,
+//      and pricing/metadata stripped off gallery tiles per v26), so this
+//      stays inside the header's existing typographic language instead of
+//      adding new visual weight to the collection view. Pure read of
+//      already-stored price_median/price_low fields, no network calls;
+//      recomputed alongside renderCollectionValue() on every render() pass.
 // v32: Audio preview handles the new tier-4 YouTube fallback (last resort,
 //      only reached when Spotify/Deezer/iTunes all miss — see
 //      netlify/functions/audio-preview.mjs v8). YouTube gives no direct
@@ -208,6 +219,40 @@ el.textContent = txt;
     el.hidden = false;
   }
 
+  // v33: the single highest-value record in the collection, by its own
+  // stored price (price_median, falling back to price_low) — compared as
+  // raw numbers regardless of currency, since we're only ever displaying
+  // one record's own price in its own currency, never summing across them.
+  function mostValuableRecord() {
+    var best = null;
+    var bestAmt = -Infinity;
+    for (var i = 0; i < allRecords.length; i++) {
+      var r = allRecords[i];
+      var amt = (r.price_median != null && !isNaN(r.price_median)) ? Number(r.price_median)
+              : (r.price_low != null && !isNaN(r.price_low)) ? Number(r.price_low)
+              : null;
+      if (amt == null) continue;
+      if (amt > bestAmt) { bestAmt = amt; best = r; }
+    }
+    return best ? { record: best, amount: bestAmt } : null;
+  }
+
+  function renderHighlight() {
+    var el = $('collection-highlight');
+    if (!el) return;
+    var top = mostValuableRecord();
+    if (!top) { el.hidden = true; el.innerHTML = ''; return; }
+    var r = top.record;
+    var price = formatPrice(top.amount, r.price_currency);
+    var cover = r.cover_url ? '<img src="' + escapeAttr(r.cover_url) + '" alt="">' : '';
+    el.innerHTML = cover
+      + '<span>Most valuable &mdash; <strong>' + escapeHtml(r.artist || 'Unknown') + '</strong>, '
+      + '<em>' + escapeHtml(r.title || 'Untitled') + '</em>'
+      + (price ? ' &middot; <span class="controls__highlight-price">' + escapeHtml(price) + '</span>' : '')
+      + '</span>';
+    el.hidden = false;
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/records?bust=' + Date.now());
@@ -286,6 +331,7 @@ el.textContent = txt;
       : records.length + ' of ' + total;
 
     renderCollectionValue();
+    renderHighlight();
 
     var main = $('main');
     if (records.length === 0) {

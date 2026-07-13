@@ -1,5 +1,9 @@
 /* Vinyl Scout — style.css
-   version: 24
+   version: 25
+   v25: .controls__highlight — quiet one-line callout under the collection-
+   value stat naming the single highest-value record (thumbnail + text).
+   .controls__heading gains flex-wrap so this new line breaks onto its own
+   row without disturbing the existing title/count/value baseline row.
    v24: .detail__audio-youtube — sizing for the YouTube iframe embed used by
    the new tier-4 last-resort preview provider (no native <audio> possible
    since YouTube gives no direct audio file, only an embeddable video).
@@ -165,7 +169,7 @@ main#main:focus-visible { outline: none; }
   align-items: center;
   border-bottom: 1px solid var(--rule);
 }
-.controls__heading { grid-area: heading; display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.controls__heading { grid-area: heading; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; min-width: 0; }
 .controls__search  { grid-area: search; position: relative; min-width: 0; }
 .controls__view    { grid-area: view; }
 .controls__chips   { grid-area: chips; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
@@ -188,6 +192,37 @@ main#main:focus-visible { outline: none; }
   text-transform: uppercase;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+.controls__highlight {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+.controls__highlight img {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex: 0 0 22px;
+}
+.controls__highlight strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.controls__highlight em {
+  font-family: var(--serif);
+  font-style: italic;
+}
+.controls__highlight-price {
+  color: var(--gold);
+  font-weight: 600;
 }
 
 .controls__search input {
