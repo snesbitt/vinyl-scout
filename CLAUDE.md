@@ -234,6 +234,38 @@ prompt was updated the same day to report that pending count/list every
 week regardless of whether the key changed, so this doesn't go silently
 unmentioned again.
 
+Bumped to **version: 11** (2026-07-13) after a full 93-record accuracy sweep
+run per Susan's explicit request to review the whole catalog, not just
+presence/reason-checking but whether the returned track is actually the
+right one. Found a genuine wrong-artist bug: Sidney Bechet's *Petite Fleur*
+LP was serving Cyrille Aimée's unrelated vocal cover of the same jazz
+standard, because `tryDeezerByAlbumTitleSearch` (the third of three Deezer
+passes) picked the top-ranked track matching the album title with no check
+on who actually performed it. Fix: the function now accepts an optional
+corroboration artist, and when Spotify has already found a plausible-artist
+match for the same record, filters the album's tracklist down to tracks
+whose credited artist overlaps that artist before ranking — returning
+nothing at all rather than a wrong guess if none plausibly match. Gated
+narrowly (only engages when Spotify already agrees on the artist) to avoid
+regressing two known-legitimate cases where this same pass correctly serves
+a different-looking artist on purpose: compilation-curator credits (Kruder
+& Dorfmeister's *Conversions*, correctly credited to K&D on Deezer even
+though individual tracks are by other artists) and classical
+composer-vs-performer credits (Beethoven→Barenboim, Karajan→Berliner
+Philharmoniker, Scott Joplin→New England Conservatory Ragtime Ensemble) —
+confirmed live via `debug=1` that both have `spotify: {track: null}`, so the
+new filter never engages for them. Verified with a local Node regression
+test against the real observed buggy Cyrille Aimée data before deploy. Full
+clean re-sweep of all 93 records post-fix: **85/93 available** with a
+verified plausible-artist preview, **6 correctly `no_match_pending_youtube`**
+(same list as before — The Cure, Maria Callas, Duke Ellington, Rob Garza,
+The Swingle Singers, Various *Verve // Remixed*), **2 correctly
+`no_preview`** with an accurate artist match but no playable clip (Various
+Artists' *The Blues Volume 2* → Robert Johnson's own track; Sidney Bechet's
+*Petite Fleur* → now correctly matched to Bechet's own recording, just no
+preview clip available), **0 true unexplained `no_match`**, **0 errors**.
+See PROJECT.md v22 for the full changelog entry.
+
 `app.js` reached **version: 33** / `style.css` **version: 25** (2026-07-12) —
 added a quiet one-line "Most valuable" callout under the collection-value
 stat in the controls heading, naming the single highest-priced record
