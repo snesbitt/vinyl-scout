@@ -1,5 +1,17 @@
 // netlify/functions/audio-preview.mjs
-// version: 9
+// version: 10
+// v10 (2026-07-13): new `reason: "no_match_pending_youtube"` distinguishes
+// "genuinely absent everywhere" from "not found on Spotify/Deezer/iTunes,
+// but YouTube — the tier that would cover this — isn't configured yet".
+// Prompted by Susan hitting a bare "No matching track found" for Duke
+// Ellington's "Ellington '65", one of the 7 records already documented
+// below as absent from Deezer (independently re-confirmed live via a full
+// artist-catalog walk across all 5 Deezer "Duke Ellington" profiles before
+// this fix — not a matching-logic bug, a real gap) pending only the
+// YOUTUBE_API_KEY setup step. The old code returned the exact same
+// `reason: "no_match"` regardless of whether that pending step was the
+// actual cause, so the frontend had no way to render anything better than
+// a generic dead-end message. See app.js for the corresponding copy change.
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -1038,11 +1050,20 @@ export default async (req) => {
     return json({ available: false, reason: "no_preview", provider: bestMatchOnly.provider, track: bestMatchOnly, _debug: debug }, 200);
   }
 
-  if (!spotifyConfigured) {
-    // Spotify unconfigured AND no other provider matched at all — still not
-    // an error; Deezer/iTunes/YouTube not matching is a real (if rare) outcome.
-    return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
+  // Nothing matched on Spotify/Deezer/iTunes, AND the YouTube last-resort
+  // tier was never actually attempted because YOUTUBE_API_KEY isn't set yet.
+  // That's a *pending*, not a permanent, gap — once Susan sets the key this
+  // same record may resolve via tier 4 (this is exactly the situation for
+  // the 7 records documented above, e.g. Duke Ellington's "Ellington '65").
+  // Added v10 (2026-07-13) after this surfaced as an indistinguishable
+  // "no matching track found" that read like a bug rather than a known,
+  // already-tracked, one-time-setup-away gap — see CLAUDE.md/PROJECT.md for
+  // current key status. Distinct reason so the frontend can say so honestly.
+  const youtubeConfigured = !!process.env.YOUTUBE_API_KEY;
+  if (!youtubeConfigured) {
+    return json({ available: false, reason: "no_match_pending_youtube", provider: null, track: null, _debug: debug }, 200);
   }
 
+  // All four tiers genuinely tried and none matched — a real, confirmed gap.
   return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
 };
