@@ -1,5 +1,31 @@
 // netlify/functions/audio-preview.mjs
-// version: 13
+// version: 14
+// v14 (2026-07-13): extended the v13 known-compilation-track override to
+// the other 6 pending-YouTube titles, per Susan's direct follow-up ("use
+// this tactic for the other 8 albums"). Researched each compilation's real
+// tracklist (Discogs) and independently confirmed a representative track's
+// existence, correct artist attribution, and a working preview on Deezer
+// before adding it — same discipline as the original Cure case, not a
+// guess. All 6 resolved: Duke Ellington's "Ellington '65" -> "Hello Dolly"
+// (found under a Reprise-label retrospective, the same era as this LP);
+// Maria Callas' "The Incomparable Maria Callas" -> "Casta Diva" (her
+// best-known aria); Rob Garza's "The Dust Ups (Remix Album)" -> "Summer Is
+// Ours (G's Dust Up)" (the actual A1 track off this same EP, filed under
+// the artist's shortened Deezer credit "Garza"); Various Artists' "The
+// Blues Volume 2" -> Muddy Waters' "Got My Mojo Working" (the compilation's
+// most famous track); The Swingle Singers' "Christmastime" -> "Jingle
+// Bells" (also independently confirmed via an almost-identical medley match
+// under this album's French title, "Noëls Sans Passeport"); Various' "Verve
+// // Remixed" -> Willie Bobo's "Spanish Grease (Dorfmeister Remix)" (the
+// same 2002 compilation is genuinely on Deezer, just titled "Verve Remixed"
+// without the double-slash). KNOWN_COMPILATION_TRACKS entries now support
+// an object form `{ track, artist }` for the two "Various Artists"/generic-
+// artist cases, since our own stored artist there carries no real identity
+// to corroborate a match against — see the map's own comment and
+// tryDeezerKnownCompilationTrack below for the exact mechanism. This closes
+// out all 7 records that only needed a representative-track lookup; the 7th
+// title from the original pending-YouTube list, if any remain gap-only, is
+// still genuinely absent from Deezer and stays on the YOUTUBE_API_KEY path.
 // v13 (2026-07-13): added a new Deezer pass (d), known-compilation-title
 // override, for one of the 7 pending-YouTube gaps — The Cure's "Standing on
 // a Beach" (their 1986 singles compilation). Deezer has no album under that
@@ -506,20 +532,65 @@ function titlesMatchCorroborated(a, b, artist, trackArtist) {
 // doesn't have") — this file's whole history has been about avoiding
 // exactly that kind of unverified cleverness. Each entry here is a specific,
 // confirmed case, added one at a time as Susan identifies them. Still
-// requires the returned track's own artist to plausibly overlap ours
-// (artistsOverlap) before accepting it — this pass names a KNOWN track, not
-// a blank check to accept whatever Deezer's free-text search returns first.
+// requires the returned track's own artist to plausibly overlap the search
+// artist (artistsOverlap) before accepting it — this pass names a KNOWN
+// track, not a blank check to accept whatever Deezer's free-text search
+// returns first.
+//
+// A map value is either a plain string (the known track title — search and
+// corroborate using OUR OWN stored artist, since it's a real, specific
+// performer name) or an object `{ track, artist }` (search and corroborate
+// using the GIVEN artist instead — needed when our own stored artist is a
+// generic placeholder like "Various Artists"/"Various" that carries no real
+// identity to corroborate against; the object form names the actual
+// performer of the chosen representative track on that compilation).
+//
+// Confirmed live 2026-07-13 for all 7 entries below (Susan asked to extend
+// The Cure fix to the other 6 pending-YouTube titles): each track was
+// independently verified via a direct Deezer search to have a real preview,
+// correctly credited to the named artist, before being added here.
+//   - Duke Ellington's "Ellington '65" (a covers-of-hits album) -> "Hello
+//     Dolly", found on Deezer under "Duke Ellington: The Reprise Studio
+//     Recordings" — the same Reprise-era sessions this very vinyl LP (also
+//     on Reprise, RS 6122) draws from.
+//   - Maria Callas' "The Incomparable Maria Callas" (an arias compilation)
+//     -> "Casta Diva", her best-known signature aria (Bellini's "Norma"),
+//     Deezer's highest-ranked Callas result by a wide margin.
+//   - Rob Garza's "The Dust Ups (Remix Album)" -> "Summer Is Ours (G's Dust
+//     Up)", the actual A1 track off this same 2024 EP, filed on Deezer
+//     under the artist's shortened stage credit "Garza" (still overlaps our
+//     stored "Rob Garza" via artistsOverlap).
+//   - Various Artists' "The Blues Volume 2" -> Muddy Waters' "Got My Mojo
+//     Working", the compilation's most famous track, a genuine blues
+//     standard on Deezer under Muddy Waters' own discography.
+//   - The Swingle Singers' "Christmastime" -> "Jingle Bells", also
+//     confirmed via an almost-identical medley match on Deezer's "Noëls
+//     Sans Passeport" (the same album's French/European title).
+//   - Various' "Verve // Remixed" -> Willie Bobo's "Spanish Grease
+//     (Dorfmeister Remix)", found on Deezer under the singular "Verve
+//     Remixed" (no double-slash) — the same 2002 compilation, just a minor
+//     punctuation/title variant that also independently trips the
+//     specificity guard in tryDeezerByAlbumTitleSearch ("verve" alone is
+//     the only non-generic word left after "remixed" is stripped).
 var KNOWN_COMPILATION_TRACKS = {
   "the cure|standing on a beach": "Boys Don't Cry",
+  "duke ellington|ellington '65": "Hello Dolly",
+  "maria callas|the incomparable maria callas": "Casta Diva",
+  "rob garza|the dust ups (remix album)": "Summer Is Ours (G's Dust Up)",
+  "the swingle singers|christmastime": "Jingle Bells",
+  "various artists|the blues volume 2": { track: "Got My Mojo Working", artist: "Muddy Waters" },
+  "various|verve // remixed": { track: "Spanish Grease", artist: "Willie Bobo" },
 };
 
 async function tryDeezerKnownCompilationTrack(artist, title) {
   const key = normalizeTitle(artist) + "|" + normalizeTitle(title);
-  const knownTrack = KNOWN_COMPILATION_TRACKS[key];
-  if (!knownTrack) return null;
+  const entry = KNOWN_COMPILATION_TRACKS[key];
+  if (!entry) return null;
+  const knownTrack = (typeof entry === "string") ? entry : entry.track;
+  const searchArtist = (typeof entry === "string") ? artist : entry.artist;
 
   const q = new URLSearchParams();
-  q.set("q", artist + " " + knownTrack);
+  q.set("q", searchArtist + " " + knownTrack);
   q.set("limit", "25");
 
   const res = await fetch("https://api.deezer.com/search?" + q.toString());
@@ -528,7 +599,7 @@ async function tryDeezerKnownCompilationTrack(artist, title) {
   const items = Array.isArray(data && data.data) ? data.data : [];
 
   const matches = items.filter(function (t) {
-    return t && t.artist && t.preview && titlesMatch(t.title, knownTrack, artist) && artistsOverlap(t.artist.name, artist);
+    return t && t.artist && t.preview && titlesMatch(t.title, knownTrack, searchArtist) && artistsOverlap(t.artist.name, searchArtist);
   });
   if (!matches.length) return null;
 
