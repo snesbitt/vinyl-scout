@@ -100,6 +100,29 @@ A change is done only when **all** of these hold:
 4. Susan has the post-flight summary (what changed, files, deploy steps, how to
    verify, how to roll back, new ?v=N).
 
+## Whenever Susan asks for a docs review/update
+
+Treat this as a review of **every** doc in the repo, not just the ones that
+seem related to the most recent change — Susan's asked for this explicitly
+(2026-07-12) after `about.html` was found to have drifted badly (still
+described the retired Spotify-only preview and pricing that had been removed
+from gallery tiles months earlier). The full doc set to check every time:
+
+- `CLAUDE.md` (this file) — the *how it runs* layer
+- `PROJECT.md` — the charter: version/changelog, phase statuses, hard rules,
+  schema, QA checklist
+- `README.md`
+- `about.html` — user-facing "how it works," most prone to silently drifting
+  since nothing fails loudly when it goes stale
+- `guide.html` — user-facing how-to; check for stale feature claims even
+  though it's mostly methodology, not feature-specific
+- `roadmap.html` — phase statuses and per-phase descriptions
+
+Read each one fully rather than assuming a file is fine because it wasn't
+touched by the current change — staleness accumulates precisely in the docs
+nobody thought to check. Fix drift found in ANY of them as part of the same
+pass, not just the one that prompted the ask.
+
 ## Charter drift to be aware of
 
 **Local clones drift from `origin/main` here** — several automations (a
