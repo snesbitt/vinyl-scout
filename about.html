@@ -29,15 +29,16 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v19 charter · July 2026</p>
+  <p class="article__kicker">How it works · v24 charter · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
     LPs — what's owned, what condition it's in, what each pressing is worth
     on the secondary market, and which exact edition you own. Powered by Discogs API
     enrichment for accurate pricing and pressing data, and an audio preview of each
-    album's most popular track (tries Spotify, Deezer, Apple Music, then YouTube as
-    a last resort). No accounts, no third-party tracking, no automations that quietly delete data.
+    album's most popular track (Deezer, with YouTube as a last resort for the
+    handful of releases Deezer doesn't have). No accounts, no third-party tracking,
+    no automations that quietly delete data.
   </p>
 
   <h2><span class="article__num">01</span>What it is</h2>
@@ -68,7 +69,7 @@
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog — POST/DELETE here are intentionally open, no edit key, since typing a passphrase on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only — tries Spotify, then Deezer, then Apple Music, then YouTube as a last resort, and plays whichever provider actually has a clip).</li>
+    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog — POST/DELETE here are intentionally open, no edit key, since typing a passphrase on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only — Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
@@ -119,12 +120,14 @@
   <h2><span class="article__num">06</span>Audio preview</h2>
   <p>
     Every record's detail view has a Play button that fetches the album's most
-    popular track and plays a short preview clip in place. It tries a few sources
-    in order — Spotify, then Deezer, then Apple Music, then YouTube as a last
-    resort — and plays whichever one actually has a clip; a small credit line
-    under the player names which one. It's a pure lookup — nothing is stored —
-    and quietly says so if nothing anywhere has a match or a playable clip for
-    that particular track.
+    popular track and plays a short preview clip in place. It looks up the track
+    on Deezer, which needs no account or API key; a small explicit list covers
+    best-of and compilation albums that aren't on Deezer under their own title
+    (a representative single from the same artist stands in instead), and
+    YouTube is a last resort for anything genuinely absent from Deezer. A small
+    credit line under the player names which source it came from. It's a pure
+    lookup — nothing is stored — and quietly says so if nothing anywhere has a
+    match or a playable clip for that particular track.
   </p>
 
   <h2><span class="article__num">07</span>Data & backups</h2>
