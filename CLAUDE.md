@@ -207,6 +207,33 @@ surface. Re-verified live (2026-07-12 QA sweep): Fleetwood Mac's *Rumours*
 still serves "The Chain" (Deezer's #1-ranked track); same 86/93 available,
 same 7 gaps, zero regressions.
 
+Bumped to **version: 10** (2026-07-13) after Susan hit one of the 7 known
+gaps directly — Duke Ellington's *Ellington '65* showed a bare "No matching
+track found" in the detail modal, which reads like a bug rather than a
+known, already-documented, pending-on-`YOUTUBE_API_KEY` state. Independently
+re-confirmed live before touching any code (not just trusted the existing
+doc note) that this album genuinely isn't on Deezer: walked all 5 Deezer
+"Duke Ellington" artist profiles' full album lists (43 + 44 albums on the
+two main ones) and ran a direct title search — no "Ellington '65" or
+"Ellington 65" anywhere. So this was never a matching-logic bug; the real
+bug was that "genuinely absent everywhere" and "not yet re-checked against
+YouTube because the key isn't set" returned the identical generic
+`reason: "no_match"`, giving the frontend no way to tell them apart. Fix:
+a new `reason: "no_match_pending_youtube"` fires specifically when tiers
+1–3 all miss AND `YOUTUBE_API_KEY` is unset (tier 4 never actually
+attempted) — `app.js` v34 renders this as "Not found on Spotify, Deezer, or
+Apple Music — a YouTube fallback is planned but not turned on yet." instead
+of the old dead-end copy. Pure messaging fix, no matching-logic touched, so
+no regression risk to the other 86 already-resolving records (spot-checked
+Air *Moon Safari* and Fleetwood Mac *Rumours* still resolve normally after
+deploy). This also exposed a real gap in the weekly automation: Job E's
+YouTube-key-activation check (below) only ever *acted* when the key flipped
+from unset to set — it never told Susan, week over week, that the 7 gap
+records were still sitting in this pending state in the meantime. Job E's
+prompt was updated the same day to report that pending count/list every
+week regardless of whether the key changed, so this doesn't go silently
+unmentioned again.
+
 `app.js` reached **version: 33** / `style.css` **version: 25** (2026-07-12) —
 added a quiet one-line "Most valuable" callout under the collection-value
 stat in the controls heading, naming the single highest-priced record
