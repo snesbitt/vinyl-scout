@@ -11,19 +11,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=25" />
   <style>
-    /* Wishlist — version: 13. Manual add form simplified to just artist +
-       title (Discogs URL and Notes fields removed per Susan's request,
-       2026-07-12) — and now calls /api/discogs/lookup itself at add-time to
-       fill in cover_url + discogs_release_id automatically. Previously the
-       manual-add path never looked anything up, so every manually-added item
-       had no cover art unless Susan happened to paste a Discogs URL herself
-       (confirmed live: 1/56 items had no cover_url — Anita Baker's "Rapture",
-       added with no URL — backfilled separately). Items added by the
-       automated weekly sync (Spotify/Amazon cart) already got covers this
-       way; this brings the manual form to parity. Lookup failures degrade
-       gracefully — the item still gets added with no cover_url, same as
-       before, never blocks the add. (edit-secret gate removed per Susan,
-       2026-07-11 — mobile-impractical) */
+    /* Wishlist — version: 14. Paginated at 20 items/page (Susan's ask,
+       2026-07-12 — the list had grown to 70+ items after a Spotify playlist
+       review added 16 new records). Prev/Next controls + "Page X of Y",
+       matching the app's existing minimal typographic style (mono, uppercase,
+       muted). Sort stays alphabetical by artist; pagination slices AFTER
+       sorting so page boundaries stay stable. currentPage resets to 1 on
+       load and clamps down automatically if a delete empties out the last
+       page. Adds keep the current page (an added item can land on any page
+       once re-sorted; no auto-jump).
+       v13. Manual add form simplified to just artist + title (Discogs URL
+       and Notes fields removed per Susan's request, 2026-07-12) — and now
+       calls /api/discogs/lookup itself at add-time to fill in cover_url +
+       discogs_release_id automatically. Previously the manual-add path never
+       looked anything up, so every manually-added item had no cover art
+       unless Susan happened to paste a Discogs URL herself (confirmed live:
+       1/56 items had no cover_url — Anita Baker's "Rapture", added with no
+       URL — backfilled separately). Items added by the automated weekly sync
+       (Spotify/Amazon cart) already got covers this way; this brings the
+       manual form to parity. Lookup failures degrade gracefully — the item
+       still gets added with no cover_url, same as before, never blocks the
+       add. (edit-secret gate removed per Susan, 2026-07-11 — mobile-
+       impractical) */
     .wl-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .wl-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .wl-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 6px 12px 6px 6px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: nowrap; }
@@ -41,6 +50,11 @@
     .wl-form h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 14px; }
     .wl-form .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
     .wl-form input { font-family: var(--mono); font-size: 16px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--bg); color: var(--ink); flex: 1 1 180px; min-height: 44px; }
+    .wl-pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 18px 0 0; }
+    .wl-pager button { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); padding: 10px 16px; min-height: 44px; min-width: 44px; border-radius: 2px; cursor: pointer; }
+    .wl-pager button:hover:not(:disabled) { border-color: var(--ink-faint); color: var(--ink); }
+    .wl-pager button:disabled { opacity: 0.35; cursor: default; }
+    .wl-pager__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); white-space: nowrap; }
     @media (max-width: 720px) { .wl-wrap { padding: 0 18px 64px; } }
   </style>
 </head>
@@ -68,6 +82,7 @@
 <main class="wl-wrap">
   <p class="wl-intro">Prices update every Monday. </p>
   <div id="wl-list"><div class="empty">Loading…</div></div>
+  <div id="wl-pager" class="wl-pager"></div>
 
   <section class="wl-form" aria-label="Add to wishlist">
     <h3>Add a record</h3>
@@ -90,6 +105,8 @@
   function fmt(n) { return (n == null || isNaN(n)) ? null : '€' + Number(n).toFixed(2); }
 
   var items = [];
+  var PAGE_SIZE = 20;
+  var currentPage = 1;
 
   async function load() {
     try {
@@ -97,6 +114,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       items = await res.json();
       clearError();
+      currentPage = 1;
       render();
     } catch (err) {
       showError('Failed to load wishlist: ' + err.message);
@@ -104,11 +122,27 @@
     }
   }
 
+  function renderPager(totalPages) {
+    var pager = $('wl-pager');
+    if (totalPages <= 1) { pager.innerHTML = ''; return; }
+    pager.innerHTML = ''
+      + '<button type="button" id="wl-prev"' + (currentPage <= 1 ? ' disabled' : '') + '>‹ Prev</button>'
+      + '<span class="wl-pager__status">Page ' + currentPage + ' of ' + totalPages + '</span>'
+      + '<button type="button" id="wl-next"' + (currentPage >= totalPages ? ' disabled' : '') + '>Next ›</button>';
+  }
+
   function render() {
     var list = $('wl-list');
-    if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet — add the first record below.</div>'; return; }
+    if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet — add the first record below.</div>'; renderPager(0); return; }
     items.sort(function (a, b) { return (a.artist || '').toLowerCase().localeCompare((b.artist || '').toLowerCase()); });
-    list.innerHTML = items.map(function (w) {
+
+    var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    var start = (currentPage - 1) * PAGE_SIZE;
+    var pageItems = items.slice(start, start + PAGE_SIZE);
+
+    list.innerHTML = pageItems.map(function (w) {
       var nums = [];
       if (w.price_median != null) nums.push(fmt(w.price_median));
       else if (w.current_ask != null) nums.push(fmt(w.current_ask) + ' listed');
@@ -124,6 +158,8 @@
         + '<button class="wl-del" data-id="' + esc(w.id) + '" aria-label="Remove">×</button></span>'
         + '</div>';
     }).join('');
+
+    renderPager(totalPages);
   }
 
   // Best-effort Discogs lookup for cover art + a release reference — never
@@ -201,6 +237,10 @@
     $('wl-list').addEventListener('click', function (e) {
       var btn = e.target.closest && e.target.closest('.wl-del');
       if (btn && btn.dataset.id) delItem(btn.dataset.id);
+    });
+    $('wl-pager').addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'wl-prev' && !e.target.disabled) { currentPage--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      if (e.target && e.target.id === 'wl-next' && !e.target.disabled) { currentPage++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     });
     load();
   });
