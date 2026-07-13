@@ -1,5 +1,5 @@
 // netlify/functions/audio-preview.mjs
-// version: 8
+// version: 9
 // Phase 4 — Audio preview, multi-provider. Given an artist + album title,
 // finds the most popular track on that album and returns a playable 30-second
 // preview clip, trying providers in this order:
@@ -493,6 +493,19 @@ async function trySpotify(artist, title) {
 // our vinyl-edition titles and Deezer's digital catalog titles. But its
 // relevance ranking sometimes buries a real match under more "popular"
 // generic tracks that also contain the query words — see pass (b).
+//
+// "Most popular track" guarantee (added 2026-07-12): this pass's job is only
+// to find the CORRECT ALBUM quickly — once found, it fetches that album's
+// complete tracklist and picks the true highest-`rank` track with a preview,
+// the same authoritative method passes (b)/(c) already use, rather than
+// trusting whichever individual tracks happened to surface in the free-text
+// results. Spot-checked live against 5 real multi-track albums before this
+// change (Madonna, Buena Vista Social Club, Crosby Stills & Nash, Fleetwood
+// Mac's "Rumours") and the free-text result already happened to match the
+// album's true top-rank track in all 5 — but that was incidental (free-text
+// search returning the album's full tracklist by chance), not guaranteed,
+// since the search is relevance- not completeness-ranked. This closes that
+// gap for good rather than relying on it happening to work out.
 async function tryDeezerFreeText(artist, title) {
   const q = new URLSearchParams();
   q.set("q", artist + " " + title);
@@ -514,6 +527,36 @@ async function tryDeezerFreeText(artist, title) {
 
   matches.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
   const best = matches[0];
+
+  // Now that we know WHICH album is correct, fetch its real, complete
+  // tracklist and pick the genuinely most popular (highest-rank) track that
+  // has a preview — falls back to the free-text hit itself if that lookup
+  // fails or the album has no track with a preview at all.
+  if (best.album && best.album.id) {
+    try {
+      const tracksRes = await fetch("https://api.deezer.com/album/" + best.album.id + "/tracks");
+      if (tracksRes.ok) {
+        const tracksData = await tracksRes.json();
+        const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
+        const withPreview = tracks.filter(function (t) { return t && t.preview; });
+        if (withPreview.length) {
+          withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+          const topTrack = withPreview[0];
+          return {
+            provider: "deezer",
+            name: topTrack.title || null,
+            artists: (topTrack.artist && topTrack.artist.name) || (best.artist && best.artist.name) || null,
+            preview_url: topTrack.preview || null,
+            external_url: topTrack.link || null,
+            popularity: (typeof topTrack.rank === "number") ? topTrack.rank : null,
+          };
+        }
+      }
+    } catch (e) {
+      // fall through to the free-text hit below — never let this extra
+      // lookup turn a working match into a failure.
+    }
+  }
 
   return {
     provider: "deezer",
@@ -768,15 +811,22 @@ async function tryItunes(artist, title, debugInfo) {
 // native preview clips — via the embed's own start/end params, which
 // actually stop playback at that point (not just a UI suggestion).
 //
-// Two-step lookup: (1) search.list for candidate videos, filtered to ones
-// whose video title contains at least one token of our artist AND at least
-// one token of our title (YouTube's own relevance ranking is noisy — an
-// unfiltered top result is frequently a cover, reaction video, or unrelated
-// same-named track); (2) videos.list for view counts + durations on those
-// candidates, picking the highest-viewed one within a plausible single-track
-// duration window (30s–12min — excludes full-album uploads, DJ sets, and
-// bootleg concert videos, which are common false "matches" for an album
-// title search on YouTube specifically).
+// Two-step lookup: (1) search.list for candidate videos — TWO parallel
+// searches, one Google's default relevance order and one order=viewCount,
+// merged and deduped by video id — filtered to ones whose video title
+// contains at least one token of our artist AND at least one token of our
+// title (YouTube's own relevance ranking is noisy — an unfiltered top result
+// is frequently a cover, reaction video, or unrelated same-named track). The
+// second, viewCount-ordered search exists because relevance-only search can
+// under-rank the objectively most-popular upload of a track relative to
+// newer or more keyword-stuffed videos; merging both pools before scoring
+// gives the "most popular track" guarantee real teeth instead of trusting
+// whatever the first 10 relevance hits happened to include. (2) videos.list
+// for view counts + durations on the merged candidates, picking the
+// highest-viewed one within a plausible single-track duration window
+// (30s–12min — excludes full-album uploads, DJ sets, and bootleg concert
+// videos, which are common false "matches" for an album title search on
+// YouTube specifically).
 async function tryYouTube(artist, title, debugInfo) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -786,18 +836,39 @@ async function tryYouTube(artist, title, debugInfo) {
   if (debugInfo) debugInfo.configured = true;
 
   try {
-    const searchParams = new URLSearchParams();
-    searchParams.set("part", "snippet");
-    searchParams.set("q", artist + " " + title);
-    searchParams.set("type", "video");
-    searchParams.set("videoEmbeddable", "true");
-    searchParams.set("maxResults", "10");
-    searchParams.set("key", apiKey);
+    function buildSearchParams(order) {
+      const p = new URLSearchParams();
+      p.set("part", "snippet");
+      p.set("q", artist + " " + title);
+      p.set("type", "video");
+      p.set("videoEmbeddable", "true");
+      p.set("maxResults", "25");
+      if (order) p.set("order", order);
+      p.set("key", apiKey);
+      return p;
+    }
 
-    const searchRes = await fetch("https://www.googleapis.com/youtube/v3/search?" + searchParams.toString());
-    if (!searchRes.ok) throw new Error("YouTube search returned HTTP " + searchRes.status);
-    const searchData = await searchRes.json();
-    const items = Array.isArray(searchData.items) ? searchData.items : [];
+    const [relevanceRes, viewCountRes] = await Promise.all([
+      fetch("https://www.googleapis.com/youtube/v3/search?" + buildSearchParams(null).toString()),
+      fetch("https://www.googleapis.com/youtube/v3/search?" + buildSearchParams("viewCount").toString()),
+    ]);
+    if (!relevanceRes.ok) throw new Error("YouTube search returned HTTP " + relevanceRes.status);
+    const relevanceData = await relevanceRes.json();
+    const relevanceItems = Array.isArray(relevanceData.items) ? relevanceData.items : [];
+    let viewCountItems = [];
+    if (viewCountRes.ok) {
+      const viewCountData = await viewCountRes.json();
+      viewCountItems = Array.isArray(viewCountData.items) ? viewCountData.items : [];
+    }
+
+    const seen = new Set();
+    const items = [];
+    relevanceItems.concat(viewCountItems).forEach(function (it) {
+      const id = it && it.id && it.id.videoId;
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      items.push(it);
+    });
     if (debugInfo) debugInfo.searchResultCount = items.length;
     if (!items.length) return null;
 
