@@ -149,18 +149,39 @@ target list. A local Node regression-test harness (extract the matching
 functions with `sed`, append test cases, run with plain `node`) was used
 before every deploy this session and is cheap enough to be worth recreating.
 
-`audio-preview.mjs` is now at **version: 8** (2026-07-12) — added a YouTube
+`audio-preview.mjs` reached **version: 8** (2026-07-12) — added a YouTube
 tier 4, last-resort fallback for the 7 records confirmed genuinely absent
 from Spotify/Deezer/iTunes (see PROJECT.md's Phase 4 section). Needs
-`YOUTUBE_API_KEY`, which is **not yet set** — Susan needs to create a free
-Google Cloud Console API key herself (account/credential setup an agent
+`YOUTUBE_API_KEY`, which is **still not set as of 2026-07-12** (re-confirmed
+live via `_debug.youtube.configured === false`) — Susan needs to create a
+free Google Cloud Console API key herself (account/credential setup an agent
 shouldn't do unattended). Until then this tier gracefully reports "not
 configured," same pattern as Spotify when unconfigured, with zero effect on
 the other three tiers. Once the key is set, re-run the 7 gap records to
 confirm real coverage before treating this as fully closed. Unlike the other
 three tiers, YouTube returns no `preview_url` (no direct audio file) — only
 an `embed_url` that the frontend (`app.js` v32) renders as a 30-second-capped
-`<iframe>` instead of the native `<audio>` element.
+`<iframe>` instead of the native `<audio>` element. Bumped to **version: 9**
+same day — the "most popular track" promise is now provable rather than
+incidental: the Deezer free-text pass fetches the identified album's real,
+complete tracklist and picks the true top-`rank` track with a preview,
+instead of ranking only among whatever a relevance search happened to
+surface. Re-verified live (2026-07-12 QA sweep): Fleetwood Mac's *Rumours*
+still serves "The Chain" (Deezer's #1-ranked track); same 86/93 available,
+same 7 gaps, zero regressions.
+
+`app.js` reached **version: 33** / `style.css` **version: 25** (2026-07-12) —
+added a quiet one-line "Most valuable" callout under the collection-value
+stat in the controls heading, naming the single highest-priced record
+(thumbnail + artist + title + price, in the app's existing typography — no
+badge, no change to the tile grid). Deliberately restrained: Susan has twice
+pulled back from decorative additions here (the green "FIND" badge removed
+per PROJECT.md v10, and pricing/metadata stripped off gallery tiles per
+app.js v26), so this stays inside the header's existing typographic language.
+Pure client-side read of already-stored `price_median`/`price_low` — no new
+endpoint, no network call. `mostValuableRecord()` compares raw numeric price
+across all records regardless of currency (only ever displays one record's
+own price in its own currency, never sums across them).
 
 Also on 2026-07-12: `wishlist.html`'s manual-add form never called the
 Discogs lookup at all, so manually-added items got no `cover_url` unless
@@ -176,3 +197,22 @@ the external weekly scout, not by anything in this repo, so newly-added
 items always start as "NEVER SOLD" until the following Monday) are the same
 shape of problem: manual adds bypass enrichment that automated adds get for
 free.
+
+**E2E QA sweep (2026-07-12, run against the live site after the v33/v25
+highlight deploy):** all 7 static pages return 200; `/api/records` returns
+93 records with valid shape; unauthenticated `POST /api/records` and
+`POST /api/save-cover` both correctly 401; `/api/discogs/lookup` with no
+params correctly 400; `/api/audio/preview` reachable and returning a real
+Deezer preview for a generic query; noindex + X-Frame-Options headers and
+`robots.txt` disallow all present. Wishlist ungated POST/DELETE round-trip
+re-verified end-to-end (add a test item, confirm it appears, delete it,
+confirm it's gone, no junk left behind) — one early check came back
+"not found" after the previously-documented ~2.5s Blobs read-lag, but a
+slower retry (found at 2s on a second attempt) confirmed this was a one-off
+propagation blip, not a regression; both backfilled wishlist records
+(Anita Baker, Andrés Segovia) still carry their `cover_url`/`current_ask`.
+`npm run smoke` cannot run from this environment's sandboxed shell (no
+outbound access to arbitrary internet hosts) — the full smoke-test logic was
+replicated via browser-side `fetch` instead and is the source of the results
+above; if a future agent has a real shell with internet access, prefer
+running `npm run smoke` directly.

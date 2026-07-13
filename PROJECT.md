@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 18 · **Last revised:** 2026-07-12
+**Version:** 19 · **Last revised:** 2026-07-12
 
 **Changelog**
+- **v19 (2026-07-12)** — Two things: (1) **Highlight the highest-value record** (`app.js` v33, `style.css` v25) — a quiet one-line "Most valuable — Artist, Title · €price" callout with a small thumbnail, rendered under the existing collection-value stat in the controls heading. Deliberately restrained rather than a badge on the tile grid: Susan has twice pulled back from decorative additions here (the green FIND badge removed per v10, pricing/metadata stripped off gallery tiles per app.js v26), so three mockup options were presented (text callout / tile badge / sort-to-front) and the safest, most reversible one was built — pure client-side read of already-stored `price_median`/`price_low`, no new endpoint. Currently: Bob Marley & The Wailers, *In Dub, Vol. 1* · €148.77. (2) **Full end-to-end QA sweep** run against the live site post-deploy, covering every endpoint and page shipped across this and the two prior sessions (Phase 3 Wishlist ungating, Phase 4 Audio Preview through its v9/YouTube-tier state, and this highlight feature) — see the QA sweep note below. All green; one apparent wishlist read-after-write miss traced to a one-off propagation blip (confirmed via retry), not a regression.
 - **v18 (2026-07-12)** — `audio-preview.mjs` v9: made the "most popular track on the album" guarantee provable rather than incidental. The Deezer free-text pass previously ranked only among whichever tracks a relevance search happened to surface — verified 5/5 real albums were already correct by chance (Madonna, Buena Vista Social Club, CSN, Fleetwood Mac), but nothing guaranteed the 6th would be. Fixed: once the correct album is identified, fetch its real complete tracklist and pick the true top-rank track with a preview (same method the other two Deezer passes already use). Also widened the YouTube tier's search from 10 to up to 50 merged candidates (relevance + `order=viewCount`) for the same reason. Re-ran the full 93-record sweep: same 86/93, same 7 gaps, zero regressions.
 - **v17 (2026-07-12)** — Three changes: (1) **Audio preview tier 4, YouTube** (`audio-preview.mjs` v8) — last-resort fallback for the 7 records confirmed genuinely absent from Spotify/Deezer/iTunes; needs `YOUTUBE_API_KEY` (not yet set — Susan needs to create a free Google Cloud Console API key, an account-setup step outside what an agent does unattended); gracefully reports "not configured" until then. No `preview_url` — renders a 30-second-capped YouTube iframe (`app.js` v32, `style.css` v24) instead of the native `<audio>` element. (2) **Wishlist manual-add form simplified** (`wishlist.html` v13) — dropped the Discogs URL and Notes fields per Susan's request, now just artist + title. (3) **Wishlist cover-art bug found and fixed**: the manual-add path never called the Discogs lookup at all, so manually-added items never got `cover_url` (confirmed live: 1/56 items affected, Anita Baker's *Rapture*) — fixed going forward by having the add flow call `/api/discogs/lookup` itself, and backfilled the one existing gap. Also backfilled `current_ask` for two items that were showing "NEVER SOLD" despite live Discogs listings existing (both added since the last weekly scout run — that field is populated by an external weekly process, not by any code in this repo, so newly-added items always show "NEVER SOLD" until the following Monday unless backfilled manually like this).
 - **v16 (2026-07-11)** — Chased down the last of the Phase 4 audio-preview matching bugs through five more `audio-preview.mjs` revisions (v3–v7), verifying by tracing the actual matched track/album on Deezer's own API rather than trusting `available:true` at face value. **v3:** fixed three real false positives (Maria Callas matched an unrelated Bellini excerpt on shared artist-name overlap alone; *The Blues Volume 2* and *Christmastime*/*Verve // Remixed* matched unrelated releases on generic-word overlap alone) — added an artist-name-can't-be-the-only-evidence guard and a generic-compilation-word stoplist. **v4 regression, caught same-day via a full re-sweep (not just the reported records) and reverted in v5:** a specificity gate meant for one pass only got applied everywhere, breaking short real titles (Led Zeppelin *IV*, Kraftwerk *Autobahn*, Joy Division *Closer*, Moby *Play*, Peter Gabriel *Security*). **v6:** found a genuinely wrong track behind a "fixed" *IV* result — a raw `.includes()` containment check was letter-substring matching, so "iv" matched inside the word "Live"; fixed with a whole-word containment check. **v7:** found a second wrong-track case — Air's *Moon Safari* was matching a totally different artist's ("Vegyn") remix filed on an unrelated tribute album that happened to contain the words "Moon Safari"; fixed by requiring the actual track's credited artist to correspond to our stored artist whenever a match isn't exact (or an artist-name/generic-wrapper-only variant), verified this doesn't break the legitimate classical composer→performer and reggae producer→backing-band credit differences already relied on. **Final result: 86/93 (92%) with an individually-verified-correct playable preview**, 7 confirmed genuine catalog gaps, 0 known bugs. Full details in the Phase 4 section below.
@@ -203,6 +204,64 @@ Aesthetic: editorial / record-shop / library catalog card.
 - **Setup still pending as of 2026-07-12:** `YOUTUBE_API_KEY` is not yet set on the vinylscout Netlify project — getting one requires a Google Cloud Console project, which is account-setup territory outside what an agent should do unattended. Until Susan sets it, this tier gracefully reports "not configured" (confirmed live: `_debug.youtube.configured === false`, zero effect on the other three tiers) exactly like Spotify's own graceful-degradation pattern. Once set, re-run the 7 gap records to confirm real coverage before calling this phase fully closed.
 
 **v9 (2026-07-12): guarantee the "most popular track" promise, not just usually deliver it.** Susan asked to make sure the preview is genuinely the most popular track on each album whenever possible. Investigated empirically before touching anything: spot-checked 5 real multi-track albums already being served via Deezer's free-text pass (Madonna's *Veronica Electronica*, Buena Vista Social Club, Crosby Stills & Nash's *CSN*, Fleetwood Mac's *Rumours*) by independently fetching each album's REAL, complete Deezer tracklist and comparing — all 5 already happened to be serving the true highest-`rank` track. But that was incidental: the free-text pass only ever ranked among whichever tracks happened to surface in a relevance-ranked search, not the album's actual full tracklist, so nothing guaranteed it would keep being right for every record. Fixed by having the free-text pass, once it identifies the correct album, fetch that album's complete tracklist and pick the true top-rank track with a preview — the same authoritative method the artist-catalog-walk and title-only passes already use — falling back to the original free-text hit only if that lookup fails. Re-ran the full 93-record sweep after deploying: same 86/93 available, same 7 genuine gaps, zero regressions (Fleetwood Mac's *Rumours* re-confirmed still serving "The Chain," Deezer's own #1-ranked track on that album). Also widened the YouTube tier's candidate pool (10 → up to 50, merging a relevance-ordered search with a separate `order=viewCount` search before scoring) for the same reason — a single 10-result relevance search wasn't guaranteed to surface the objectively most-viewed genuine upload.
+
+---
+
+## UI polish — Highlight the highest-value record (2026-07-12)
+
+Not a phase — a small, low-risk addition to the existing collection view, at
+Susan's request ("highlight the highest value album without screwing up the
+design"). Three options were sketched (a quiet text callout, a small badge
+on the gallery tile, sorting the record to the front of the grid) and the
+text callout was recommended and built, given Susan's track record of
+pulling back from decoration on this page (see Phase 3/`app.js` v10 and v26
+notes above).
+
+**What it does:** `app.js` v33 adds `mostValuableRecord()` — scans all
+loaded records for the highest `price_median` (falling back to `price_low`),
+compared as a raw number regardless of currency, since only one record's own
+price in its own currency is ever displayed, never a cross-currency sum.
+`renderHighlight()` writes a one-line callout (`#collection-highlight`) under
+the existing `#collection-value` stat: a 22px thumbnail, "Most valuable —
+**Artist**, *Title* · €price" (price in gold, matching the existing metadata
+color token). `style.css` v25 adds `.controls__highlight` and gives
+`.controls__heading` `flex-wrap` so the new line breaks onto its own row
+without disturbing the existing title/count/value baseline row. Pure
+client-side read of already-stored fields — no new endpoint, no network
+call, recomputed on every `render()` pass alongside the existing collection
+value.
+
+## QA sweep (2026-07-12, post-deploy)
+
+Full end-to-end pass against the live site, covering everything shipped in
+the last two sessions, not just the newest change:
+- All 7 static pages (`/`, `/seed.html`, `/audit.html`, `/wishlist.html`,
+  `/roadmap.html`, `/guide.html`, `/about.html`) return 200.
+- `GET /api/records` → 93 records, valid shape (`id`/`artist`/`title` present).
+- `POST /api/records` and `POST /api/save-cover` both correctly reject
+  unauthenticated requests with 401.
+- `GET /api/discogs/lookup` with no params correctly 400 (endpoint reachable,
+  no token spent).
+- `GET /api/audio/preview` reachable, returns a real Deezer preview for a
+  generic query; the YouTube tier 4 still correctly reports "not configured"
+  (`YOUTUBE_API_KEY` still unset); re-spot-checked Fleetwood Mac's *Rumours*
+  still serves "The Chain" (confirms the v9 most-popular-track guarantee is
+  holding, not just working by chance at ship time).
+- `GET /api/wishlist` → 56 items; both prior backfills (Anita Baker's cover
+  art, Anita Baker's and Andrés Segovia's `current_ask`) still present.
+- Wishlist's ungated POST/DELETE round-trip re-verified live: added a test
+  item, confirmed it appeared, deleted it, confirmed it was gone, confirmed
+  no test junk left behind afterward. One early read attempt came back
+  "not found" after the previously-documented ~2.5s Blobs propagation delay —
+  a slower retry found it within 2 seconds on the very next check, so this
+  was a one-off timing blip on that particular request, not a regression in
+  the write path itself.
+- `noindex` / `X-Frame-Options: DENY` headers and a crawler-disallowing
+  `robots.txt` all present.
+- `npm run smoke` could not be run directly (this environment's sandboxed
+  shell has no outbound access to arbitrary internet hosts) — its assertions
+  were replicated via browser-side `fetch` against the live site instead,
+  which is what the results above are drawn from.
 
 ---
 
