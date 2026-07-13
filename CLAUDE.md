@@ -123,6 +123,20 @@ touched by the current change — staleness accumulates precisely in the docs
 nobody thought to check. Fix drift found in ANY of them as part of the same
 pass, not just the one that prompted the ask.
 
+**This is now also automated, not just a rule for live sessions.** The
+external `weekly-vinyl-median-refresh` scheduled task (Mondays ~9:08am, lives
+outside this repo in Susan's Claude app — see PROJECT.md v20) gained a new
+**Job E — code & data health checks** on 2026-07-12: a cache-bust drift check
+across all 7 static pages, an audio-preview canary re-test of 5
+previously-buggy records, a `YOUTUBE_API_KEY` activation check (auto-runs the
+pending 7-gap-record sweep the moment the key is set), a rotating cover-art
+link-rot spot check, and full parity with every assertion in
+`scripts/smoke.mjs`. Job D's doc-reconcile step also changed from
+conditional to **unconditional every week** — the full six-doc read above now
+happens on a schedule, not just when a live session happens to be asked for
+one. If a Monday report ever says a doc wasn't fully read, that's the
+automation degrading, not an acceptable shortcut — flag it if noticed.
+
 ## Charter drift to be aware of
 
 **Local clones drift from `origin/main` here** — several automations (a
