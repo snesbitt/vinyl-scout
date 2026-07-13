@@ -1,5 +1,20 @@
 // netlify/functions/audio-preview.mjs
-// version: 10
+// version: 11
+// v11 (2026-07-13): fixed a real wrong-artist bug found during a full
+// 93-record accuracy sweep (prompted by Susan asking whether the Ellington
+// '65 issue had siblings). Sidney Bechet's "Petite Fleur" was serving a
+// completely different artist's cover of the same jazz standard (Cyrille
+// Aimée) as if it were Bechet's own recording — Spotify correctly matched
+// Bechet's real track (no preview_url, per the known tier-1 restriction),
+// but Deezer's artist-scoped passes (a)/(b) found nothing, and pass (c) —
+// a title-only search with no artist check at all, by design, for the
+// producer/backing-band-credit cases — accepted an unrelated same-titled
+// album by a different, unrelated performer. Fixed by gating pass (c)'s
+// corroboration requirement on whether Spotify already confirmed the
+// artist/title combo is real: see tryDeezer/tryDeezerByAlbumTitleSearch
+// below for the exact mechanism and why the two already-verified legitimate
+// pass (c) fixes (Errol Brown & The Revolutionaries, The Scientist/Roots
+// Radics) are unaffected (both have a null Spotify match, confirmed live).
 // v10 (2026-07-13): new `reason: "no_match_pending_youtube"` distinguishes
 // "genuinely absent everywhere" from "not found on Spotify/Deezer/iTunes,
 // but YouTube — the tier that would cover this — isn't configured yet".
@@ -693,7 +708,15 @@ async function tryDeezerByArtistCatalog(artist, title) {
 // unrelated Trisha Yearwood Christmas track, and "Various — Verve //
 // Remixed" matched an unrelated "Velvet Dreamer" remix single — both purely
 // because the titles were too generic to mean anything without an artist.
-async function tryDeezerByAlbumTitleSearch(title) {
+// `corroborationArtist` (added v11, see below) — when provided, filters the
+// album's tracks to ones whose credited artist plausibly overlaps this name
+// before picking the top-rank one, and refuses the match entirely (returns
+// null) if NONE do. Only ever passed by tryDeezer's named-artist fallback
+// path, and only when Spotify has already independently confirmed the
+// artist/title combo is real (see tryDeezer + the v11 changelog note) — the
+// generic-artist ("Various Artists") entry point below never passes this,
+// since there's no real artist identity to corroborate against there.
+async function tryDeezerByAlbumTitleSearch(title, corroborationArtist) {
   const distinctiveWords = significantTokens(title, { stripGeneric: true });
   if (distinctiveWords.length < 2) return null;
 
@@ -713,30 +736,46 @@ async function tryDeezerByAlbumTitleSearch(title) {
   if (!tracksRes.ok) return null;
   const tracksData = await tracksRes.json();
   const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
-  const withPreview = tracks.filter(function (t) { return t && t.preview; });
+  let withPreview = tracks.filter(function (t) { return t && t.preview; });
   if (!withPreview.length) return null;
 
   withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+
+  if (corroborationArtist) {
+    const corroborated = withPreview.filter(function (t) {
+      const credited = (t.artist && t.artist.name) || (albumMatch.artist && albumMatch.artist.name) || "";
+      return artistsOverlap(credited, corroborationArtist);
+    });
+    if (!corroborated.length) return null; // no track here is plausibly by our artist — refuse rather than guess wrong
+    withPreview = corroborated;
+  }
+
   const best = withPreview[0];
 
   return {
     provider: "deezer",
     name: best.title || null,
-    artists: (albumMatch.artist && albumMatch.artist.name) || null,
+    artists: (best.artist && best.artist.name) || (albumMatch.artist && albumMatch.artist.name) || null,
     preview_url: best.preview || null,
     external_url: best.link || null,
     popularity: (typeof best.rank === "number") ? best.rank : null,
   };
 }
 
-async function tryDeezer(artist, title) {
+// `requireCorroboration` (added v11) — see tryDeezerByAlbumTitleSearch above
+// and the v11 changelog note: set true only when Spotify has already found a
+// plausible-artist match for this exact query (even with no preview_url), so
+// pass (c)'s otherwise-artist-blind title-only search doesn't accept an
+// unrelated same-titled cover by a completely different performer.
+async function tryDeezer(artist, title, requireCorroboration) {
   // "Various Artists"-style placeholders carry no real identity to
   // corroborate a match against — pass (a)'s free-text filter and pass (b)'s
   // artist-catalog walk both ultimately rely on titlesMatch's loose
   // substring containment against an uncorroborated candidate pool, which
   // is unsafe when there's no genuine artist behind the query. Skip both
   // and go straight to the specificity-gated, strictly-matched title-only
-  // search instead.
+  // search instead. Never corroborated against "Various Artists" itself —
+  // that string carries no real identity to check against.
   if (isGenericArtist(artist)) {
     return await tryDeezerByAlbumTitleSearch(title);
   }
@@ -747,7 +786,7 @@ async function tryDeezer(artist, title) {
   const byCatalog = await tryDeezerByArtistCatalog(artist, title);
   if (byCatalog && byCatalog.preview_url) return byCatalog;
 
-  const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title);
+  const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, requireCorroboration ? artist : null);
   if (byAlbumTitle && byAlbumTitle.preview_url) return byAlbumTitle;
 
   return freeText || byCatalog || byAlbumTitle || null;
@@ -994,7 +1033,22 @@ export default async (req) => {
     return json({ available: true, reason: null, provider: "spotify", track: spotifyTrack, _debug: debug }, 200);
   }
 
-  // Tier 2: Deezer.
+  // Tier 2: Deezer. requireCorroboration (v11): true only when Spotify has
+  // already found a plausible-artist match for this query (even with no
+  // preview_url) — see tryDeezer/tryDeezerByAlbumTitleSearch above. Found
+  // live 2026-07-13: Sidney Bechet's "Petite Fleur" (Spotify correctly
+  // matched "Petite fleur" by Sidney Bechet, no preview) was falling through
+  // to pass (c), which — having no artist check at all — accepted an
+  // unrelated Cyrille Aimée cover of the same standard, filed on a Deezer
+  // album also literally titled "Petite Fleur", and served it as if it were
+  // Bechet's own recording. Gating pass (c)'s corroboration requirement on
+  // "did Spotify already confirm this artist exists for this query" targets
+  // exactly this failure mode without touching the two already-verified
+  // legitimate producer/backing-band credit cases pass (c) exists for
+  // (Errol Brown & The Revolutionaries, The Scientist/Roots Radics) — both
+  // return a null Spotify match, confirmed live, so this new check never
+  // engages for them.
+  const requireCorroboration = !!(spotifyTrack && artistsOverlap(spotifyTrack.artists, artist));
   let deezerTrack = null;
   try {
     if (debug) {
@@ -1002,14 +1056,14 @@ export default async (req) => {
       debug.deezerFreeText = { track: freeText };
       const byCatalog = await tryDeezerByArtistCatalog(artist, title);
       debug.deezerCatalog = { track: byCatalog };
-      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title);
-      debug.deezerAlbumTitle = { track: byAlbumTitle };
+      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, requireCorroboration ? artist : null);
+      debug.deezerAlbumTitle = { track: byAlbumTitle, requireCorroboration: requireCorroboration };
       deezerTrack = (freeText && freeText.preview_url) ? freeText
         : (byCatalog && byCatalog.preview_url) ? byCatalog
         : (byAlbumTitle && byAlbumTitle.preview_url) ? byAlbumTitle
         : (freeText || byCatalog || byAlbumTitle || null);
     } else {
-      deezerTrack = await tryDeezer(artist, title);
+      deezerTrack = await tryDeezer(artist, title, requireCorroboration);
     }
   } catch (e) {
     console.error("Deezer tier failed", e.message);
