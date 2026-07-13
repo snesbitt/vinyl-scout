@@ -1,5 +1,34 @@
 // netlify/functions/audio-preview.mjs
-// version: 11
+// version: 12
+// v12 (2026-07-13): simplified to Deezer-only (+ YouTube last resort) per
+// Susan's explicit request. Removed the Spotify tier and the iTunes tier —
+// neither had ever contributed a single playable preview across the whole
+// 93-record catalog (Spotify: its own preview_url restriction affects 100%
+// of this catalog, confirmed 2026-07-11; iTunes: confirmed dead the same
+// day, its legacy /search endpoint now unconditionally redirects to HTML
+// regardless of caller). Spotify's ONE real remaining job — supplying an
+// artist-corroboration signal so Deezer's title-only pass (c) doesn't
+// accept a same-titled cover by a completely different performer (the
+// Sidney Bechet/Cyrille Aimée bug fixed in v11) — is now done entirely
+// within Deezer's own data instead: tryDeezerByAlbumTitleSearch considers
+// EVERY album Deezer returns for the title (not just the first), prefers
+// whichever candidate's credited artist overlaps ours, and additionally
+// corroborates at the track level within whichever album it settles on —
+// falling back to accepting an uncorroborated album/track only when it's
+// the SOLE candidate at all (this is exactly what keeps the two legitimate
+// producer/backing-band-credit cases working: Errol Brown & The
+// Revolutionaries -> Deezer's "The Revolutionaries", The Scientist ->
+// Deezer's "Roots Radics" — both have only one matching album on Deezer, so
+// no reordering or refusal ever applies to them). This is strictly more
+// capable than the v11 Spotify-gated version: it can now pick the CORRECT
+// album when multiple same-titled releases exist, not just refuse to guess.
+// Also preserves the "matched but no preview clip" attribution UX (used by
+// 2 records — Various Artists' "The Blues Volume 2" and Sidney Bechet's
+// "Petite Fleur") natively from Deezer's own best-guess match instead of
+// Spotify's, so no metadata is lost by removing the Spotify tier. Verified
+// via a full 93-record re-sweep post-deploy: same 85/93 available, same 6
+// pending-YouTube, same 2 correctly-attributed no-preview records, 0
+// regressions. See PROJECT.md v23 for the full changelog + sweep results.
 // v11 (2026-07-13): fixed a real wrong-artist bug found during a full
 // 93-record accuracy sweep (prompted by Susan asking whether the Ellington
 // '65 issue had siblings). Sidney Bechet's "Petite Fleur" was serving a
@@ -27,22 +56,21 @@
 // `reason: "no_match"` regardless of whether that pending step was the
 // actual cause, so the frontend had no way to render anything better than
 // a generic dead-end message. See app.js for the corresponding copy change.
-// Phase 4 — Audio preview, multi-provider. Given an artist + album title,
-// finds the most popular track on that album and returns a playable 30-second
-// preview clip, trying providers in this order:
+// Phase 4 — Audio preview. Given an artist + album title, finds the most
+// popular track on that album and returns a playable 30-second preview clip,
+// trying providers in this order:
 //
-//   1. Spotify   — client-credentials search, ranked by `popularity`.
-//                  Matches best, but Spotify has restricted `preview_url`
-//                  availability for most non-extended-quota apps since late
-//                  2024 — confirmed 2026-07-11 to return preview_url:null for
-//                  every one of this catalog's 93 records, even top hits like
-//                  "Sexy Boy" (Air) and "Dreams" (Fleetwood Mac). Kept as the
-//                  first attempt because when it DOES have a preview, its
-//                  match quality and popularity data are the best of the
-//                  three; and because SPOTIFY_CLIENT_ID/SECRET are already
-//                  configured.
-//   2. Deezer    — NO auth/API key required. Three-pass lookup, each pass
-//                  only run if the previous one didn't yield a preview:
+//   1. Deezer    — NO auth/API key required. The sole preview source as of
+//                  v12 — Spotify and iTunes were removed here (see the v12
+//                  changelog note above): across the whole 93-record
+//                  catalog, Spotify never once returned a preview_url (its
+//                  own platform-wide restriction) and iTunes' legacy search
+//                  endpoint has been confirmed dead since 2026-07-11. Every
+//                  one of the 85 currently-playable previews already came
+//                  from Deezer before this simplification — removing the
+//                  other two tiers changes no user-visible behavior, just
+//                  the code that was doing nothing. Three-pass lookup, each
+//                  pass only run if the previous one didn't yield a preview:
 //                  (a) fast free-text /search hit;
 //                  (b) artist-catalog walk: search/artist -> that artist's
 //                      full /albums list -> match the album title -> that
@@ -79,21 +107,15 @@
 //                  our catalog's 1967-1968 one — confirmed as a real near-miss
 //                  during testing, not a hypothetical. Preview URLs are
 //                  signed and expire after a few hours — fine here since we
-//                  only ever fetch fresh, on tap, never cache them.
-//   3. iTunes    — Apple's public Search API (itunes.apple.com/search), also
-//                  no auth required. Tried last and wrapped defensively.
-//                  CONFIRMED DEAD as of 2026-07-11 (not just suspected): a
-//                  direct server-side request — including with a real
-//                  browser User-Agent header — returns HTTP 200 but a
-//                  non-JSON (HTML) body every time, meaning Apple's legacy
-//                  /search endpoint now unconditionally redirects regardless
-//                  of caller. The defensive content-type check correctly
-//                  no-ops this rather than throwing, so it can never break
-//                  anything, but it will also never contribute a match
-//                  as currently implemented. Left in place (cost-free,
-//                  might revive) rather than removed.
-//   4. YouTube   — LAST RESORT, added 2026-07-12. Only reached if all three
-//                  above miss. Requires a free YOUTUBE_API_KEY (Google Cloud
+//                  only ever fetch fresh, on tap, never cache them. Pass (c)
+//                  additionally corroborates by artist across however many
+//                  same-titled album candidates Deezer returns — see the v12
+//                  changelog note and tryDeezerByAlbumTitleSearch below for
+//                  the exact mechanism (this replaced the v11 Spotify-gated
+//                  version, which is no longer possible since Spotify itself
+//                  was removed as a tier).
+//   2. YouTube   — LAST RESORT, added 2026-07-12. Only reached if Deezer
+//                  misses entirely. Requires a free YOUTUBE_API_KEY (Google Cloud
 //                  Console, YouTube Data API v3, API-key-only — no OAuth).
 //                  Unlike the other tiers, returns no `preview_url` — YouTube
 //                  gives no direct audio file, only an `embed_url` (a YouTube
@@ -132,14 +154,17 @@
 // anything. Not gated by the edit secret — same reasoning as
 // discogs-lookup.mjs: this exposes no catalog data and writes nothing.
 //
-// Graceful degradation: no match on any provider, or Spotify/YouTube not
-// configured, returns a normal 200 with available:false + a reason — never
-// an error.
+// Graceful degradation: no match on Deezer, or YouTube not configured,
+// returns a normal 200 with available:false + a reason — never an error.
 //
-// Env vars expected (all optional — each tier degrades gracefully if unset):
-//   SPOTIFY_CLIENT_ID      — Spotify app client ID (server-side only, tier 1)
-//   SPOTIFY_CLIENT_SECRET  — Spotify app client secret (server-side only, tier 1)
-//   YOUTUBE_API_KEY        — YouTube Data API v3 key (server-side only, tier 4)
+// Env vars expected (optional — YouTube degrades gracefully if unset; Deezer
+// needs no key at all):
+//   YOUTUBE_API_KEY        — YouTube Data API v3 key (server-side only, tier 2)
+//
+// Removed in v12: SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET are no longer
+// read by this file (the Spotify tier was removed). Safe to leave the values
+// set in the Netlify UI — unused env vars are harmless — or clear them later;
+// not required for anything here.
 
 export const config = { path: "/api/audio/preview" };
 
@@ -444,75 +469,8 @@ function titlesMatchCorroborated(a, b, artist, trackArtist) {
 }
 
 // ---------------------------------------------------------------------------
-// Tier 1: Spotify
-// ---------------------------------------------------------------------------
-
-let cachedSpotifyToken = null;
-let cachedSpotifyTokenExpiresAt = 0;
-
-async function getSpotifyToken(clientId, clientSecret) {
-  const now = Date.now();
-  if (cachedSpotifyToken && now < cachedSpotifyTokenExpiresAt) return cachedSpotifyToken;
-
-  const basic = Buffer.from(clientId + ":" + clientSecret).toString("base64");
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      "Authorization": "Basic " + basic,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-  });
-  if (!res.ok) throw new Error("Spotify auth returned HTTP " + res.status);
-  const data = await res.json();
-  cachedSpotifyToken = data.access_token;
-  cachedSpotifyTokenExpiresAt = now + Math.max(0, (data.expires_in || 3600) - 60) * 1000;
-  return cachedSpotifyToken;
-}
-
-async function trySpotify(artist, title) {
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return { configured: false, track: null };
-
-  const token = await getSpotifyToken(clientId, clientSecret);
-
-  // Spotify's /v1/search `limit` range is 0-10 (tightened from 0-50 at some
-  // point before 2026-07-11) — anything above 10 fails with 400 "Invalid limit".
-  const q = 'artist:"' + artist.replace(/"/g, "") + '" album:"' + title.replace(/"/g, "") + '"';
-  const search = new URLSearchParams();
-  search.set("q", q);
-  search.set("type", "track");
-  search.set("limit", "10");
-
-  const res = await fetch("https://api.spotify.com/v1/search?" + search.toString(), {
-    headers: { "Authorization": "Bearer " + token },
-  });
-  if (!res.ok) throw new Error("Spotify search returned HTTP " + res.status);
-  const data = await res.json();
-  const tracks = (data && data.tracks && Array.isArray(data.tracks.items)) ? data.tracks.items : [];
-  if (!tracks.length) return { configured: true, track: null };
-
-  tracks.sort(function (a, b) { return (b.popularity || 0) - (a.popularity || 0); });
-  const best = tracks[0];
-  const artists = Array.isArray(best.artists) ? best.artists.map(function (a) { return a.name; }).join(", ") : null;
-
-  return {
-    configured: true,
-    track: {
-      provider: "spotify",
-      name: best.name || null,
-      artists: artists,
-      preview_url: best.preview_url || null,
-      external_url: (best.external_urls && best.external_urls.spotify) || null,
-      popularity: (typeof best.popularity === "number") ? best.popularity : null,
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Tier 2: Deezer — no auth required. Two-pass: fast free-text search first,
-// then (if that misses) a slower but more accurate artist-catalog walk.
+// Tier 1: Deezer — no auth required. Three-pass lookup (see the header
+// comment above for the full description of each pass).
 // ---------------------------------------------------------------------------
 
 // Pass (a): fast free-text track search. NOT field-filtered (artist:""
@@ -708,15 +666,27 @@ async function tryDeezerByArtistCatalog(artist, title) {
 // unrelated Trisha Yearwood Christmas track, and "Various — Verve //
 // Remixed" matched an unrelated "Velvet Dreamer" remix single — both purely
 // because the titles were too generic to mean anything without an artist.
-// `corroborationArtist` (added v11, see below) — when provided, filters the
-// album's tracks to ones whose credited artist plausibly overlaps this name
-// before picking the top-rank one, and refuses the match entirely (returns
-// null) if NONE do. Only ever passed by tryDeezer's named-artist fallback
-// path, and only when Spotify has already independently confirmed the
-// artist/title combo is real (see tryDeezer + the v11 changelog note) — the
-// generic-artist ("Various Artists") entry point below never passes this,
-// since there's no real artist identity to corroborate against there.
-async function tryDeezerByAlbumTitleSearch(title, corroborationArtist) {
+// `artist` (reworked v12 — previously `corroborationArtist`, only supplied
+// when Spotify had independently confirmed the match; Spotify is gone now,
+// so this is always our own stored artist when one exists). Rather than
+// taking only the FIRST title-matching album Deezer returns, this now
+// considers every candidate album, prefers whichever one's credited artist
+// plausibly overlaps ours, and corroborates again at the track level within
+// whichever album it settles on. An uncorroborated album/track is only
+// trusted when it's the SOLE candidate — that's what preserves the two
+// legitimate producer/backing-band-credit cases (Errol Brown & The
+// Revolutionaries -> Deezer's "The Revolutionaries"; The Scientist ->
+// Deezer's "Roots Radics") where our own stored artist name deliberately
+// doesn't match Deezer's credit and there's no alternative release to prefer
+// instead. When multiple candidates exist and NONE corroborate, keeps
+// searching rather than guessing — this is exactly the mechanism that fixed
+// the real Sidney Bechet/Cyrille Aimée wrong-artist bug (v11) without
+// needing Spotify at all (v12). Still returns a best-guess match (with
+// preview_url:null) even when no candidate has a playable clip, so the
+// "matched but no preview" attribution UX doesn't regress. The generic-
+// artist ("Various Artists") entry point passes `artist` as null, since
+// there's no real identity to corroborate against there.
+async function tryDeezerByAlbumTitleSearch(title, artist) {
   const distinctiveWords = significantTokens(title, { stripGeneric: true });
   if (distinctiveWords.length < 2) return null;
 
@@ -729,45 +699,69 @@ async function tryDeezerByAlbumTitleSearch(title, corroborationArtist) {
   const data = await res.json();
   const albums = Array.isArray(data && data.data) ? data.data : [];
 
-  const albumMatch = albums.find(function (a) { return a && titlesMatchStrict(a.title, title); });
-  if (!albumMatch) return null;
+  const albumMatches = albums.filter(function (a) { return a && titlesMatchStrict(a.title, title); });
+  if (!albumMatches.length) return null;
 
-  const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
-  if (!tracksRes.ok) return null;
-  const tracksData = await tracksRes.json();
-  const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
-  let withPreview = tracks.filter(function (t) { return t && t.preview; });
-  if (!withPreview.length) return null;
-
-  withPreview.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
-
-  if (corroborationArtist) {
-    const corroborated = withPreview.filter(function (t) {
-      const credited = (t.artist && t.artist.name) || (albumMatch.artist && albumMatch.artist.name) || "";
-      return artistsOverlap(credited, corroborationArtist);
+  // When more than one release shares this title, try the artist-overlapping
+  // candidate(s) first.
+  let ordered = albumMatches;
+  if (albumMatches.length > 1 && artist) {
+    const overlapping = albumMatches.filter(function (a) {
+      return artistsOverlap((a.artist && a.artist.name) || "", artist);
     });
-    if (!corroborated.length) return null; // no track here is plausibly by our artist — refuse rather than guess wrong
-    withPreview = corroborated;
+    if (overlapping.length) {
+      const rest = albumMatches.filter(function (a) { return overlapping.indexOf(a) === -1; });
+      ordered = overlapping.concat(rest);
+    }
   }
 
-  const best = withPreview[0];
+  let bestGuess = null; // best plausible match found so far, even with no preview
+  for (const albumMatch of ordered) {
+    const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
+    if (!tracksRes.ok) continue;
+    const tracksData = await tracksRes.json();
+    const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
+    if (!tracks.length) continue;
 
-  return {
-    provider: "deezer",
-    name: best.title || null,
-    artists: (best.artist && best.artist.name) || (albumMatch.artist && albumMatch.artist.name) || null,
-    preview_url: best.preview || null,
-    external_url: best.link || null,
-    popularity: (typeof best.rank === "number") ? best.rank : null,
-  };
+    let pool = tracks;
+    if (artist) {
+      const corroborated = tracks.filter(function (t) {
+        const credited = (t.artist && t.artist.name) || (albumMatch.artist && albumMatch.artist.name) || "";
+        return artistsOverlap(credited, artist);
+      });
+      if (corroborated.length) {
+        pool = corroborated;
+      } else if (ordered.length > 1) {
+        continue; // an alternative candidate exists — don't guess wrong here
+      }
+      // else: sole candidate, no corroborated track — fall through and trust
+      // it uncorroborated (preserves the producer/backing-band-credit cases).
+    }
+
+    const withPreview = pool.filter(function (t) { return t && t.preview; });
+    const rankedPool = (withPreview.length ? withPreview : pool)
+      .slice()
+      .sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+    const best = rankedPool[0];
+    if (!best) continue;
+
+    const match = {
+      provider: "deezer",
+      name: best.title || null,
+      artists: (best.artist && best.artist.name) || (albumMatch.artist && albumMatch.artist.name) || null,
+      preview_url: best.preview || null,
+      external_url: best.link || null,
+      popularity: (typeof best.rank === "number") ? best.rank : null,
+    };
+
+    if (match.preview_url) return match;
+    if (!bestGuess) bestGuess = match;
+  }
+
+  return bestGuess;
 }
 
-// `requireCorroboration` (added v11) — see tryDeezerByAlbumTitleSearch above
-// and the v11 changelog note: set true only when Spotify has already found a
-// plausible-artist match for this exact query (even with no preview_url), so
-// pass (c)'s otherwise-artist-blind title-only search doesn't accept an
-// unrelated same-titled cover by a completely different performer.
-async function tryDeezer(artist, title, requireCorroboration) {
+async function tryDeezer(artist, title) {
   // "Various Artists"-style placeholders carry no real identity to
   // corroborate a match against — pass (a)'s free-text filter and pass (b)'s
   // artist-catalog walk both ultimately rely on titlesMatch's loose
@@ -777,7 +771,7 @@ async function tryDeezer(artist, title, requireCorroboration) {
   // search instead. Never corroborated against "Various Artists" itself —
   // that string carries no real identity to check against.
   if (isGenericArtist(artist)) {
-    return await tryDeezerByAlbumTitleSearch(title);
+    return await tryDeezerByAlbumTitleSearch(title, null);
   }
 
   const freeText = await tryDeezerFreeText(artist, title);
@@ -786,65 +780,15 @@ async function tryDeezer(artist, title, requireCorroboration) {
   const byCatalog = await tryDeezerByArtistCatalog(artist, title);
   if (byCatalog && byCatalog.preview_url) return byCatalog;
 
-  const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, requireCorroboration ? artist : null);
+  const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, artist);
   if (byAlbumTitle && byAlbumTitle.preview_url) return byAlbumTitle;
 
   return freeText || byCatalog || byAlbumTitle || null;
 }
 
 // ---------------------------------------------------------------------------
-// Tier 3: iTunes Search API — no auth required, best-effort only.
-// No popularity field exists on this API, so this picks the first matching
-// track rather than a verified "most popular" one. Defensive by design: any
-// failure here (network error, redirect, non-JSON body) is swallowed and
-// treated as "no result", never surfaced as an error.
-// ---------------------------------------------------------------------------
-
-async function tryItunes(artist, title, debugInfo) {
-  try {
-    const q = new URLSearchParams();
-    q.set("term", artist + " " + title);
-    q.set("entity", "song");
-    q.set("limit", "25");
-
-    const res = await fetch("https://itunes.apple.com/search?" + q.toString(), {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "application/json",
-      },
-    });
-    if (debugInfo) debugInfo.httpStatus = res.status;
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") || "";
-    if (debugInfo) debugInfo.contentType = contentType;
-    if (!contentType.includes("json")) return null; // redirected to an HTML page, etc.
-
-    const data = await res.json();
-    const items = Array.isArray(data && data.results) ? data.results : [];
-    if (debugInfo) debugInfo.resultCount = items.length;
-    if (debugInfo) debugInfo.collectionNames = items.slice(0, 10).map(function (t) { return t && t.collectionName; });
-    const match = items.find(function (t) {
-      return t && titlesMatch(t.collectionName, title, artist);
-    });
-    if (!match || !match.previewUrl) return null;
-
-    return {
-      provider: "itunes",
-      name: match.trackName || null,
-      artists: match.artistName || null,
-      preview_url: match.previewUrl,
-      external_url: match.trackViewUrl || null,
-      popularity: null, // iTunes exposes no popularity/play-count signal
-    };
-  } catch (e) {
-    if (debugInfo) debugInfo.error = e.message;
-    return null; // best-effort tier — never throw
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tier 4: YouTube Data API v3 — LAST RESORT, only reached if Spotify, Deezer,
-// and iTunes all miss. Added 2026-07-12 to cover the 7 records confirmed
+// Tier 2: YouTube Data API v3 — LAST RESORT, only reached if Deezer misses
+// entirely. Added 2026-07-12 to cover the 7 records confirmed
 // genuinely absent from every other provider (Maria Callas, Duke Ellington's
 // "Ellington '65", Rob Garza's "The Dust Ups", two "Various Artists"
 // compilations, The Swingle Singers' "Christmastime", The Cure's "Standing
@@ -1011,44 +955,11 @@ export default async (req) => {
   // genuine catalog absence without needing server log access. Read-only,
   // adds a `_debug` key to the normal response, changes no behavior.
   const debugMode = url.searchParams.get("debug") === "1";
-  const debug = debugMode ? { spotify: {}, deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, itunes: {}, youtube: {} } : null;
+  const debug = debugMode ? { deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, youtube: {} } : null;
 
-  // Tier 1: Spotify. A hard failure here (auth/network) degrades to
-  // "not attempted" rather than aborting the whole lookup — Deezer/iTunes
-  // can still succeed even if Spotify's credentials or API are having a bad
-  // day.
-  let spotifyTrack = null;
-  let spotifyConfigured = true;
-  try {
-    const spotifyResult = await trySpotify(artist, title);
-    spotifyConfigured = spotifyResult.configured;
-    spotifyTrack = spotifyResult.track;
-    if (debug) debug.spotify = { configured: spotifyConfigured, track: spotifyTrack };
-  } catch (e) {
-    console.error("Spotify tier failed", e.message);
-    if (debug) debug.spotify = { error: e.message };
-  }
-
-  if (spotifyTrack && spotifyTrack.preview_url) {
-    return json({ available: true, reason: null, provider: "spotify", track: spotifyTrack, _debug: debug }, 200);
-  }
-
-  // Tier 2: Deezer. requireCorroboration (v11): true only when Spotify has
-  // already found a plausible-artist match for this query (even with no
-  // preview_url) — see tryDeezer/tryDeezerByAlbumTitleSearch above. Found
-  // live 2026-07-13: Sidney Bechet's "Petite Fleur" (Spotify correctly
-  // matched "Petite fleur" by Sidney Bechet, no preview) was falling through
-  // to pass (c), which — having no artist check at all — accepted an
-  // unrelated Cyrille Aimée cover of the same standard, filed on a Deezer
-  // album also literally titled "Petite Fleur", and served it as if it were
-  // Bechet's own recording. Gating pass (c)'s corroboration requirement on
-  // "did Spotify already confirm this artist exists for this query" targets
-  // exactly this failure mode without touching the two already-verified
-  // legitimate producer/backing-band credit cases pass (c) exists for
-  // (Errol Brown & The Revolutionaries, The Scientist/Roots Radics) — both
-  // return a null Spotify match, confirmed live, so this new check never
-  // engages for them.
-  const requireCorroboration = !!(spotifyTrack && artistsOverlap(spotifyTrack.artists, artist));
+  // Tier 1: Deezer — the sole preview source as of v12 (see header comment).
+  // Artist corroboration for pass (c) now happens entirely within Deezer's
+  // own data (see tryDeezerByAlbumTitleSearch) — no Spotify signal needed.
   let deezerTrack = null;
   try {
     if (debug) {
@@ -1056,14 +967,14 @@ export default async (req) => {
       debug.deezerFreeText = { track: freeText };
       const byCatalog = await tryDeezerByArtistCatalog(artist, title);
       debug.deezerCatalog = { track: byCatalog };
-      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, requireCorroboration ? artist : null);
-      debug.deezerAlbumTitle = { track: byAlbumTitle, requireCorroboration: requireCorroboration };
+      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, isGenericArtist(artist) ? null : artist);
+      debug.deezerAlbumTitle = { track: byAlbumTitle };
       deezerTrack = (freeText && freeText.preview_url) ? freeText
         : (byCatalog && byCatalog.preview_url) ? byCatalog
         : (byAlbumTitle && byAlbumTitle.preview_url) ? byAlbumTitle
         : (freeText || byCatalog || byAlbumTitle || null);
     } else {
-      deezerTrack = await tryDeezer(artist, title, requireCorroboration);
+      deezerTrack = await tryDeezer(artist, title);
     }
   } catch (e) {
     console.error("Deezer tier failed", e.message);
@@ -1074,16 +985,9 @@ export default async (req) => {
     return json({ available: true, reason: null, provider: "deezer", track: deezerTrack, _debug: debug }, 200);
   }
 
-  // Tier 3: iTunes (best-effort, never throws).
-  const itunesTrack = await tryItunes(artist, title, debug ? debug.itunes : null);
-  if (debug) debug.itunes.track = itunesTrack;
-  if (itunesTrack && itunesTrack.preview_url) {
-    return json({ available: true, reason: null, provider: "itunes", track: itunesTrack, _debug: debug }, 200);
-  }
-
-  // Tier 4: YouTube — last resort, only reached if Spotify/Deezer/iTunes all
-  // missed. No preview_url (YouTube gives no direct audio file); playable
-  // via embed_url instead (see tryYouTube above).
+  // Tier 2: YouTube — last resort, only reached if Deezer missed entirely.
+  // No preview_url (YouTube gives no direct audio file); playable via
+  // embed_url instead (see tryYouTube above).
   let youtubeTrack = null;
   try {
     youtubeTrack = await tryYouTube(artist, title, debug ? debug.youtube : null);
@@ -1097,20 +1001,21 @@ export default async (req) => {
   }
 
   // Nothing playable anywhere. Prefer whichever tier at least matched a
-  // track (for the "Listen elsewhere" link), Spotify first since its
-  // external_url/popularity data is the richest when present.
-  const bestMatchOnly = spotifyTrack || deezerTrack || itunesTrack || youtubeTrack;
+  // track (for the "Listen elsewhere" link) — Deezer's own best-guess match
+  // (see tryDeezerByAlbumTitleSearch) covers the "matched but no preview
+  // clip" attribution UX natively now that Spotify is gone.
+  const bestMatchOnly = deezerTrack || youtubeTrack;
   if (bestMatchOnly) {
     return json({ available: false, reason: "no_preview", provider: bestMatchOnly.provider, track: bestMatchOnly, _debug: debug }, 200);
   }
 
-  // Nothing matched on Spotify/Deezer/iTunes, AND the YouTube last-resort
-  // tier was never actually attempted because YOUTUBE_API_KEY isn't set yet.
-  // That's a *pending*, not a permanent, gap — once Susan sets the key this
-  // same record may resolve via tier 4 (this is exactly the situation for
-  // the 7 records documented above, e.g. Duke Ellington's "Ellington '65").
-  // Added v10 (2026-07-13) after this surfaced as an indistinguishable
-  // "no matching track found" that read like a bug rather than a known,
+  // Nothing matched on Deezer, AND the YouTube last-resort tier was never
+  // actually attempted because YOUTUBE_API_KEY isn't set yet. That's a
+  // *pending*, not a permanent, gap — once Susan sets the key this same
+  // record may resolve via tier 2 (this is exactly the situation for the 6
+  // records documented above, e.g. Duke Ellington's "Ellington '65"). Added
+  // v10 (2026-07-13) after this surfaced as an indistinguishable "no
+  // matching track found" that read like a bug rather than a known,
   // already-tracked, one-time-setup-away gap — see CLAUDE.md/PROJECT.md for
   // current key status. Distinct reason so the frontend can say so honestly.
   const youtubeConfigured = !!process.env.YOUTUBE_API_KEY;
@@ -1118,6 +1023,6 @@ export default async (req) => {
     return json({ available: false, reason: "no_match_pending_youtube", provider: null, track: null, _debug: debug }, 200);
   }
 
-  // All four tiers genuinely tried and none matched — a real, confirmed gap.
+  // Both tiers genuinely tried and neither matched — a real, confirmed gap.
   return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
 };
