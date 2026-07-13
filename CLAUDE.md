@@ -266,6 +266,50 @@ Artists' *The Blues Volume 2* → Robert Johnson's own track; Sidney Bechet's
 preview clip available), **0 true unexplained `no_match`**, **0 errors**.
 See PROJECT.md v22 for the full changelog entry.
 
+Bumped to **version: 12** (2026-07-13) same day, per Susan's explicit request
+("I want the previews all from Deezer"). Removed the Spotify and iTunes
+tiers entirely — across the whole 93-record catalog, neither had ever
+contributed a single playable preview (Spotify: its own `preview_url`
+restriction affects 100% of this catalog; iTunes: confirmed dead since
+2026-07-11, its legacy search endpoint unconditionally redirects to HTML).
+The only real complication: Spotify's remaining job was supplying the v11
+artist-corroboration signal that fixed the Sidney Bechet/Cyrille Aimée
+wrong-artist bug — removing it meant rebuilding that mechanism without
+Spotify. Did this entirely within Deezer's own data instead:
+`tryDeezerByAlbumTitleSearch` now considers EVERY album Deezer returns for a
+title (previously only the first), prefers whichever candidate's credited
+artist overlaps ours, and corroborates again at the track level within
+whichever album it settles on — trusting an uncorroborated match only when
+it's the sole candidate, which is exactly what keeps the two legitimate
+producer/backing-band-credit cases working (Errol Brown & The
+Revolutionaries → Deezer's "The Revolutionaries"; The Scientist → Deezer's
+"Roots Radics" — both have only one matching album on Deezer, so no
+reordering or refusal ever applies). Verified this is strictly better than
+the v11 mechanism, not just a swap: live `debug=1` check post-deploy shows
+Sidney Bechet's *Petite Fleur* now resolves to a genuine, correctly-
+attributed Deezer preview (previously it could only surface a no-clip
+Spotify-sourced attribution, since Deezer's own pass had refused to guess).
+Also preserved the "matched but no preview clip" attribution UX natively
+from Deezer's own best-guess match (returned even when no candidate has a
+playable clip) so removing Spotify doesn't silently lose that detail for
+the cases where Deezer itself does the matching.
+Full 93-record re-sweep after deploy: **84/93 available, and confirmed
+programmatically that 100% of them come from Deezer** (zero non-Deezer
+providers in the available set — directly answers Susan's ask). **9
+`no_match_pending_youtube` entries across 7 distinct titles** (the catalog
+holds two separate pressings each of *The Blues Volume 2* and
+*Christmastime*): The Cure, Maria Callas, Duke Ellington, Rob Garza, Various
+*The Blues Volume 2* (×2), The Swingle Singers *Christmastime* (×2), Various
+*Verve // Remixed*. **0 `no_preview`, 0 true `no_match`, 0 errors.** One
+disclosed, expected change: *The Blues Volume 2* moved from "matched via
+Spotify, no clip" to "pending YouTube" — Deezer's own title-search guard
+was already blocking a match for this generic-enough title independent of
+Spotify (a pre-existing limitation, not something this change introduced),
+so this is a more honest categorization, not a regression. `app.js` bumped
+to **version: 35** to match: provider-name map and no-match copy now say
+"Deezer and YouTube" instead of naming three providers, two of which no
+longer run. See PROJECT.md v23 for the full changelog entry.
+
 `app.js` reached **version: 33** / `style.css` **version: 25** (2026-07-12) —
 added a quiet one-line "Most valuable" callout under the collection-value
 stat in the controls heading, naming the single highest-priced record
