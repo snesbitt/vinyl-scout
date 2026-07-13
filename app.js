@@ -1,5 +1,17 @@
 // Vinyl Scout — app.js
-// version: 34
+// version: 35
+// v35 (2026-07-13): audio-preview.mjs v12 simplified to Deezer-only + a
+// YouTube last resort (Spotify and iTunes tiers removed — neither ever
+// contributed a playable preview across the 93-record catalog, per Susan's
+// explicit request to make previews "all from Deezer"). Updated the
+// provider-name map and the no-match/pending-YouTube copy to match: no more
+// "checked Spotify, Deezer, Apple Music, and YouTube" — now just "Deezer and
+// YouTube". One record ("The Blues Volume 2") loses a Spotify-sourced
+// "matched, no clip" attribution detail it had picked up as a side effect of
+// Spotify's independent search — Deezer's own title-search guard was already
+// blocking a match for this generic a title on its own, so it now honestly
+// shows as pending-YouTube instead, alongside the other 6 known gaps. See
+// PROJECT.md v23 for the full changelog + re-sweep results.
 // v34 (2026-07-13): the detail-modal "no track found" message now
 // distinguishes a genuine, fully-checked absence from the specific,
 // documented "pending YouTube setup" state (new `no_match_pending_youtube`
@@ -539,7 +551,7 @@ el.textContent = txt;
         return;
       }
 
-      var providerNames = { spotify: 'Spotify', deezer: 'Deezer', itunes: 'Apple Music', youtube: 'YouTube' };
+      var providerNames = { deezer: 'Deezer', youtube: 'YouTube' };
       var providerLabel = providerNames[payload.provider] || null;
 
       if (!payload.available) {
@@ -548,8 +560,8 @@ el.textContent = txt;
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
             : payload.reason === 'no_match_pending_youtube'
-              ? 'Not found on Spotify, Deezer, or Apple Music — a YouTube fallback is planned but not turned on yet.'
-              : 'No matching track found — checked Spotify, Deezer, Apple Music, and YouTube.';
+              ? 'Not found on Deezer — a YouTube fallback is planned but not turned on yet.'
+              : 'No matching track found — checked Deezer and YouTube.';
         var t2 = payload.track || {};
         var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
           ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + escapeHtml(providerLabel) + ' ↗</a>'
