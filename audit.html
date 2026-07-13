@@ -139,6 +139,7 @@
         "artist artist artist"
         "title title title"
         "year genre cond"
+        "notes notes notes"
         "press press press";
     }
     .audit-input {
@@ -163,6 +164,7 @@
     .audit-input.js-title { grid-area: title; color: var(--ink-soft); font-style: italic; }
     .audit-input.js-year { grid-area: year; font-family: var(--mono); font-size: 12px; }
     .audit-input.js-genre { grid-area: genre; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+    .audit-input.js-notes { grid-area: notes; font-size: 13px; font-style: italic; color: var(--ink-soft); }
     /* Condition select — same visual class but its own grid slot.
        Words (e.g. "Very Good Plus") not abbreviations, so less letter-spacing. */
     .audit-select.js-condition {
@@ -472,6 +474,7 @@
           "title title"
           "year genre"
           "cond cond"
+          "notes notes"
           "press press";
         gap: 2px;
       }
@@ -537,7 +540,13 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 15 (paired with style.css?v=23)
+// version: 16 (paired with style.css?v=25)
+// v16: added an editable Notes field (was set at creation time via seed.html
+//      but had no way to edit or clear afterward — surfaced 2026-07-13 when
+//      Susan found a stray "artist confirmed" note on a record she didn't
+//      add it to and had no in-UI way to remove it). Same inline-edit
+//      pattern as artist/title/genre: blur or Enter saves, empty clears to
+//      null. No new endpoint — notes was already part of the record schema.
 // v15: Phase 2 polish — empty NUMBER search auto-falls-back to artist+title
 //      (many sleeve numbers are distributor/reissue codes not in Discogs' fields),
 //      with a visible note explaining the fallback. Never strands on a dead end.
@@ -698,6 +707,7 @@ function render() {
       +     '<input class="audit-input js-year" data-field="year" value="' + (r.year != null ? r.year : '') + '" placeholder="year" autocomplete="off" spellcheck="false" inputmode="numeric">'
       +     '<input class="audit-input js-genre" data-field="genre" value="' + escapeHtml(r.genre || '') + '" placeholder="genre" autocomplete="off" spellcheck="false">'
       +     '<select class="audit-select js-condition" data-field="condition" title="Goldmine grade">' + condOptions + '</select>'
+      +     '<input class="audit-input js-notes" data-field="notes" value="' + escapeHtml(r.notes || '') + '" placeholder="notes" autocomplete="off" spellcheck="false">'
       +     '<div class="audit-row__pressing js-pressing">' + pressingLine(r) + '</div>'
       +   '</div>'
       +   '<div class="audit-row__actions">'
@@ -728,6 +738,7 @@ async function saveField(id, field, raw, inputEl) {
     }
   }
   if (field === 'genre' && raw.trim() === '') value = null;
+  if (field === 'notes' && raw.trim() === '') value = null;
   if (field === 'artist' && raw.trim() === '') {
     inputEl.classList.add('is-error');
     toast('Artist cannot be empty', true);
