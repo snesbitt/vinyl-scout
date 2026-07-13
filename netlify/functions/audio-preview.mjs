@@ -587,7 +587,16 @@ var KNOWN_COMPILATION_TRACKS = {
   "the cure|standing on a beach": "Boys Don't Cry",
   "duke ellington|ellington 65": "Hello Dolly",
   "maria callas|the incomparable maria callas": "Casta Diva",
-  "rob garza|the dust ups remix album": "Summer Is Ours (G's Dust Up)",
+  // Object form here too, even though "Garza" plausibly overlaps our stored
+  // "Rob Garza" — confirmed live that Deezer's free-text search returns
+  // ZERO results for any query containing "Rob Garza" together (too many/
+  // colliding terms) or containing the track's own parenthetical "(G's Dust
+  // Up)" qualifier (breaks the query parser entirely). Querying "Garza
+  // Summer Is Ours" (short artist credit, no parens) is the only combination
+  // that actually returns the real track — titlesMatch's substring
+  // containment still correctly recognizes the fuller "Summer Is Ours (G's
+  // Dust Up)" result against this shorter search string.
+  "rob garza|the dust ups remix album": { track: "Summer Is Ours", artist: "Garza" },
   "the swingle singers|christmastime": "Jingle Bells",
   "various artists|the blues volume 2": { track: "Got My Mojo Working", artist: "Muddy Waters" },
   "various|verve remixed": { track: "Spanish Grease", artist: "Willie Bobo" },
