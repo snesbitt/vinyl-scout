@@ -1,5 +1,13 @@
 // Vinyl Scout — app.js
-// version: 33
+// version: 34
+// v34 (2026-07-13): the detail-modal "no track found" message now
+// distinguishes a genuine, fully-checked absence from the specific,
+// documented "pending YouTube setup" state (new `no_match_pending_youtube`
+// reason from audio-preview.mjs v10) — e.g. Duke Ellington's "Ellington
+// '65", one of 7 records confirmed absent from Spotify/Deezer/Apple Music
+// but not yet re-checked against YouTube because YOUTUBE_API_KEY isn't set.
+// Previously both cases rendered the identical "No matching track found.",
+// which read as a bug rather than a known, already-tracked gap.
 // v33: highlights the single highest-value record in the collection — a
 //      quiet one-line callout ("Most valuable — Artist, Title · €price")
 //      with a small thumbnail, rendered under the existing collection-value
@@ -539,7 +547,9 @@ el.textContent = txt;
           ? 'Audio preview isn’t set up yet.'
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
-            : 'No matching track found.';
+            : payload.reason === 'no_match_pending_youtube'
+              ? 'Not found on Spotify, Deezer, or Apple Music — a YouTube fallback is planned but not turned on yet.'
+              : 'No matching track found — checked Spotify, Deezer, Apple Music, and YouTube.';
         var t2 = payload.track || {};
         var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
           ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + escapeHtml(providerLabel) + ' ↗</a>'
