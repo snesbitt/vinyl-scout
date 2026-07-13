@@ -356,3 +356,60 @@ outbound access to arbitrary internet hosts) — the full smoke-test logic was
 replicated via browser-side `fetch` instead and is the source of the results
 above; if a future agent has a real shell with internet access, prefer
 running `npm run smoke` directly.
+
+`audio-preview.mjs` reached **version: 13** through **version: 15** (2026-07-13),
+closing out all 7 remaining Deezer gaps and a regression found along the way —
+**93/93 records now resolve, 100% via Deezer.** Built at Susan's explicit
+direction: "lets start with The Cure — Standing on a Beach / its a best of
+album so choose a track like boys don't cry that is on another album too via
+Deezer," then "use this tactic for the other 8 albums." **v13** added
+`KNOWN_COMPILATION_TRACKS` — a small, explicit per-record override table (not
+a general heuristic): each entry names one specific, real track by the same
+artist (or an explicitly-named different artist, for generic "Various
+Artists" credits) that IS on Deezer under a different release, researched and
+Deezer-confirmed before being added, never guessed. The Cure's *Standing on a
+Beach* now resolves via "Boys Don't Cry" from Deezer's own *Greatest Hits*.
+**v14** extended the map to the remaining 6 titles the same researched way:
+Duke Ellington's *Ellington '65* → "Hello Dolly"; Maria Callas' *The
+Incomparable Maria Callas* → "Casta Diva"; Rob Garza's *The Dust Ups* →
+"Summer Is Ours"; The Swingle Singers' *Christmastime* → "Jingle Bells";
+Various Artists' *The Blues Volume 2* → Muddy Waters' "Got My Mojo Working";
+Various' *Verve // Remixed* → Willie Bobo's "Spanish Grease." Two silent-
+failure bugs surfaced and were fixed in the same pass: (1) map keys must be
+pre-normalized exactly as `normalizeTitle()` produces them at lookup time —
+a literal apostrophe, parenthesis, or slash left in a hand-written key (e.g.
+`"ellington '65"`, `"the dust ups (remix album)"`, `"verve // remixed"`)
+causes the lookup to silently miss with no error, not a crash, quietly
+falling through to the normal (failing) passes — caught by computing the
+real normalized key for all 7 pairs and diffing against the map, not by
+inspection; (2) Deezer's free-text search returns zero results for certain
+multi-term or parenthetical queries — confirmed live that `"Rob Garza" +
+"Summer Is Ours (G's Dust Up)"` and even the same query with the parens
+stripped both return nothing, while the shortened `"Garza" + "Summer Is
+Ours"` returns the correct track — fixed by giving that one entry an
+explicit shortened artist/track pair instead of the literal credited
+strings. **v15 found and fixed a genuine regression this same session
+introduced.** A full 93-record re-sweep after the v14 fixes turned up a NEW
+gap that hadn't existed before this session's changes: Scott Joplin's *Red
+Back Book* — previously a documented-working classical composer-vs-performer
+case — started returning `no_match_pending_youtube`. Root cause: this
+session's earlier v12 rewrite of `tryDeezerByAlbumTitleSearch` (the
+Deezer-only corroboration rebuild, see the v12 entry above) added a branch
+that returns null whenever more than one title-matching candidate exists and
+none corroborates against the stored artist — which is exactly what happens
+for a composer with no recordings of his own (2 Deezer albums match "Red
+Back Book" by title; neither has a single track credited to "Scott
+Joplin"). Fixed by restructuring the function to first check whether ANY
+candidate corroborates before deciding whether to filter at all: only
+rejects uncorroborated candidates when corroboration has proven to be a
+real, available signal somewhere among them; otherwise falls back to
+trusting the first/best-ranked match, same as the function's pre-v12
+behavior. Verified with a 4-case local Node regression suite (Bechet
+preferred over an unrelated cover, Errol Brown sole-candidate trust, the
+Scott Joplin fallback itself, and best-guess attribution with no preview
+clip) before deploying, then live via `debug=1`: *Red Back Book* now
+correctly resolves to "Joplin: Maple Leaf Rag" by the New England
+Conservatory Ragtime Ensemble. **Final re-sweep after v13/v14/v15: 93/93
+available, 100% Deezer, 0 pending-YouTube, 0 no-preview, 0 true no-match, 0
+errors** — the first fully clean, fully-explained sweep since audio preview
+shipped. See PROJECT.md v24 for the full changelog entry.
