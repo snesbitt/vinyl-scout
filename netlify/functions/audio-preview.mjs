@@ -1,5 +1,20 @@
 // netlify/functions/audio-preview.mjs
-// version: 12
+// version: 13
+// v13 (2026-07-13): added a new Deezer pass (d), known-compilation-title
+// override, for one of the 7 pending-YouTube gaps — The Cure's "Standing on
+// a Beach" (their 1986 singles compilation). Deezer has no album under that
+// name or the UK "Staring at the Sea" title, but per Susan's suggestion, the
+// compilation's best-known single ("Boys Don't Cry") IS on Deezer, filed
+// under "Greatest Hits" and correctly credited to the real "The Cure" artist
+// profile — confirmed live before writing any code. Rather than a general
+// "guess a representative track for any missing compilation" heuristic
+// (which this file's whole history has deliberately avoided), this is a
+// small explicit per-record map (KNOWN_COMPILATION_TRACKS) — add one entry
+// per confirmed case, checked first in tryDeezer since a hit means the other
+// three passes are already known to fail for that record. Still requires
+// artistsOverlap on the returned track before accepting it (never a blank
+// check on free-text search results). See tryDeezerKnownCompilationTrack
+// below for the full mechanism.
 // v12 (2026-07-13): simplified to Deezer-only (+ YouTube last resort) per
 // Susan's explicit request. Removed the Spotify tier and the iTunes tier —
 // neither had ever contributed a single playable preview across the whole
@@ -469,9 +484,66 @@ function titlesMatchCorroborated(a, b, artist, trackArtist) {
 }
 
 // ---------------------------------------------------------------------------
-// Tier 1: Deezer — no auth required. Three-pass lookup (see the header
+// Tier 1: Deezer — no auth required. Four-pass lookup (see the header
 // comment above for the full description of each pass).
 // ---------------------------------------------------------------------------
+
+// Pass (d, added v13): known "best of"/compilation title override. Some
+// vinyl-edition compilation titles have no equivalent album on Deezer under
+// any name (Deezer's catalog is organized by original studio releases plus
+// its OWN curated compilations, which rarely match a specific vinyl-era
+// singles comp title/tracklist exactly) — but a genuinely representative
+// track from that compilation is still on Deezer, filed under a different
+// release (a "Greatest Hits", a remaster reissue, the original single,
+// etc.). Confirmed live 2026-07-13 for The Cure's "Standing on a Beach"
+// (their 1986 singles compilation): no Deezer album by that name or the UK
+// "Staring at the Sea" title exists, but "Boys Don't Cry" — the
+// compilation's best-known track — is on Deezer under "Greatest Hits",
+// correctly credited to the real "The Cure" artist profile.
+//
+// Deliberately a small, explicit, per-record map rather than a general
+// heuristic ("guess a representative track for any compilation title Deezer
+// doesn't have") — this file's whole history has been about avoiding
+// exactly that kind of unverified cleverness. Each entry here is a specific,
+// confirmed case, added one at a time as Susan identifies them. Still
+// requires the returned track's own artist to plausibly overlap ours
+// (artistsOverlap) before accepting it — this pass names a KNOWN track, not
+// a blank check to accept whatever Deezer's free-text search returns first.
+var KNOWN_COMPILATION_TRACKS = {
+  "the cure|standing on a beach": "Boys Don't Cry",
+};
+
+async function tryDeezerKnownCompilationTrack(artist, title) {
+  const key = normalizeTitle(artist) + "|" + normalizeTitle(title);
+  const knownTrack = KNOWN_COMPILATION_TRACKS[key];
+  if (!knownTrack) return null;
+
+  const q = new URLSearchParams();
+  q.set("q", artist + " " + knownTrack);
+  q.set("limit", "25");
+
+  const res = await fetch("https://api.deezer.com/search?" + q.toString());
+  if (!res.ok) throw new Error("Deezer search returned HTTP " + res.status);
+  const data = await res.json();
+  const items = Array.isArray(data && data.data) ? data.data : [];
+
+  const matches = items.filter(function (t) {
+    return t && t.artist && t.preview && titlesMatch(t.title, knownTrack, artist) && artistsOverlap(t.artist.name, artist);
+  });
+  if (!matches.length) return null;
+
+  matches.sort(function (a, b) { return (b.rank || 0) - (a.rank || 0); });
+  const best = matches[0];
+
+  return {
+    provider: "deezer",
+    name: best.title || null,
+    artists: (best.artist && best.artist.name) || null,
+    preview_url: best.preview || null,
+    external_url: best.link || null,
+    popularity: (typeof best.rank === "number") ? best.rank : null,
+  };
+}
 
 // Pass (a): fast free-text track search. NOT field-filtered (artist:""
 // album:"") — empirically much more forgiving of naming differences between
@@ -762,6 +834,13 @@ async function tryDeezerByAlbumTitleSearch(title, artist) {
 }
 
 async function tryDeezer(artist, title) {
+  // Pass (d): known-compilation-title override — checked first since a hit
+  // here means we already know the other three passes will fail (the album
+  // title itself isn't on Deezer under any name). See
+  // tryDeezerKnownCompilationTrack above.
+  const knownTrack = await tryDeezerKnownCompilationTrack(artist, title);
+  if (knownTrack && knownTrack.preview_url) return knownTrack;
+
   // "Various Artists"-style placeholders carry no real identity to
   // corroborate a match against — pass (a)'s free-text filter and pass (b)'s
   // artist-catalog walk both ultimately rely on titlesMatch's loose
@@ -771,7 +850,7 @@ async function tryDeezer(artist, title) {
   // search instead. Never corroborated against "Various Artists" itself —
   // that string carries no real identity to check against.
   if (isGenericArtist(artist)) {
-    return await tryDeezerByAlbumTitleSearch(title, null);
+    return knownTrack || await tryDeezerByAlbumTitleSearch(title, null);
   }
 
   const freeText = await tryDeezerFreeText(artist, title);
@@ -783,7 +862,7 @@ async function tryDeezer(artist, title) {
   const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, artist);
   if (byAlbumTitle && byAlbumTitle.preview_url) return byAlbumTitle;
 
-  return freeText || byCatalog || byAlbumTitle || null;
+  return knownTrack || freeText || byCatalog || byAlbumTitle || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -955,7 +1034,7 @@ export default async (req) => {
   // genuine catalog absence without needing server log access. Read-only,
   // adds a `_debug` key to the normal response, changes no behavior.
   const debugMode = url.searchParams.get("debug") === "1";
-  const debug = debugMode ? { deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, youtube: {} } : null;
+  const debug = debugMode ? { deezerKnownTrack: {}, deezerFreeText: {}, deezerCatalog: {}, deezerAlbumTitle: {}, youtube: {} } : null;
 
   // Tier 1: Deezer — the sole preview source as of v12 (see header comment).
   // Artist corroboration for pass (c) now happens entirely within Deezer's
@@ -963,16 +1042,19 @@ export default async (req) => {
   let deezerTrack = null;
   try {
     if (debug) {
+      const knownTrack = await tryDeezerKnownCompilationTrack(artist, title);
+      debug.deezerKnownTrack = { track: knownTrack };
       const freeText = await tryDeezerFreeText(artist, title);
       debug.deezerFreeText = { track: freeText };
       const byCatalog = await tryDeezerByArtistCatalog(artist, title);
       debug.deezerCatalog = { track: byCatalog };
       const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, isGenericArtist(artist) ? null : artist);
       debug.deezerAlbumTitle = { track: byAlbumTitle };
-      deezerTrack = (freeText && freeText.preview_url) ? freeText
+      deezerTrack = (knownTrack && knownTrack.preview_url) ? knownTrack
+        : (freeText && freeText.preview_url) ? freeText
         : (byCatalog && byCatalog.preview_url) ? byCatalog
         : (byAlbumTitle && byAlbumTitle.preview_url) ? byAlbumTitle
-        : (freeText || byCatalog || byAlbumTitle || null);
+        : (knownTrack || freeText || byCatalog || byAlbumTitle || null);
     } else {
       deezerTrack = await tryDeezer(artist, title);
     }
