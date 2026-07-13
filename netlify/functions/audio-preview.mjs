@@ -1,5 +1,30 @@
 // netlify/functions/audio-preview.mjs
-// version: 14
+// version: 15
+// v15 (2026-07-13): fixed a real regression in tryDeezerByAlbumTitleSearch
+// found during the post-v14 full 93-record re-sweep — Scott Joplin's "Red
+// Back Book" (previously resolving fine) started returning no_match. Root
+// cause: two Deezer albums match this title (the genuine New England
+// Conservatory Ragtime Ensemble recording, and an unrelated Busoni piece
+// that happens to share "Red"/"Book"), and NEITHER has a single track
+// credited to "Scott Joplin" himself — he died in 1917 and made no
+// recordings, so corroborating against his own name can never succeed no
+// matter which album is right. The v12 corroboration logic treated
+// "multiple candidates, zero corroborated" as "skip both, refuse to guess,"
+// which wrongly rejected the correct album. Fixed by restructuring the
+// function to check ONE question first — did corroboration succeed on ANY
+// candidate at all? — before deciding whether to filter: if yes (the
+// original Sidney Bechet/Cyrille Aimée case, where Bechet's own recording
+// IS corroborated), only the corroborated candidate(s) are trusted, same as
+// before; if no corroboration succeeds anywhere (composer/producer/
+// backing-band-credit cases: Beethoven, Karajan, Scott Joplin, Errol Brown
+// & The Revolutionaries, The Scientist), falls back to trusting the first/
+// best-ranked candidate uncorroborated — the same behavior this pass had
+// before per-track corroboration existed. Verified with 4 local regression
+// tests (Bechet-preferred, Errol-Brown-sole-candidate, the new Joplin
+// fallback case, and best-guess-no-preview) before deploying. Re-ran the
+// full 93-record sweep after deploy: 93/93 resolve (92 available + 1
+// correctly pending-YouTube), 0 errors, 0 unexplained gaps — see PROJECT.md
+// v24 for the full changelog and final tally.
 // v14 (2026-07-13): extended the v13 known-compilation-track override to
 // the other 6 pending-YouTube titles, per Susan's direct follow-up ("use
 // this tactic for the other 8 albums"). Researched each compilation's real
@@ -865,40 +890,55 @@ async function tryDeezerByAlbumTitleSearch(title, artist) {
   const albumMatches = albums.filter(function (a) { return a && titlesMatchStrict(a.title, title); });
   if (!albumMatches.length) return null;
 
-  // When more than one release shares this title, try the artist-overlapping
-  // candidate(s) first.
-  let ordered = albumMatches;
-  if (albumMatches.length > 1 && artist) {
-    const overlapping = albumMatches.filter(function (a) {
-      return artistsOverlap((a.artist && a.artist.name) || "", artist);
-    });
-    if (overlapping.length) {
-      const rest = albumMatches.filter(function (a) { return overlapping.indexOf(a) === -1; });
-      ordered = overlapping.concat(rest);
-    }
-  }
-
-  let bestGuess = null; // best plausible match found so far, even with no preview
-  for (const albumMatch of ordered) {
+  // Fetch every matching candidate's tracklist up front (rather than
+  // deciding candidate-by-candidate) so we can answer one question first:
+  // is artist corroboration even POSSIBLE for this query at all? Fixed
+  // 2026-07-13 after a real regression found live: Scott Joplin's "Red Back
+  // Book" matched two Deezer albums by title (the genuine New England
+  // Conservatory Ragtime Ensemble recording, and an unrelated Busoni piece
+  // that happens to share "Red"/"Book"), and NEITHER has a single track
+  // credited to "Scott Joplin" — he died in 1917 and made no recordings, so
+  // corroboration against his own name can never succeed no matter which
+  // album is right. The earlier version of this function treated "multiple
+  // candidates, zero corroborated" as "skip both, refuse to guess," which
+  // wrongly rejected the correct album. The fix: only start rejecting
+  // uncorroborated candidates once corroboration has proven to be a REAL,
+  // available signal (i.e., at least one candidate somewhere has a
+  // genuinely matching track) — this is exactly what still catches the
+  // original Sidney Bechet/Cyrille Aimée bug (Bechet's own recording IS
+  // corroborated, so Aimée's uncorroborated cover is correctly skipped).
+  // When corroboration never succeeds anywhere, fall back to trusting the
+  // first (best-ranked, by Deezer's own relevance order) candidate
+  // uncorroborated — the same behavior this pass had before per-track
+  // corroboration existed at all, which is what correctly serves the two
+  // legitimate producer/backing-band-credit cases (Errol Brown & The
+  // Revolutionaries, The Scientist) and every classical composer-vs-
+  // performer case (Beethoven, Karajan, Scott Joplin).
+  const candidates = [];
+  for (const albumMatch of albumMatches) {
     const tracksRes = await fetch("https://api.deezer.com/album/" + albumMatch.id + "/tracks");
     if (!tracksRes.ok) continue;
     const tracksData = await tracksRes.json();
     const tracks = Array.isArray(tracksData && tracksData.data) ? tracksData.data : [];
     if (!tracks.length) continue;
+    candidates.push({ albumMatch: albumMatch, tracks: tracks });
+  }
+  if (!candidates.length) return null;
 
-    let pool = tracks;
-    if (artist) {
-      const corroborated = tracks.filter(function (t) {
-        const credited = (t.artist && t.artist.name) || (albumMatch.artist && albumMatch.artist.name) || "";
-        return artistsOverlap(credited, artist);
-      });
-      if (corroborated.length) {
-        pool = corroborated;
-      } else if (ordered.length > 1) {
-        continue; // an alternative candidate exists — don't guess wrong here
-      }
-      // else: sole candidate, no corroborated track — fall through and trust
-      // it uncorroborated (preserves the producer/backing-band-credit cases).
+  function creditedArtist(track, candidate) {
+    return (track.artist && track.artist.name) || (candidate.albumMatch.artist && candidate.albumMatch.artist.name) || "";
+  }
+
+  const anyCorroborated = !!artist && candidates.some(function (c) {
+    return c.tracks.some(function (t) { return artistsOverlap(creditedArtist(t, c), artist); });
+  });
+
+  let bestGuess = null; // best plausible match found so far, even with no preview
+  for (const c of candidates) {
+    let pool = c.tracks;
+    if (artist && anyCorroborated) {
+      pool = c.tracks.filter(function (t) { return artistsOverlap(creditedArtist(t, c), artist); });
+      if (!pool.length) continue; // corroboration is available and this candidate doesn't have it — skip
     }
 
     const withPreview = pool.filter(function (t) { return t && t.preview; });
@@ -911,7 +951,7 @@ async function tryDeezerByAlbumTitleSearch(title, artist) {
     const match = {
       provider: "deezer",
       name: best.title || null,
-      artists: (best.artist && best.artist.name) || (albumMatch.artist && albumMatch.artist.name) || null,
+      artists: (best.artist && best.artist.name) || (c.albumMatch.artist && c.albumMatch.artist.name) || null,
       preview_url: best.preview || null,
       external_url: best.link || null,
       popularity: (typeof best.rank === "number") ? best.rank : null,
