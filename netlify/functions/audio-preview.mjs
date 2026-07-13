@@ -572,14 +572,25 @@ function titlesMatchCorroborated(a, b, artist, trackArtist) {
 //     punctuation/title variant that also independently trips the
 //     specificity guard in tryDeezerByAlbumTitleSearch ("verve" alone is
 //     the only non-generic word left after "remixed" is stripped).
+// Map keys MUST be pre-normalized the same way normalizeTitle() would
+// process them (lowercase, punctuation stripped to single spaces, trimmed)
+// since the lookup below builds its key by calling normalizeTitle on the
+// live artist/title — e.g. "Ellington '65" -> "ellington 65" (apostrophe
+// dropped), "The Dust Ups (Remix Album)" -> "the dust ups remix album"
+// (parens dropped), "Verve // Remixed" -> "verve remixed" (slashes
+// dropped). Getting this wrong silently no-ops the whole override (falls
+// through to the normal passes, which is exactly why v14's first deploy of
+// the Ellington/Garza entries below missed on both — caught immediately via
+// a live debug=1 check after deploy, fixed same day, no separate version
+// bump since this was corrected before the sweep/report went out).
 var KNOWN_COMPILATION_TRACKS = {
   "the cure|standing on a beach": "Boys Don't Cry",
-  "duke ellington|ellington '65": "Hello Dolly",
+  "duke ellington|ellington 65": "Hello Dolly",
   "maria callas|the incomparable maria callas": "Casta Diva",
-  "rob garza|the dust ups (remix album)": "Summer Is Ours (G's Dust Up)",
+  "rob garza|the dust ups remix album": "Summer Is Ours (G's Dust Up)",
   "the swingle singers|christmastime": "Jingle Bells",
   "various artists|the blues volume 2": { track: "Got My Mojo Working", artist: "Muddy Waters" },
-  "various|verve // remixed": { track: "Spanish Grease", artist: "Willie Bobo" },
+  "various|verve remixed": { track: "Spanish Grease", artist: "Willie Bobo" },
 };
 
 async function tryDeezerKnownCompilationTrack(artist, title) {
