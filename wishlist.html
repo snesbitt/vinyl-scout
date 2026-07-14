@@ -11,7 +11,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css?v=25" />
   <style>
-    /* Wishlist — version: 14. Paginated at 20 items/page (Susan's ask,
+    /* Wishlist — version: 15. Phase 4 extension: audio preview clips, per
+       Susan's request (roadmap.html previously listed this as "a possible
+       follow-up, not yet built"). Reuses the same /api/audio/preview
+       endpoint and payload shape the catalog detail modal already uses
+       (see app.js buildAudioBlock/playPreview, netlify/functions/
+       audio-preview.mjs) — Deezer first, YouTube last-resort fallback, same
+       graceful-degradation messages. Each row gets a compact play/pause
+       button (.wl-play); tapping it expands an inline panel below that row
+       (.wl-audio-panel) reusing the SAME .detail__audio-* classes already
+       defined in style.css, so no new shared CSS was needed for the player
+       itself — only the row-level play button and panel container are
+       page-scoped here. Only one preview plays at a time across the whole
+       page: starting a new one stops whatever was already playing, and
+       changing pages / adding / deleting also stops the active preview
+       first (since render() fully replaces #wl-list's innerHTML, and a
+       detached <audio>/<iframe> element does NOT auto-pause on removal —
+       confirmed this is a real gotcha, not hypothetical, matching the same
+       reasoning as detail__audio's "paused when the modal closes" comment
+       in app.js).
+       v14. Paginated at 20 items/page (Susan's ask,
        2026-07-12 — the list had grown to 70+ items after a Spotify playlist
        review added 16 new records). Prev/Next controls + "Page X of Y",
        matching the app's existing minimal typographic style (mono, uppercase,
@@ -55,6 +74,12 @@
     .wl-pager button:hover:not(:disabled) { border-color: var(--ink-faint); color: var(--ink); }
     .wl-pager button:disabled { opacity: 0.35; cursor: default; }
     .wl-pager__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); white-space: nowrap; }
+    .wl-play { font-family: var(--mono); font-size: 12px; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); width: 36px; height: 36px; min-width: 36px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; -webkit-tap-highlight-color: transparent; transition: border-color 100ms, color 100ms; }
+    .wl-play:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+    .wl-play:disabled { opacity: 0.6; cursor: progress; }
+    .wl-play.is-playing { border-color: var(--accent); color: var(--accent); }
+    .wl-audio-panel { margin: 0 0 5px; padding: 10px 12px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 3px 3px; background: var(--surface); }
+    .wl-audio-panel[hidden] { display: none; }
     @media (max-width: 720px) { .wl-wrap { padding: 0 18px 64px; } }
   </style>
 </head>
@@ -107,6 +132,7 @@
   var items = [];
   var PAGE_SIZE = 20;
   var currentPage = 1;
+  var activePreviewId = null;
 
   async function load() {
     try {
@@ -131,7 +157,104 @@
       + '<button type="button" id="wl-next"' + (currentPage >= totalPages ? ' disabled' : '') + '>Next ›</button>';
   }
 
+  // Removing a playing <audio>/<iframe> from the DOM does NOT auto-pause it
+  // (a real gotcha, confirmed — detached media elements keep playing) —
+  // render() fully replaces #wl-list's innerHTML on every load/add/delete/
+  // page-change, so any active preview must be stopped first, every time.
+  function stopPreview(id) {
+    var panel = $('wl-audio-' + id);
+    if (panel) {
+      var player = panel.querySelector('audio, iframe');
+      if (player) {
+        if (player.tagName === 'IFRAME') { try { player.src = ''; } catch (e) {} }
+        else { try { player.pause(); } catch (e) {} }
+      }
+      panel.hidden = true;
+      panel.innerHTML = '';
+    }
+    var btn = document.querySelector('.wl-play[data-id="' + id + '"]');
+    if (btn) { btn.classList.remove('is-playing'); btn.disabled = false; btn.textContent = '▶'; btn.setAttribute('aria-label', 'Play preview'); }
+    if (activePreviewId === id) activePreviewId = null;
+  }
+
+  async function togglePreview(id, artist, title, btn) {
+    if (activePreviewId === id) { stopPreview(id); return; }
+    if (activePreviewId) stopPreview(activePreviewId);
+
+    var panel = $('wl-audio-' + id);
+    activePreviewId = id;
+    btn.disabled = true;
+    btn.textContent = '…';
+    if (panel) { panel.hidden = false; panel.innerHTML = '<p class="detail__audio-empty">Looking up…</p>'; }
+
+    try {
+      var qs = '?artist=' + encodeURIComponent(artist) + '&title=' + encodeURIComponent(title);
+      var res = await fetch('/api/audio/preview' + qs);
+      var payload;
+      try { payload = await res.json(); } catch (_) { payload = { error: 'HTTP ' + res.status }; }
+
+      if (!res.ok) {
+        var msg = (payload && payload.error) || ('HTTP ' + res.status);
+        if (panel) panel.innerHTML = '<p class="detail__audio-error">' + esc(msg) + '</p>';
+        activePreviewId = null;
+        btn.disabled = false; btn.textContent = '▶';
+        return;
+      }
+
+      var providerNames = { deezer: 'Deezer', youtube: 'YouTube' };
+      var providerLabel = providerNames[payload.provider] || null;
+
+      if (!payload.available) {
+        var note = payload.reason === 'not_configured'
+          ? 'Audio preview isn’t set up yet.'
+          : payload.reason === 'no_preview'
+            ? 'No preview clip available for this track.'
+            : payload.reason === 'no_match_pending_youtube'
+              ? 'Not found on Deezer — a YouTube fallback is planned but not turned on yet.'
+              : 'No matching track found — checked Deezer and YouTube.';
+        var t2 = payload.track || {};
+        var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
+          ? '<a class="detail__audio-spotify-link" href="' + esc(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + esc(providerLabel) + ' ↗</a>'
+          : '';
+        var label2 = [t2.artists, t2.name].filter(Boolean).join(' — ');
+        if (panel) {
+          panel.innerHTML = ''
+            + (label2 ? '<p class="detail__audio-track">' + esc(label2) + '</p>' : '')
+            + '<p class="detail__audio-empty">' + esc(note) + '</p>'
+            + link;
+        }
+        activePreviewId = null;
+        btn.disabled = false; btn.textContent = '▶';
+        return;
+      }
+
+      var t = payload.track || {};
+      var label = [t.artists, t.name].filter(Boolean).join(' — ');
+      var playerHtml = (payload.provider === 'youtube' && t.embed_url)
+        ? '<iframe class="detail__audio-player detail__audio-youtube" '
+          + 'src="' + esc(t.embed_url) + '" '
+          + 'title="YouTube preview" frameborder="0" '
+          + 'allow="autoplay; encrypted-media" allowfullscreen></iframe>'
+        : '<audio class="detail__audio-player" controls autoplay preload="auto" src="' + esc(t.preview_url) + '"></audio>';
+      if (panel) {
+        panel.innerHTML = ''
+          + (label ? '<p class="detail__audio-track">' + esc(label) + '</p>' : '')
+          + playerHtml
+          + (providerLabel ? '<p class="detail__audio-provider">via ' + esc(providerLabel) + '</p>' : '');
+      }
+      btn.disabled = false;
+      btn.classList.add('is-playing');
+      btn.textContent = '⏸';
+      btn.setAttribute('aria-label', 'Stop preview');
+    } catch (err) {
+      if (panel) panel.innerHTML = '<p class="detail__audio-error">Network error: ' + esc(err.message) + '</p>';
+      activePreviewId = null;
+      btn.disabled = false; btn.textContent = '▶';
+    }
+  }
+
   function render() {
+    if (activePreviewId) stopPreview(activePreviewId);
     var list = $('wl-list');
     if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet — add the first record below.</div>'; renderPager(0); return; }
     items.sort(function (a, b) { return (a.artist || '').toLowerCase().localeCompare((b.artist || '').toLowerCase()); });
@@ -153,10 +276,12 @@
         + (w.cover_url ? '<img class="wl-thumb" src="' + esc(w.cover_url) + '" alt="" loading="lazy">' : '<span class="wl-thumb" aria-hidden="true"></span>')
         + '<span class="wl-who"><span class="wl-artist">' + esc(w.artist) + '</span> — <span class="wl-title">' + esc(w.title) + '</span>'
         + '</span>'
+        + '<button type="button" class="wl-play" data-id="' + esc(w.id) + '" data-artist="' + esc(w.artist) + '" data-title="' + esc(w.title) + '" aria-label="Play preview" title="Play preview">▶</button>'
         + '<span class="wl-nums">' + nums.join(' · ')
         + ' · <a href="' + link + '" target="_blank" rel="noopener">see listings</a>'
         + '<button class="wl-del" data-id="' + esc(w.id) + '" aria-label="Remove">×</button></span>'
-        + '</div>';
+        + '</div>'
+        + '<div class="wl-audio-panel" id="wl-audio-' + esc(w.id) + '" hidden></div>';
     }).join('');
 
     renderPager(totalPages);
@@ -235,8 +360,10 @@
   document.addEventListener('DOMContentLoaded', function () {
     $('f-add').addEventListener('click', addItem);
     $('wl-list').addEventListener('click', function (e) {
-      var btn = e.target.closest && e.target.closest('.wl-del');
-      if (btn && btn.dataset.id) delItem(btn.dataset.id);
+      var delBtn = e.target.closest && e.target.closest('.wl-del');
+      if (delBtn && delBtn.dataset.id) { delItem(delBtn.dataset.id); return; }
+      var playBtn = e.target.closest && e.target.closest('.wl-play');
+      if (playBtn && playBtn.dataset.id) { togglePreview(playBtn.dataset.id, playBtn.dataset.artist || '', playBtn.dataset.title || '', playBtn); return; }
     });
     $('wl-pager').addEventListener('click', function (e) {
       if (e.target && e.target.id === 'wl-prev' && !e.target.disabled) { currentPage--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
