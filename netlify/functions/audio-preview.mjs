@@ -1,5 +1,41 @@
 // netlify/functions/audio-preview.mjs
-// version: 15
+// version: 16
+// v16 (2026-07-14): wishlist coverage sweep, per Susan's request for 100%
+// wishlist preview coverage (this endpoint already served wishlist.html as
+// well as the catalog detail modal — same code, no separate wishlist path).
+// Audited all 73 wishlist items live: 69/73 already resolved correctly, 4
+// gaps found, all fixed.
+// Three were genuine "filed under a different release" cases, same shape as
+// the original 7 catalog gaps, fixed via new KNOWN_COMPILATION_TRACKS
+// entries (each confirmed against Deezer's raw API before adding, per this
+// file's standing discipline): Dimitri From Paris x Sister Sledge's "Le
+// Chic Remix" box -> Sister Sledge's "Thinking of You (Dimitri from Paris
+// Remix)", the exact track the wishlist title itself names; Statik Sound
+// System's "Revolutionary Pilot" -> the track IS correctly credited to
+// Statik Sound System on Deezer, just filed under the album "DJ-Kicks:
+// Kruder & Dorfmeister" rather than any album called "Revolutionary Pilot",
+// so album-title matching could never find it; "Sergei Rachmaninoff -
+// Fantasia" -> this wishlist entry is genuinely mislabeled, not just hard
+// to find — the actual paired piece on this kind of LP is Vaughan Williams'
+// "Fantasia on a Theme by Thomas Tallis", a different composer entirely
+// (confirmed via Discogs), so no query under "Rachmaninoff" could ever
+// succeed.
+// The fourth (Adele - "25") was a real matching-logic bug, not a content
+// gap — one of the best-selling albums ever, obviously on Deezer, but
+// tryDeezerByArtistCatalog's /search/artist?q=Adele call doesn't return the
+// real Adele in its results at all (confirmed live: it returns four small,
+// unrelated artists sharing that name instead, even at limit=15), so the
+// artist-catalog walk never reached her real discography no matter how
+// well the rest of the matching logic worked. Fixed generally (not just for
+// Adele) by supplementing /search/artist's candidate pool with whatever
+// artist a same-query free-text TRACK search turns up, gated by
+// artistsOverlap so an unrelated artist can never slip in this way — a
+// track search for "Adele 25" correctly surfaces her real track ("Skyfall"),
+// proving Deezer's track-relevance ranking knows exactly who she is even
+// though the dedicated artist-search endpoint doesn't rank her sensibly for
+// a bare "Adele" query. This is a best-effort supplement only: the original
+// /search/artist candidates are tried exactly as before if it finds
+// nothing, so no previously-working match can regress from this change.
 // v15 (2026-07-13): fixed a real regression in tryDeezerByAlbumTitleSearch
 // found during the post-v14 full 93-record re-sweep — Scott Joplin's "Red
 // Back Book" (previously resolving fine) started returning no_match. Root
@@ -625,6 +661,42 @@ var KNOWN_COMPILATION_TRACKS = {
   "the swingle singers|christmastime": "Jingle Bells",
   "various artists|the blues volume 2": { track: "Got My Mojo Working", artist: "Muddy Waters" },
   "various|verve remixed": { track: "Spanish Grease", artist: "Willie Bobo" },
+  // Added 2026-07-14 — wishlist 4-gap sweep (Susan asked for 100% wishlist
+  // preview coverage). Same discipline as above: each confirmed live against
+  // Deezer's real API (raw JSON, not just an availability count) before
+  // being added.
+  // "Le Chic Remix" (2x12" box) isn't its own Deezer album under any name —
+  // the wishlist title itself names the specific track ("incl. Thinking Of
+  // You remixes"). Confirmed live: Deezer track 7571446, "Thinking of You
+  // (Dimitri from Paris Remix)", correctly credited to the real Sister
+  // Sledge artist profile (id 2397), has a working preview. Object form
+  // because our stored artist "Dimitri From Paris × Sister Sledge" won't
+  // reliably free-text search as one string (same class of issue as the
+  // Rob Garza entry above) — search/corroborate against "Sister Sledge"
+  // alone instead.
+  "dimitri from paris sister sledge|le chic remix 2 12 incl thinking of you remixes": { track: "Thinking of You", artist: "Sister Sledge" },
+  // "Revolutionary Pilot" is a real, correctly-credited-to-"Statik Sound
+  // System" Deezer track (confirmed live: track id 3925820451/3925820271,
+  // artist id 10155, has a preview) — it's just filed under the album
+  // "DJ-Kicks: Kruder & Dorfmeister", not any album called "Revolutionary
+  // Pilot", so the normal album-title-matching passes can never find it no
+  // matter how well artist search behaves. Plain string form since the
+  // track's own credited artist genuinely IS our stored "Statik Sound
+  // System" — no substitute artist needed.
+  "statik sound system|revolutionary pilot": "Revolutionary Pilot",
+  // This wishlist entry is genuinely mislabeled, not just hard to find: the
+  // real piece paired on this kind of LP is Vaughan Williams' "Fantasia on
+  // a Theme by Thomas Tallis" — a different composer entirely, not a
+  // Rachmaninoff work (confirmed via Discogs: the actual release couples
+  // Rachmaninoff's "The Isle of the Dead" with Vaughan Williams' "Fantasia
+  // on a Theme by Thomas Tallis"). Searching "Sergei Rachmaninoff" +
+  // "Fantasia" can never find this on Deezer under any circumstances since
+  // the composer name itself is wrong. Confirmed live: Deezer track
+  // 66242715, credited to performer "Iona Brown" (classical catalogs credit
+  // the performer, not the composer — same pattern as the existing
+  // Beethoven->Barenboim handling elsewhere in this file), has a working
+  // preview.
+  "sergei rachmaninoff|fantasia": { track: "Vaughan Williams: Fantasia on a Theme by Thomas Tallis", artist: "Iona Brown" },
 };
 
 async function tryDeezerKnownCompilationTrack(artist, title) {
@@ -749,11 +821,45 @@ async function tryDeezerFreeText(artist, title) {
 async function tryDeezerByArtistCatalog(artist, title) {
   const artistSearch = new URLSearchParams();
   artistSearch.set("q", artist);
-  artistSearch.set("limit", "5");
+  artistSearch.set("limit", "15");
   const artistRes = await fetch("https://api.deezer.com/search/artist?" + artistSearch.toString());
   if (!artistRes.ok) throw new Error("Deezer artist search returned HTTP " + artistRes.status);
   const artistData = await artistRes.json();
-  const candidates = Array.isArray(artistData && artistData.data) ? artistData.data : [];
+  let candidates = Array.isArray(artistData && artistData.data) ? artistData.data : [];
+
+  // Deezer's own /search/artist ranking is not always popularity-ordered —
+  // confirmed live 2026-07-14: querying "Adele" returns four small,
+  // unrelated artists who happen to share that name (nb_fan 60 / 1,312 /
+  // 11,489 / and one more) and never the real global Adele at all, even at
+  // limit=15. Meanwhile a plain track search for "Adele 25" correctly
+  // surfaces her real track ("Skyfall") — so Deezer's track search knows
+  // exactly who she is, it's specifically /search/artist's ranking that's
+  // unreliable for common names. Fix: supplement the candidate pool with
+  // whatever artist a quick free-text TRACK search turns up for the same
+  // query, gated by artistsOverlap so this never introduces an unrelated
+  // artist. This is a best-effort addition only — if it fails or finds
+  // nothing, the original /search/artist candidates are used exactly as
+  // before, so no existing working match can regress.
+  try {
+    const trackSearch = new URLSearchParams();
+    trackSearch.set("q", artist + " " + title);
+    trackSearch.set("limit", "10");
+    const trackRes = await fetch("https://api.deezer.com/search?" + trackSearch.toString());
+    if (trackRes.ok) {
+      const trackData = await trackRes.json();
+      const items = Array.isArray(trackData && trackData.data) ? trackData.data : [];
+      const seen = new Set(candidates.map(function (c) { return c && c.id; }));
+      for (const t of items) {
+        if (t && t.artist && t.artist.id && !seen.has(t.artist.id) && artistsOverlap(t.artist.name, artist)) {
+          seen.add(t.artist.id);
+          candidates = candidates.concat([{ id: t.artist.id, name: t.artist.name }]);
+        }
+      }
+    }
+  } catch (e) {
+    // Best-effort supplement only — never let this extra lookup block the
+    // normal /search/artist candidates from being tried below.
+  }
 
   for (const candidate of candidates) {
     if (!candidate || !candidate.id) continue;
