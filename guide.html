@@ -156,20 +156,19 @@
     <p class="article__kicker">How-to · replicate this for any collection ·<br>July 2026</p>
     <h1>A catalog that looks after itself</h1>
     <p class="article__lede">
-      Six steps to a catalog with an agent running it — pricing itself, backing
-      itself up, and telling you when something's wrong, making the calls a
-      script can't. Follow them in order; each one is useful on its own even if
-      you stop there. The same recipe works for all kinds of collections such as
-      books, watches, wine, or shoes.
+      Six steps to a catalog with an agent running it — pricing itself,
+      backing itself up, and flagging when something's wrong. Follow them in
+      order; each is useful on its own. The same recipe works for books,
+      watches, wine, or shoes.
     </p>
 
     <div class="field-note">
       <p class="field-note__kicker">Field note</p>
       <p>
-        This site's catalog has been lost twice — once to a bad edit, once to a
-        broken deploy. Both times it was back within a day, because the automation
-        below already existed. That's the argument for building all six steps, not
-        just the ones that seem fun.
+        This catalog has been lost twice — once to a bad edit, once to a
+        broken deploy — and back within a day both times, because the
+        automation below already existed. Build all six steps, not just the
+        fun ones.
       </p>
     </div>
 
@@ -188,13 +187,12 @@
       Four modes, four jobs. Use <strong>Chat</strong> to decide what to build —
       which fields to track, which grading system to use, drafting text like this
       page. Use <strong>the terminal</strong> (Claude Code) to build it — the API,
-      the storage, and the backup function were written there, session by session,
-      with each deploy reviewed before it shipped. Use <strong>Cowork</strong> to
-      maintain it day to day — it works with files and a browser, and it shipped
-      this very page and adjusted the gallery layout without a terminal ever
-      opening. Use <strong>scheduled tasks</strong> for anything you'd otherwise
-      have to remember — weekly price refreshes, nightly backups, the daily check.
-      A feature typically moves through all four, left to right.
+      storage, and backup function were all written there, reviewed before each
+      deploy. Use <strong>Cowork</strong> to maintain it day to day — it works
+      with files and a browser, and shipped this very page without a terminal
+      ever opening. Use <strong>scheduled tasks</strong> for anything you'd
+      rather not remember — weekly price refreshes, nightly backups, the daily
+      check. A feature typically moves through all four, left to right.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -297,50 +295,49 @@
 
     <p class="model-rule">
       <strong>Rule of thumb:</strong> default to Sonnet. Drop to Haiku for
-      anything scheduled or read-only — it runs often, so the savings add up.
-      Reach for Opus only when getting it wrong is costly. Save Fable for the
-      writing that represents you, not the code running quietly in the
-      background.
+      anything scheduled or read-only, where the savings add up. Reach for
+      Opus when getting it wrong would be costly. Save Fable for the writing
+      that represents you, not the code running quietly in the background.
     </p>
 
     <h2 id="step-02"><span class="article__num">02</span>Start with the data</h2>
     <p>
-      Tell Claude what you collect and which fields matter — condition, year, what you
-      paid, what it's worth now. From that description it can build a spreadsheet or a
-      small site like this one. An existing messy list is a fine starting point;
-      cleaning it up is the kind of chore Claude handles well. Plan on an afternoon,
-      most of it spent entering items.
+      Tell Claude what you collect and which fields matter — condition, year,
+      what you paid, what it's worth now. From that it can build a spreadsheet
+      or a small site like this one. An existing messy list is a fine starting
+      point; Claude handles the cleanup well. Plan on an afternoon, mostly
+      spent entering items.
     </p>
 
     <h2 id="step-03"><span class="article__num">03</span>Add market prices</h2>
     <p>
-      A <em>scheduled task</em> — a saved instruction that runs on its own, weekly in
-      this case — looks up marketplace prices through a small server function that
-      talks to Discogs (eBay sold listings cover most other hobbies) and stores low,
-      median, and high next to each item. The catalog header now shows a running
-      total, around €2,200 at the moment.
+      A <em>scheduled task</em> — a saved instruction that runs weekly on its
+      own — looks up marketplace prices through a small server function
+      talking to Discogs (eBay sold listings cover most other hobbies), and
+      stores low, median, and high next to each item. The catalog header
+      shows a running total, around €2,200 at the moment.
     </p>
     <p>
-      Expect a few bad matches in the first runs. Each one needs to be pointed at the
-      right listing once; after that they stay fixed.
+      Expect a few bad matches at first. Point each one at the right listing
+      once, and it stays fixed.
     </p>
 
     <h2 id="step-04"><span class="article__num">04</span>Automate nightly backups</h2>
     <p>
-      Every night, a function commits the full catalog as a dated JSON file to the
-      site's GitHub repository — the same place the code lives. Recovery after the
-      second data loss consisted of pasting the previous day's file back in: about
-      ten minutes of work.
+      Every night, a function commits the full catalog as a dated JSON file
+      to the same GitHub repository the code lives in. Recovery after the
+      second data loss was pasting the previous day's file back in — about
+      ten minutes.
     </p>
 
     <h2 id="step-05"><span class="article__num">05</span>Build a daily health check</h2>
     <p>
       The last piece is a daily check that <strong>only reads, never writes</strong>.
-      It counts the records, verifies the prices are still present, confirms last
-      night's backup landed in GitHub, and compares the live catalog against it. When
-      everything is fine it reports one line. When something is off, it says what's
-      missing, what it expected, and which file to restore from. It deliberately has
-      no ability to change anything — repairs stay manual.
+      It counts the records, verifies prices are present, confirms last
+      night's backup landed in GitHub, and compares the live catalog against
+      it. Fine, and it reports one line; off, and it says what's missing and
+      which file to restore from. It has no ability to change anything —
+      repairs stay manual.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -367,12 +364,12 @@
     <h2 id="step-06"><span class="article__num">06</span>Keep the plumbing ordinary</h2>
     <p>
       The plumbing is deliberately ordinary. The code lives in a plain
-      <strong>GitHub</strong> repository, and pushing a change there is the entire
-      deploy process — <strong>Netlify</strong> notices the push and rebuilds the site
-      in under a minute. Netlify also hosts the records in its storage and runs the
-      small server functions: the public API, the Discogs price lookup, and the
-      nightly backup that writes back into GitHub. Every piece is free-tier, and none
-      of it is precious — any part could be swapped out without touching the rest.
+      <strong>GitHub</strong> repository, and pushing a change there is the
+      entire deploy process — <strong>Netlify</strong> notices and rebuilds
+      the site in under a minute. Netlify also hosts the records and runs the
+      server functions: the public API, the Discogs lookup, and the nightly
+      backup that writes back into GitHub. Every piece is free-tier, and none
+      of it is precious.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -436,30 +433,28 @@
     <p class="article__closing-kicker">Field notes</p>
     <h2 id="field-notes" style="margin-top:0;">What we'd pass on</h2>
     <p>
-      Build in the order above — each step is useful even if you stop there. And
-      expect the early stretch to be slower than the pitch. For the first months of
-      this project, most of the time went into debugging: a new feature would arrive
-      with mistakes in it, fixing one thing would quietly break another, and every
-      fix meant publishing the site again just to test it. Both catalog losses date
-      from that period.
+      Build in the order above — each step is useful on its own. Expect the
+      early stretch to be slower than the pitch: for the first months, most
+      of the time went into debugging, one fix quietly breaking another,
+      every fix meaning a fresh deploy just to test it. Both catalog losses
+      date from that period.
     </p>
     <p>
-      Two changes shortened that loop more than anything else: moving the day-to-day
-      work into Cowork, and newer versions of Claude — this page was written and
-      shipped by Fable. Changes now tend to work on the first try, and they get
-      checked on the live site before being called done. What used to be an afternoon
-      of back-and-forth is usually minutes, and the daily check has mostly had quiet
-      mornings to report since.
+      Two changes shortened that loop more than anything else: moving
+      day-to-day work into Cowork, and newer versions of Claude — this page
+      was written and shipped by Fable. Changes now tend to work the first
+      try, and get checked live before being called done. An afternoon of
+      back-and-forth is usually minutes now, and the daily check has had
+      mostly quiet mornings since.
     </p>
     <p>
-      The rest of what we'd pass on: make one small change at a time, so when
-      something breaks you know exactly what caused it. Keep the automatic jobs
-      read-only — on this site, the jobs allowed to write are the ones that have
-      caused incidents. Write down how the whole thing works on a page like
-      <a href="/about.html">About</a>, because every new working session starts by
-      reading it. And accept that the first version of anything will be wrong in
-      some small way; the backups and the daily check exist so a mistake costs a
-      day, not the collection.
+      The rest: make one small change at a time, so when something breaks
+      you know what caused it. Keep automatic jobs read-only — on this site,
+      every incident traces back to a job that could write. Write down how
+      the whole thing works on a page like <a href="/about.html">About</a>,
+      since every new session starts there. And accept the first version of
+      anything will be wrong somehow; the backups and daily check exist so a
+      mistake costs a day, not the collection.
     </p>
   </article>
 
