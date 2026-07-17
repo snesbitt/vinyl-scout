@@ -96,8 +96,9 @@ await check('discogs lookup wired', async () => {
   ok('GET /api/discogs/lookup (no params) → 400 (endpoint reachable)');
 });
 
-// 6. Audio preview endpoint is wired (Phase 4 — multi-provider: Spotify ->
-// Deezer -> iTunes; see netlify/functions/audio-preview.mjs).
+// 6. Audio preview endpoint is wired (Phase 4 — Deezer-primary, with a
+// known-track override map and a YouTube last resort; see
+// netlify/functions/audio-preview.mjs).
 await check('audio preview wired', async () => {
   const res = await fetch(BASE + '/api/audio/preview?artist=Test&title=Test');
   assert(res.ok, 'GET /api/audio/preview returned ' + res.status);
