@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=25" />
+  <link rel="stylesheet" href="/style.css?v=26" />
   <style>
     /* Guide-page-only additions: stepper nav, field-note aside, model grid.
        Scoped to this page only — nothing here touches style.css. */
@@ -153,22 +153,25 @@
   </header>
 
   <article class="article">
-    <p class="article__kicker">How-to · replicate this for any collection ·<br>July 2026</p>
-    <h1>A catalog that looks after itself</h1>
+    <p class="article__kicker">A governance brief · built to be replicated ·<br>July 2026</p>
+    <h1>A system of record that governs itself</h1>
     <p class="article__lede">
-      Six steps to a catalog with an agent running it — pricing itself,
-      backing itself up, and flagging when something's wrong. Follow them in
-      order; each is useful on its own. The same recipe works for books,
-      watches, wine, or shoes.
+      Six steps to a system of record built on the same principles that
+      govern data at any scale: accountability for what is collected,
+      verification that it remains accurate, and a defined path to recovery
+      when it doesn't. Follow them in sequence — each stands on its own —
+      and the same architecture holds for books, watches, wine, or shoes.
     </p>
 
     <div class="field-note">
       <p class="field-note__kicker">Field note</p>
       <p>
-        This catalog has been lost twice — once to a bad edit, once to a
-        broken deploy — and back within a day both times, because the
-        automation below already existed. Build all six steps, not just the
-        fun ones.
+        This system has failed twice — once through a bad edit, once
+        through a broken deploy — and both times was recovered within a
+        day, because the governance layer described below was already in
+        place before it was needed. Build all six steps. Trust in a system
+        isn't restored by the steps you found interesting; it's restored
+        by the ones you were tempted to skip.
       </p>
     </div>
 
@@ -182,17 +185,24 @@
       <li><a href="#field-notes">Field notes</a></li>
     </ul>
 
-    <h2 id="step-01"><span class="article__num">01</span>Pick your tools — and size the model to the job</h2>
+    <h2 id="step-01"><span class="article__num">01</span>Match the tool — and the model — to what the job requires</h2>
     <p>
-      Four modes, four jobs. Use <strong>Chat</strong> to decide what to build —
-      which fields to track, which grading system to use, drafting text like this
-      page. Use <strong>the terminal</strong> (Claude Code) to build it — the API,
-      storage, and backup function were all written there, reviewed before each
-      deploy. Use <strong>Cowork</strong> to maintain it day to day — it works
-      with files and a browser, and shipped this very page without a terminal
-      ever opening. Use <strong>scheduled tasks</strong> for anything you'd
-      rather not remember — weekly price refreshes, nightly backups, the daily
-      check. A feature typically moves through all four, left to right.
+      Four operating modes, four distinct responsibilities — the same
+      separation of duties that governs any well-run data function, scaled
+      down to one person and one collection. <strong>Chat</strong> is where
+      decisions get made: which fields to track, which grading standard to
+      apply, how to describe the thing in language a reader can trust —
+      this page among them. <strong>The terminal</strong> (Claude Code) is
+      where the system gets built: the API, the storage layer, and the
+      backup function were all written there, and every deploy was
+      reviewed before it shipped. <strong>Cowork</strong> is where the
+      system is maintained day to day — it operates on files and a
+      browser, and it shipped this very page without a terminal session
+      ever opening. <strong>Scheduled tasks</strong> carry the
+      responsibilities no one should have to remember: the weekly price
+      refresh, the nightly backup, the daily integrity check. A capability
+      typically moves through all four in sequence, left to right, gaining
+      a layer of accountability at each stage.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -239,16 +249,17 @@
         </g>
       </svg>
       <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
-        Which mode for which job.
+        Which mode carries which responsibility.
       </figcaption>
     </figure>
 
     <p>
-      The mode decides <em>where</em> the work happens. Separately, decide
-      <em>how much model</em> it needs — not every task deserves the same
-      horsepower, and running routine jobs on a heavier model than they need
-      is cost and time spent on nothing. Four tiers, roughly in order of what
-      they cost to run:
+      Mode determines <em>where</em> the work happens. A separate,
+      equally deliberate decision determines <em>how much model</em> that
+      work warrants — not every task carries the same risk, and assigning
+      more capability than a task requires is resource spent without a
+      corresponding return. Four tiers, ordered roughly by what they cost
+      to run:
     </p>
 
     <div class="model-grid">
@@ -256,88 +267,101 @@
         <p class="model-card__name">Haiku</p>
         <p class="model-card__tag">routine · read-only · high frequency</p>
         <p class="model-card__desc">
-          Fast and cheap — right for anything that runs on its own and doesn't
-          need much judgment. On this project it runs the nightly backup and
-          the daily health check.
+          The right tier for low-risk, high-frequency work that requires
+          little judgment and produces no side effects. On this system it
+          runs the nightly backup and the daily integrity check — jobs
+          that need to execute reliably, not creatively.
         </p>
       </div>
       <div class="model-card model-card--sonnet">
         <p class="model-card__name">Sonnet</p>
         <p class="model-card__tag">the default</p>
         <p class="model-card__desc">
-          The right starting point for almost everything: an API endpoint, a
-          typical bug fix, a normal Cowork session. Most of steps 02–06 below
-          were built at this level. Default here unless a task clearly needs
-          more or less.
+          The appropriate baseline for the majority of the work: an API
+          endpoint, an ordinary bug fix, a standard Cowork session. Most of
+          steps 02 through 06 below were built at this tier. Absent a
+          clear reason to move up or down, this is where the work belongs.
         </p>
       </div>
       <div class="model-card model-card--opus">
         <p class="model-card__name">Opus</p>
         <p class="model-card__tag">hard problems · high stakes</p>
         <p class="model-card__desc">
-          Reach for this when a mistake would be expensive or the reasoning
-          is genuinely hard — a schema decision, a bug that crosses several
-          files. The no-bulk-delete rule below came out of a conversation at
-          this level, after a data-loss incident.
+          Reserved for decisions where an error carries real cost, or
+          where the reasoning genuinely spans several dimensions — a
+          schema decision, a defect that crosses multiple files. The
+          no-bulk-delete rule below was established at this tier, in the
+          direct aftermath of a data-loss incident.
         </p>
       </div>
       <div class="model-card model-card--fable">
         <p class="model-card__name">Fable</p>
         <p class="model-card__tag">narrative &amp; prose · public-facing</p>
         <p class="model-card__desc">
-          For words a real audience will read — a guide like this one, a
-          product page. Not needed for the plumbing: a project like this one
-          runs mostly on Sonnet and Haiku, and reaches for Fable only on the
-          rare page meant to be read, not run.
+          For language a real audience will encounter — a guide such as
+          this one, a public-facing page. Unnecessary for the
+          infrastructure itself: a system like this runs predominantly on
+          Sonnet and Haiku, and calls on Fable only for the rare page
+          meant to be read, not run.
         </p>
       </div>
     </div>
 
     <p class="model-rule">
-      <strong>Rule of thumb:</strong> default to Sonnet. Drop to Haiku for
-      anything scheduled or read-only, where the savings add up. Reach for
-      Opus when getting it wrong would be costly. Save Fable for the writing
-      that represents you, not the code running quietly in the background.
+      <strong>The governing principle:</strong> default to Sonnet. Step
+      down to Haiku for anything scheduled or read-only, where the
+      efficiency compounds over time. Step up to Opus when the cost of
+      error is meaningful. Reserve Fable for the writing that represents
+      you publicly, not the code operating quietly underneath it.
     </p>
 
-    <h2 id="step-02"><span class="article__num">02</span>Start with the data</h2>
+    <h2 id="step-02"><span class="article__num">02</span>Establish the data foundation</h2>
     <p>
-      Tell Claude what you collect and which fields matter — condition, year,
-      what you paid, what it's worth now. From that it can build a spreadsheet
-      or a small site like this one. An existing messy list is a fine starting
-      point; Claude handles the cleanup well. Plan on an afternoon, mostly
-      spent entering items.
+      Define, at the outset, what is being collected and which attributes
+      actually matter — condition, year, purchase price, current worth.
+      That definition is the foundation everything downstream stands on;
+      from it, Claude can build a spreadsheet or a small site like this
+      one. An existing list, however disorganized, is an entirely adequate
+      starting point — the cleanup itself is straightforward work. Budget
+      an afternoon, most of it spent entering items, not designing the
+      schema.
     </p>
 
-    <h2 id="step-03"><span class="article__num">03</span>Add market prices</h2>
+    <h2 id="step-03"><span class="article__num">03</span>Bring in an external valuation feed</h2>
     <p>
-      A <em>scheduled task</em> — a saved instruction that runs weekly on its
-      own — looks up marketplace prices through a small server function
-      talking to Discogs (eBay sold listings cover most other hobbies), and
-      stores low, median, and high next to each item. The catalog header
-      shows a running total, around €2,200 at the moment.
+      A <em>scheduled task</em> — a standing instruction that executes
+      weekly without intervention — retrieves marketplace prices through a
+      small server function connected to Discogs (eBay's sold-listings
+      data serves the same purpose for most other collecting categories),
+      and records a low, median, and high figure against each item. The
+      catalog's running total currently stands at roughly €2,200 — a
+      number that carries weight only because the process behind it is
+      verifiable.
     </p>
     <p>
-      Expect a few bad matches at first. Point each one at the right listing
-      once, and it stays fixed.
-    </p>
-
-    <h2 id="step-04"><span class="article__num">04</span>Automate nightly backups</h2>
-    <p>
-      Every night, a function commits the full catalog as a dated JSON file
-      to the same GitHub repository the code lives in. Recovery after the
-      second data loss was pasting the previous day's file back in — about
-      ten minutes.
+      Expect a handful of mismatches early on. Correct each one against
+      the right listing a single time, and the correction holds.
     </p>
 
-    <h2 id="step-05"><span class="article__num">05</span>Build a daily health check</h2>
+    <h2 id="step-04"><span class="article__num">04</span>Build recoverability into the system</h2>
     <p>
-      The last piece is a daily check that <strong>only reads, never writes</strong>.
-      It counts the records, verifies prices are present, confirms last
-      night's backup landed in GitHub, and compares the live catalog against
-      it. Fine, and it reports one line; off, and it says what's missing and
-      which file to restore from. It has no ability to change anything —
-      repairs stay manual.
+      Every night, a function commits the complete catalog as a dated JSON
+      file to the same GitHub repository that holds the code. Recovery is
+      not theoretical: after the second data-loss incident, restoring the
+      collection meant pasting the previous day's file back in — a process
+      that took about ten minutes.
+    </p>
+
+    <h2 id="step-05"><span class="article__num">05</span>Institute a daily integrity check</h2>
+    <p>
+      The final safeguard is a daily check that <strong>reads and never
+      writes</strong> — a distinction that matters more than it sounds. It
+      counts the records, confirms prices are present, verifies that the
+      prior night's backup landed in GitHub, and reconciles the live
+      catalog against it. When everything holds, it reports a single line.
+      When it doesn't, it states precisely what is missing and which file
+      to restore from. It has no authority to alter anything itself —
+      remediation stays a human decision.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -357,19 +381,21 @@
         </g>
       </svg>
       <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
-        The two kinds of report the daily check produces.
+        The two outcomes the daily check produces.
       </figcaption>
     </figure>
 
-    <h2 id="step-06"><span class="article__num">06</span>Keep the plumbing ordinary</h2>
+    <h2 id="step-06"><span class="article__num">06</span>Keep the infrastructure ordinary, and accountable</h2>
     <p>
-      The plumbing is deliberately ordinary. The code lives in a plain
-      <strong>GitHub</strong> repository, and pushing a change there is the
-      entire deploy process — <strong>Netlify</strong> notices and rebuilds
-      the site in under a minute. Netlify also hosts the records and runs the
-      server functions: the public API, the Discogs lookup, and the nightly
-      backup that writes back into GitHub. Every piece is free-tier, and none
-      of it is precious.
+      The infrastructure is deliberately unremarkable. The code lives in
+      an ordinary <strong>GitHub</strong> repository, and pushing a change
+      there constitutes the entire deployment process —
+      <strong>Netlify</strong> detects it and rebuilds the site in under a
+      minute. Netlify also hosts the records and runs the server-side
+      functions: the public API, the Discogs lookup, and the nightly
+      backup that writes back into GitHub. Every component runs on a free
+      tier, and none of it is treated as irreplaceable — the resilience
+      comes from the process, not from any single piece surviving.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -424,37 +450,27 @@
         </g>
       </svg>
       <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
-        The whole system. Solid arrows ship code; dashed ones move or check data.
+        The full system. Solid arrows carry code; dashed arrows move or verify data.
       </figcaption>
     </figure>
 
     <div class="article__divider"></div>
 
     <p class="article__closing-kicker">Field notes</p>
-    <h2 id="field-notes" style="margin-top:0;">What we'd pass on</h2>
+    <h2 id="field-notes" style="margin-top:0;">What we would advise</h2>
     <p>
-      Build in the order above — each step is useful on its own. Expect the
-      early stretch to be slower than the pitch: for the first months, most
-      of the time went into debugging, one fix quietly breaking another,
-      every fix meaning a fresh deploy just to test it. Both catalog losses
-      date from that period.
+      Build in this order — each step stands on its own. The early period
+      ran slower than any pitch implies: most effort went into debugging,
+      one fix breaking another, each fix demanding a fresh deploy to
+      confirm it. Both data-loss incidents date from that period.
     </p>
     <p>
-      Two changes shortened that loop more than anything else: moving
-      day-to-day work into Cowork, and newer versions of Claude — this page
-      was written and shipped by Fable. Changes now tend to work the first
-      try, and get checked live before being called done. An afternoon of
-      back-and-forth is usually minutes now, and the daily check has had
-      mostly quiet mornings since.
-    </p>
-    <p>
-      The rest: make one small change at a time, so when something breaks
-      you know what caused it. Keep automatic jobs read-only — on this site,
-      every incident traces back to a job that could write. Write down how
-      the whole thing works on a page like <a href="/about.html">About</a>,
-      since every new session starts there. And accept the first version of
-      anything will be wrong somehow; the backups and daily check exist so a
-      mistake costs a day, not the collection.
+      The discipline that matters most: change one thing at a time, so
+      failure has a traceable cause. Keep every automated job read-only —
+      every incident here traces to a job that could write. Document how
+      the system works, as on <a href="/about.html">About</a>. Expect the
+      first version of anything to be wrong; backups and the daily check
+      exist so a mistake costs a day, not the collection.
     </p>
   </article>
 

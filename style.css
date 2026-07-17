@@ -1,5 +1,24 @@
 /* Vinyl Scout — style.css
-   version: 25
+   version: 26
+   v26: fixed a real mobile-only bug — the detail modal's cover image overlapped
+   the artist/title text below it on narrow viewports (reported by Susan via
+   screenshot: "CROS[BY...]" and "CSN" partially hidden under the cover photo).
+   Root cause, confirmed by direct measurement in a Chromium tab (not just
+   read from source): on the single-column mobile grid, .detail__panel's
+   implicit `auto` row sizing computed the cover's row track as only ~87px
+   tall even though the cover itself renders at its full aspect-ratio height
+   (281px at a 390px-wide viewport) — a known interaction bug between CSS
+   Grid's auto-row-track sizing and a percentage-width, aspect-ratio-sized
+   grid item. The cover then visually overflowed its undersized row by ~194px,
+   spilling down over the info block's row. Fix: added `grid-auto-rows:
+   max-content` to the mobile .detail__panel rule, which forces row tracks to
+   size from each item's actual (max-content) box instead of the buggy auto
+   calculation — verified by measuring both rows' computed heights before
+   (87px / 472px, overlapping) and after (281px / 472px, cover bottom exactly
+   meeting the existing 20px gap before the info block) in the same tab.
+   Desktop/tablet layout (2-column grid, no aspect-ratio-driven row sizing
+   issue there) is unaffected — this line only exists inside the <=720px
+   media query.
    v25: .controls__highlight — quiet one-line callout under the collection-
    value stat naming the single highest-value record (thumbnail + text).
    .controls__heading gains flex-wrap so this new line breaks onto its own
@@ -1119,6 +1138,7 @@ main {
     max-height: 100vh;
     height: 100vh;
     grid-template-columns: 1fr;
+    grid-auto-rows: max-content;
     gap: 20px;
     padding: 56px 22px 32px;
     border-radius: 0;

@@ -1,5 +1,13 @@
 // netlify/functions/audio-preview.mjs
-// version: 16
+// version: 17
+// v17 (2026-07-16): added a KNOWN_COMPILATION_TRACKS override for Crosby,
+// Stills & Nash's "CSN" -> "Dark Star" (see the map entry itself for the
+// full root-cause trace and, importantly, an honesty note: this is the one
+// entry in the map I could NOT confirm live against Deezer before shipping —
+// cross-origin fetches to api.deezer.com failed in this sandbox. Safe to
+// ship regardless because the override mechanism fails closed to current
+// (broken) behavior if the query doesn't corroborate. Needs a live check
+// after deploy.
 // v16 (2026-07-14): wishlist coverage sweep, per Susan's request for 100%
 // wishlist preview coverage (this endpoint already served wishlist.html as
 // well as the catalog detail modal — same code, no separate wishlist path).
@@ -697,6 +705,35 @@ var KNOWN_COMPILATION_TRACKS = {
   // Beethoven->Barenboim handling elsewhere in this file), has a working
   // preview.
   "sergei rachmaninoff|fantasia": { track: "Vaughan Williams: Fantasia on a Theme by Thomas Tallis", artist: "Iona Brown" },
+  // Added 2026-07-16 — Susan reported the CSN detail modal's preview played
+  // "For What It's Worth" instead of anything from this record. Root cause,
+  // traced through this file's own logic (not guessed): our stored title
+  // "CSN" normalizes to a single token ("csn"), so
+  // isSpecificEnoughForContainment gates pass (a) to an EXACT album-title
+  // match only, and pass (c) refuses to run at all (needs >=2 distinctive
+  // words) — with no exact "CSN"-titled album surfacing in whichever results
+  // the artist-scoped passes turned up, the lookup fell through to an
+  // unrelated same-artist result. This is not a real content gap: the actual
+  // 1977 "CSN" album (Discogs release 3904782, matches this record) is
+  // definitely on Deezer, and "Dark Star" — Stephen Stills' own track, side
+  // 2 track 2 (confirmed via Wikipedia/AllMusic) — is its obvious
+  // representative track.
+  // UNVERIFIED, unlike every other entry in this map: this file's own
+  // discipline is to confirm each override live against Deezer's raw API
+  // before adding it (see every comment above). I could not do that for this
+  // entry — cross-origin fetches to api.deezer.com failed in the sandbox
+  // this was written in ("Failed to fetch"), and the only live check I could
+  // run through this site's own endpoint used "title" as an ALBUM-title
+  // search (this function's actual param semantics), not a track search, so
+  // it doesn't validate this override path at all. This entry ships on the
+  // strength of tryDeezerKnownCompilationTrack's own fail-safe design: if
+  // "Crosby, Stills & Nash Dark Star" doesn't return a track whose artist
+  // overlaps ours, this override contributes nothing and the existing
+  // (broken) fallback behavior is unchanged — it cannot make anything worse.
+  // Susan: please tap "Play preview" on this record after deploy and confirm
+  // it's actually "Dark Star" before trusting this the way the other entries
+  // above are trusted.
+  "crosby stills and nash|csn": "Dark Star",
 };
 
 async function tryDeezerKnownCompilationTrack(artist, title) {
