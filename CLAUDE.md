@@ -137,6 +137,115 @@ happens on a schedule, not just when a live session happens to be asked for
 one. If a Monday report ever says a doc wasn't fully read, that's the
 automation degrading, not an acceptable shortcut — flag it if noticed.
 
+## Weekly automation (external, Jobs A-E)
+
+This section is new (2026-07-20) — a consolidated, current-state reference
+for the external `weekly-vinyl-median-refresh` scheduled task (Mondays
+~9:08am, lives OUTSIDE this repo, in Susan's Claude app scheduled tasks —
+not a Netlify scheduled function, not anything deployable from this git
+history). Before this section existed, its full spec was only reconstructable
+by cross-referencing PROJECT.md's changelog (v6, v7, v9, v20, v21) against
+prose scattered through this file. Job letters C2, D, and E are named
+explicitly in PROJECT.md/CLAUDE.md's own text; A, B, and C are this
+section's own sequential labels for the two sub-tasks v6 describes together
+and the sync v7 introduces before v9 named its Amazon-cart sibling "C2" —
+they are not literal labels used elsewhere in the source material, and are
+called out as inferred here so this section doesn't overstate what's
+actually documented. If a job's real letter ever turns up spelled out
+somewhere this section didn't find, prefer that over the inferred order
+here.
+
+Same day, per Susan's standing goal ("pristine code, no issues, everything
+as current as possible"), the run order is **Job E, then Job A/B, then C,
+then C2, then Job D** — Job E was added explicitly "ahead of the existing
+Job D QA pass" (PROJECT.md v20), and Job D's doc-reconcile step needs
+whatever the sync jobs touched to already be current.
+
+- **Job A — record median/pricing refresh.** Re-fetches Discogs market data
+  (median/high/low/last-sold, have/want counts, rating) for every catalog
+  record via the gated `/api/discogs-pricing` endpoint (single-record
+  upserts, same as a manual run — no bulk write path). Introduced alongside
+  Job B in PROJECT.md v6.
+- **Job B — wishlist price/cover refresh.** Reads each wishlist item's
+  Discogs sell page (through a real browser session, since server-side
+  scrapes 403) and writes back `current_ask`/`price_median` via
+  `/api/wishlist`. Originally also flagged any ask ≤ the item's `max_price`
+  as a "FIND" (PROJECT.md v6) — that flagging behavior was removed at
+  Susan's request in v10 along with the max-price UI; Job B still refreshes
+  price data, it just doesn't flag matches anymore. Never touches
+  `cover_url` for items that already have one; a missing cover on a
+  manually-added item is a separate, one-time backfill class of fix (see
+  the wishlist.html v13 note above), not something this job repairs weekly.
+- **Job C — Spotify wishlist sync.** Weekly pull of Susan's "Your Top Songs"
+  playlist plus her other designated playlists (PROJECT.md v9: **not** a
+  full-library enumeration — scoped to specific playlists only, tightened
+  after an early version swept too broadly), collapses to unique albums,
+  excludes anything already owned or already wishlisted, and adds only
+  releases confirmed to exist on vinyl (Discogs lookup; digital-only
+  releases are skipped). Never deletes. Respects a persistent no-re-add
+  rule via `sync-state.json` — once Susan deletes a wishlist item, this job
+  will never re-add it, regardless of how many times it resurfaces in her
+  playlists.
+- **Job C2 — Amazon cart sync** (named explicitly in PROJECT.md v9).
+  Read-only sweep of Susan's Amazon active cart + saved-for-later, matched
+  to the specific pressing each listing names, added to the wishlist the
+  same way Job C's finds are. **Never modifies the Amazon cart itself** —
+  this is a read source, not a two-way sync.
+- **Job D — QA pass.** Two parts: (1) documentation-reconcile — changed
+  2026-07-12 from conditional ("only if something changed") to
+  **unconditional every week**: read `CLAUDE.md`, `PROJECT.md`, `README.md`,
+  `about.html`, `guide.html`, `roadmap.html` in full and fix any drift found
+  in any of them, not just the one a recent change touched (this is the
+  same discipline "Whenever Susan asks for a docs review/update" above
+  describes for a live session, now running on a schedule too — if a
+  Monday report ever says a doc wasn't fully read, that's the automation
+  degrading, not an acceptable shortcut). (2) A QA/health pass — as of Job
+  E's v20 expansion, full `scripts/smoke.mjs` assertion parity now runs
+  under Job E (see below) rather than Job D re-implementing a partial
+  subset of the same checks; Job D's own remaining job-specific health
+  checks beyond doc-reconcile aren't separately itemized in the source
+  material available to this section.
+- **Job E — code & data health checks** (PROJECT.md v20, 2026-07-12; run
+  every week, ahead of Job D). Five parts: (1) **cache-bust drift check** —
+  compares every static page's `style.css?v=`/`app.js?v=` reference against
+  the actual current version and fixes any page caught lagging (this is
+  the exact bug class that let `roadmap.html`/`about.html`/`guide.html` sit
+  on a stale `style.css?v=` for weeks — see PROJECT.md v19's E2E QA note);
+  (2) **audio-preview canary check** — re-tests a fixed set of 5 records
+  that each previously exposed a real `audio-preview.mjs` matching bug (Led
+  Zeppelin *IV*, Air *Moon Safari*, Fleetwood Mac *Rumours*, Beethoven's
+  Piano Sonatas, The Scientist), escalating to a full 93-record sweep if
+  any canary fails; (3) **YouTube key activation check** — detects whether
+  `YOUTUBE_API_KEY` has been set since the last run and, if so, auto-runs
+  the pending gap-record sweep and updates PROJECT.md/CLAUDE.md to close
+  out the "not yet set" note; as of PROJECT.md v21 (2026-07-13) it also
+  reports the pending state and affected record count every week
+  regardless of whether the key changed, so a record sitting in
+  `no_match_pending_youtube` never goes silently unmentioned again; (4)
+  **cover-art link-rot spot check** — a rotating ~12+12 sample of
+  record/wishlist cover URLs checked for actual reachability each week;
+  (5) **full smoke-test parity** — runs every assertion in
+  `scripts/smoke.mjs` directly against the live site (superseding the
+  partial subset Job D used to check on its own).
+
+**What none of Jobs A-E ever do:** bulk-delete, auto-dedup, or any write
+outside a single-record upsert through the existing gated/ungated endpoints
+those endpoints already expose (same Hard Rules as a manual/live-session
+change — see PROJECT.md's "Hard Rules" section). None of them touch the
+catalog's edit secret gate or weaken it. Job A/B/C/C2 write only through
+`/api/discogs-pricing`, `/api/wishlist`, or the Amazon/Spotify-sourced
+add path already described above — no direct Blobs-store access outside
+those endpoints.
+
+**Separate from Jobs A-E:** a **daily read-only watchdog** (PROJECT.md v6,
+approved 2026-07-04) checks record count vs. the latest backup, median
+presence, and site availability, alerting Susan on anomalies. It is not
+part of the weekly `weekly-vinyl-median-refresh` run, has no job letter of
+its own in the source material, and **never writes** under any
+circumstance — this section doesn't attempt a full spec of it since
+PROJECT.md's v6 entry is the only description found; flag to Susan if a
+fuller spec surfaces and this note should be expanded.
+
 ## Charter drift to be aware of
 
 **Local clones drift from `origin/main` here** — several automations (a
