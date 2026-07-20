@@ -15,3 +15,17 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "no-referrer"
     X-Robots-Tag = "noindex, nofollow, noarchive"
+
+# style.css / app.js are loaded with a ?v=NN cache-busting query string
+# (bump the version in index.html whenever either file changes), so it's
+# safe to cache them aggressively — a version bump is a new URL, not a
+# stale cache hit.
+[[headers]]
+  for = "/style.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
