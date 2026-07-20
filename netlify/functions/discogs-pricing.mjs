@@ -1,6 +1,26 @@
 // netlify/functions/discogs-pricing.mjs
 // Vinyl Scout — Phase 3.1: on-demand market pricing from Discogs.
 //
+// v20: SECURITY FIX — this endpoint had NO server-side auth check at all.
+//      PROJECT.md's endpoint table ("POST /api/discogs-pricing — edit-secret
+//      required") and CLAUDE.md's repo-layout comment both documented this
+//      as gated, but the code never actually verified X-Edit-Key against
+//      EDIT_SECRET — every POST here (writes a record's price_low/median/
+//      high/have/want/rating fields via a plain, unauthenticated fetch) was
+//      reachable by anyone with the URL, including through the public
+//      "Refresh pricing" button in every record's detail modal (app.js
+//      refreshPricing()). Confirmed by reading this file end to end: no
+//      `x-edit-key` / `EDIT_SECRET` reference existed anywhere before this
+//      fix. Fixed by copying records.mjs's checkWriteAuth() verbatim — same
+//      header name (X-Edit-Key), same fail-closed comparison (rejects if
+//      EDIT_SECRET is unset), same 401 JSON shape — rather than reinventing
+//      the gate, per this repo's established pattern for edit-secret checks.
+//      This does NOT touch /api/discogs/lookup (a genuinely public read,
+//      unaffected) or /api/wishlist (deliberately ungated per Susan's
+//      2026-07-11 request, unaffected, unrelated store). Verified by
+//      re-reading records.mjs's checkWriteAuth() and confirming this file's
+//      new gate matches it exactly.
+//
 // v19: failed scrapes no longer clobber stored enrichment (see updated write below).
 // v18: get the FULL Statistics block (Have, Want, Last Sold, Low/Median/High)
 //      by scraping the public release page. Discogs's documented API exposes
@@ -32,6 +52,17 @@
 import { getStore } from '@netlify/blobs';
 
 const USER_AGENT = 'VinylScout/1.0 +https://vinylscout.org';
+
+// Edit-secret gate — copied verbatim (same header, same comparison, same
+// fail-closed behavior) from records.mjs's checkWriteAuth(). This endpoint
+// writes to the same "records" store as /api/records, so it needs the exact
+// same protection; POST is inherently a write here (there is no public read
+// path in this file), so every request is gated, not just POST/DELETE.
+function checkWriteAuth(req) {
+  const expected = process.env.EDIT_SECRET;
+  const provided = req.headers.get('x-edit-key');
+  return !!(expected && provided && provided === expected);
+}
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -197,6 +228,14 @@ async function discogsFetch(url, token) {
 export default async (req, context) => {
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'POST only' }, 405);
+  }
+
+  // Gate the write. This endpoint upserts price_low/median/high/have/want/
+  // rating fields onto an existing record via the "records" store — the
+  // same store /api/records protects — so it must reject unauthenticated
+  // callers the same way. See checkWriteAuth() above.
+  if (!checkWriteAuth(req)) {
+    return jsonResponse({ error: 'unauthorized — wrong or missing edit passphrase' }, 401);
   }
 
   // Read env var. Trim. Strip accidental wrapping quotes.
