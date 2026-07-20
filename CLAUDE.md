@@ -29,7 +29,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
       backup-http.mjs    /api/backup         GET  gated (manual backup)
       backup.mjs         scheduled 09:00 UTC nightly backup (not HTTP-reachable)
       discogs-lookup.mjs /api/discogs/lookup GET ungated · pure read
-      discogs-pricing.mjs/api/discogs-pricing POST · writes record · scrapes
+      discogs-pricing.mjs/api/discogs-pricing POST gated · writes record · scrapes (see PROJECT.md v25 — no auth check at all before 2026-07-20)
       wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE UNGATED (see below)
       audio-preview.mjs  /api/audio/preview  GET ungated · pure read (audio
                          preview, multi-provider: Spotify -> Deezer -> iTunes
@@ -72,7 +72,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 
 | Var            | Used by                          | Purpose                                    | Required for           |
 |----------------|----------------------------------|--------------------------------------------|------------------------|
-| EDIT_SECRET    | records.mjs, save-cover.mjs      | Gates POST/DELETE writes (X-Edit-Key)      | All writes / covers    |
+| EDIT_SECRET    | records.mjs, save-cover.mjs, discogs-pricing.mjs | Gates POST/DELETE writes (X-Edit-Key)      | All writes / covers / pricing refresh |
 | BACKUP_SECRET  | backup-http.mjs                  | Gates manual GET /api/backup (X-Backup-Key)| Manual backup          |
 | DISCOGS_TOKEN  | discogs-lookup, discogs-pricing  | Discogs auth, server-side only             | Pressing/market lookup |
 | GITHUB_TOKEN   | save-cover, run-backup           | Commits covers + backups via GitHub API    | Covers + backups       |
