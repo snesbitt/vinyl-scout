@@ -144,7 +144,7 @@
     }
     .audit-input {
       font-family: var(--sans);
-      font-size: 14px;
+      font-size: 16px;
       border: 1px solid transparent;
       background: transparent;
       padding: 8px 10px;
@@ -152,7 +152,7 @@
       color: var(--ink);
       transition: border-color 120ms, background 120ms;
       width: 100%;
-      min-height: 36px;
+      min-height: 44px;
       -webkit-appearance: none;
     }
     .audit-input:hover { background: var(--bg-soft); }
@@ -160,17 +160,17 @@
     .audit-input.is-saving { border-color: var(--gold); }
     .audit-input.is-saved { border-color: var(--good); }
     .audit-input.is-error { border-color: var(--accent); background: rgba(181,48,38,0.06); }
-    .audit-input.js-artist { grid-area: artist; font-weight: 600; font-size: 15px; }
+    .audit-input.js-artist { grid-area: artist; font-weight: 600; }
     .audit-input.js-title { grid-area: title; color: var(--ink-soft); font-style: italic; }
-    .audit-input.js-year { grid-area: year; font-family: var(--mono); font-size: 12px; }
-    .audit-input.js-genre { grid-area: genre; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
-    .audit-input.js-notes { grid-area: notes; font-size: 13px; font-style: italic; color: var(--ink-soft); }
+    .audit-input.js-year { grid-area: year; font-family: var(--mono); }
+    .audit-input.js-genre { grid-area: genre; font-family: var(--mono); color: var(--ink-faint); }
+    .audit-input.js-notes { grid-area: notes; font-style: italic; color: var(--ink-soft); }
     /* Condition select — same visual class but its own grid slot.
        Words (e.g. "Very Good Plus") not abbreviations, so less letter-spacing. */
     .audit-select.js-condition {
       grid-area: cond;
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 16px;
       letter-spacing: 0.04em;
       border: 1px solid var(--rule);
       background: var(--surface);
@@ -178,7 +178,7 @@
       border-radius: 2px;
       color: var(--ink);
       width: 100%;
-      min-height: 36px;
+      min-height: 44px;
       transition: border-color 120ms, background 120ms;
       -webkit-appearance: none;
       appearance: none;
@@ -540,7 +540,28 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 16 (paired with style.css?v=25)
+// version: 17 (paired with style.css?v=27)
+// v17 (2026-07-20): mobile touch-target/zoom fix. .audit-input's base
+// font-size was 14px, with per-field overrides as low as 12px
+// (js-year/js-genre) and 13px (js-notes) — all under the 16px iOS Safari
+// needs to NOT auto-zoom the viewport on focus, on the one page Susan uses
+// to hand-edit records directly on her iPhone (her hardest mobile-editing
+// surface, per CLAUDE.md). .audit-select.js-condition (the Goldmine
+// condition dropdown) had the same problem at 11px. Fixed: base
+// .audit-input font-size 14px -> 16px and min-height 36px -> 44px (also
+// closes the same touch-target gap as the .chip/.vbtn/.wl-play fix in
+// style.css v27); removed the now-redundant per-field font-size overrides
+// (js-artist's 15px, js-year/js-genre's 12px, js-notes' 13px) since they'd
+// otherwise still override the new 16px base back down below the zoom
+// threshold — js-artist keeps its font-weight:600 for visual emphasis,
+// which doesn't need a larger font-size to read as distinct. Same fix
+// applied to .audit-select.js-condition (11px -> 16px, 36px -> 44px min-
+// height), even though the task that flagged this named only
+// ".audit-input and related classes" — it's the same inline-edit surface,
+// same tap-and-type interaction, same page, so leaving it out would have
+// been an inconsistent half-fix. Values match the pattern wishlist.html's
+// .wl-form input already used correctly (16px + min-height:44px) — no new
+// values invented.
 // v16: added an editable Notes field (was set at creation time via seed.html
 //      but had no way to edit or clear afterward — surfaced 2026-07-13 when
 //      Susan found a stray "artist confirmed" note on a record she didn't

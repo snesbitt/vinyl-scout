@@ -45,7 +45,7 @@
       min-height: 320px;
       padding: 18px;
       font-family: var(--mono);
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.7;
       border: 1px solid var(--rule);
       background: var(--surface);
@@ -135,7 +135,7 @@
 
     @media (max-width: 640px) {
       .seed-shell { padding: 0 18px; margin: 16px auto 60px; }
-      .seed-textarea { min-height: 240px; font-size: 16px; }
+      .seed-textarea { min-height: 240px; }
     }
   </style>
 </head>
@@ -188,7 +188,20 @@
 
 <script>
 // Vinyl Scout — seed.html
-// version: 5 (paired with style.css?v=23)
+// version: 5 (paired with style.css?v=27)
+// 2026-07-20: mobile touch-target/zoom fix (no version bump — this
+// comment block's own numbering already didn't match its most recent
+// entry below, "v17", before this edit; left that pre-existing drift
+// alone rather than guessing at a renumbering scheme out of scope for
+// this fix). .seed-textarea's font-size was 14px at the base rule — under
+// the 16px iOS Safari needs to not auto-zoom the viewport on focus. The
+// <=640px mobile media query already correctly set 16px, but that only
+// covered viewports up to 640px; an iPhone in LANDSCAPE (e.g. 852px on an
+// iPhone 15) is wider than that and would have fallen through to the
+// un-fixed 14px base rule, still triggering the zoom Susan's on mobile
+// specifically to avoid. Fixed by setting the base rule to 16px directly
+// and dropping the now-redundant duplicate in the media query. Matches the
+// pattern wishlist.html's .wl-form input already used correctly.
 // v17: plain-text "Artist - Title per line" input. The old JSON-paste flow
 // is gone; the page now parses lines and constructs the record JSON itself
 // before POSTing one at a time to /api/records. Single-record upserts only.
