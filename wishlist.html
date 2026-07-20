@@ -9,9 +9,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css?v=26" />
+  <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Wishlist — version: 15. Phase 4 extension: audio preview clips, per
+    /* Wishlist — version: 16. Mobile touch-target fix (2026-07-20): .wl-play
+       (the inline preview play/pause button on each row) was 36x36px,
+       under the 44px minimum PROJECT.md's Working Agreement specifies for
+       tap targets — bumped width/height/min-width to 44px (already
+       display:inline-flex + centered, so no alignment fix needed, unlike
+       the .chip/.vbtn fix in this same pass — see style.css v27). The
+       circular shape and icon stay the same size visually relative to the
+       larger tap area; only the invisible hit target grew.
+       version: 15. Phase 4 extension: audio preview clips, per
        Susan's request (roadmap.html previously listed this as "a possible
        follow-up, not yet built"). Reuses the same /api/audio/preview
        endpoint and payload shape the catalog detail modal already uses
@@ -74,7 +82,7 @@
     .wl-pager button:hover:not(:disabled) { border-color: var(--ink-faint); color: var(--ink); }
     .wl-pager button:disabled { opacity: 0.35; cursor: default; }
     .wl-pager__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); white-space: nowrap; }
-    .wl-play { font-family: var(--mono); font-size: 12px; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); width: 36px; height: 36px; min-width: 36px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; -webkit-tap-highlight-color: transparent; transition: border-color 100ms, color 100ms; }
+    .wl-play { font-family: var(--mono); font-size: 12px; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); width: 44px; height: 44px; min-width: 44px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; -webkit-tap-highlight-color: transparent; transition: border-color 100ms, color 100ms; }
     .wl-play:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
     .wl-play:disabled { opacity: 0.6; cursor: progress; }
     .wl-play.is-playing { border-color: var(--accent); color: var(--accent); }

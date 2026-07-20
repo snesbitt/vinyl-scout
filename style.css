@@ -1,5 +1,23 @@
 /* Vinyl Scout — style.css
-   version: 26
+   version: 27
+   v27 (2026-07-20): mobile touch-target fix. .chip (genre filter pills),
+   .vbtn (List/Gallery toggle), and wishlist.html's .wl-play (inline preview
+   button, page-scoped CSS, not in this file — bumped separately in
+   wishlist.html's own version comment) all rendered under the 44px minimum
+   this repo's own Working Agreement specifies ("tap targets >=44px") — 34px
+   at the base breakpoint, only 38px even inside the <=720px mobile query
+   where it matters most for Susan's iPhone. Fixed by raising the mobile
+   breakpoint's .chip/.vbtn min-height to 44px (box-sizing: border-box is
+   set globally, so min-height alone controls the real rendered box) and
+   adding inline-flex + centered alignment so the extra height doesn't throw
+   off vertical text centering. Deliberately scoped to the <=720px query
+   only, not the desktop/tablet base rule (still 34px) — Susan works
+   mobile-first from her phone, and PROJECT.md's working agreement frames
+   the 44px rule as a mobile-Safari concern; bumping the desktop rule too
+   would add visual bulk on pointer-driven viewports for no accessibility
+   benefit there. Padding left as-is; min-height does all the work under
+   border-box sizing, so this doesn't meaningfully change the compact
+   density of the chip row or view toggle.
    v26: fixed a real mobile-only bug — the detail modal's cover image overlapped
    the artist/title text below it on narrow viewports (reported by Susan via
    screenshot: "CROS[BY...]" and "CSN" partially hidden under the cover photo).
@@ -1095,8 +1113,8 @@ main {
     -webkit-overflow-scrolling: touch;
   }
   .controls__chips::-webkit-scrollbar { display: none; }
-  .chip { padding: 10px 14px; min-height: 38px; }
-  .vbtn { padding: 11px 16px; min-height: 38px; }
+  .chip { padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; }
+  .vbtn { padding: 11px 16px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 
   main { padding: 14px 18px 64px; }
 
