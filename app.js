@@ -518,7 +518,17 @@ el.textContent = txt;
     // v29: Phase 4 audio preview. Renders a placeholder with a Play button;
     // the actual /api/audio/preview fetch is lazy (only on tap) so opening
     // the modal never spends a lookup nobody asked for.
-    // v31: multi-provider (Spotify -> Deezer -> iTunes), see audio-preview.mjs.
+    // Stale-comment fix (2026-07-20, no functional change, no version bump
+    // — see the commit message for why): this used to say "v31: multi-
+    // provider (Spotify -> Deezer -> iTunes)", which stopped being true as
+    // of audio-preview.mjs v12 (2026-07-13) — Spotify and iTunes were both
+    // removed there (neither ever contributed a single playable preview
+    // across the whole catalog). Current architecture: Deezer (multi-pass —
+    // known-compilation override, free-text, artist-catalog walk, then a
+    // title-only pass with artist corroboration) as the sole preview
+    // source, with YouTube as a last-resort fallback (needs
+    // YOUTUBE_API_KEY) when Deezer misses entirely. See audio-preview.mjs's
+    // own header comment for the full per-pass description.
     return ''
       + '<section class="detail__audio" aria-label="Preview">'
       +   '<h3 class="detail__h3">Preview</h3>'
