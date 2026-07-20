@@ -1,5 +1,21 @@
 // netlify/functions/audio-preview.mjs
-// version: 18
+// version: 19
+// v19 (2026-07-20): exported the pure matching/scoring functions
+// (containsWholeWords, artistsOverlap, isGenericArtist,
+// tryDeezerByAlbumTitleSearch, tryDeezer) as named exports alongside the
+// existing default export, so scripts/test-audio-preview.mjs — a newly
+// committed local Node regression fixture — can exercise this file's ACTUAL
+// logic (with a mocked global.fetch, no live Deezer calls) instead of a
+// second, separately-maintained copy of it. This closes a real gap: every
+// prior matching-logic fix in this file's history (v3-v7, v11, v15, and
+// others above) mentions being "verified with a local Node regression
+// suite" before deploy, but none of those suites were ever committed —
+// scripts/smoke.mjs is the only test artifact in the repo, and it's a live
+// black-box check against the deployed site, not unit coverage of the
+// matching functions themselves. No behavior change: the default export
+// (the only thing Netlify's bundler ever invokes as the request handler)
+// is untouched; named exports are additive and inert to the deployed
+// function.
 // v18 (2026-07-20): fixed a debug/production drift bug in ?debug=1 mode.
 // The debug branch in the request handler used to call
 // tryDeezerFreeText/tryDeezerByArtistCatalog UNCONDITIONALLY, even for
@@ -1415,4 +1431,16 @@ export default async (req) => {
 
   // Both tiers genuinely tried and neither matched — a real, confirmed gap.
   return json({ available: false, reason: "no_match", provider: null, track: null, _debug: debug }, 200);
+};
+
+// Named exports for scripts/test-audio-preview.mjs (see the v19 changelog
+// note above). Netlify's bundler only ever invokes the default export as
+// the HTTP request handler, so these are inert in production — purely a
+// testing seam.
+export {
+  containsWholeWords,
+  artistsOverlap,
+  isGenericArtist,
+  tryDeezerByAlbumTitleSearch,
+  tryDeezer,
 };

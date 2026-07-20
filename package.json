@@ -6,6 +6,7 @@
   "description": "Personal vinyl cataloging agent — single-user, Netlify-hosted.",
   "scripts": {
     "check": "for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check \"$f\" || exit 1; done",
+    "test:audio-preview": "node scripts/test-audio-preview.mjs",
     "smoke": "node scripts/smoke.mjs",
     "smoke:local": "node scripts/smoke.mjs http://localhost:8888"
   },
