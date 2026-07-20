@@ -1,5 +1,11 @@
 // Vinyl Scout — app.js
-// version: 35
+// version: 36
+// v36 (2026-07-20): refreshPricing() now sends the edit passphrase (X-Edit-Key)
+// with its request, prompting once via getEditSecret() (same sessionStorage-
+// cached pattern as audit.html) -- required after discogs-pricing.mjs was
+// correctly gated server-side (2026-07-20 security fix). Before this change
+// the button would 401 for everyone, including Susan, since the client never
+// sent any credential. See PROJECT.md for the security-fix writeup.
 // v35 (2026-07-13): audio-preview.mjs v12 simplified to Deezer-only + a
 // YouTube last resort (Spotify and iTunes tiers removed — neither ever
 // contributed a playable preview across the 93-record catalog, per Susan's
@@ -134,6 +140,25 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  // v25: refreshPricing() now requires the edit secret (discogs-pricing.mjs
+  // is gated server-side as of the 2026-07-20 security fix -- previously it
+  // had no auth check at all, so anyone with the page open could trigger a
+  // write + burn Discogs API quota). This mirrors audit.html's existing
+  // getEditSecret()/clearEditSecret() pattern exactly, including the same
+  // sessionStorage key, so a passphrase entered on either page carries over
+  // within the same browser tab.
+  function getEditSecret() {
+    var s = '';
+    try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
+    if (s) return s;
+    s = prompt('Enter edit passphrase (writes are protected):') || '';
+    if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
+    return s;
+  }
+  function clearEditSecret() {
+    try { sessionStorage.removeItem('vs_edit_secret'); } catch (e) {}
   }
 
   function showError(msg) {
@@ -635,14 +660,33 @@ el.textContent = txt;
     }
 
     try {
+      var secret = getEditSecret();
+      if (!secret) {
+        if (body) {
+          body.innerHTML = '<p class="detail__prices-error">Edit passphrase required to refresh pricing.</p>';
+        }
+        btn.disabled = false;
+        btn.textContent = origBtnText;
+        return;
+      }
       var res = await fetch('/api/discogs-pricing', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Edit-Key': secret },
         body: JSON.stringify({ recordId: id })
       });
       var payload;
       try { payload = await res.json(); }
       catch (_) { payload = { error: 'HTTP ' + res.status }; }
+
+      if (res.status === 401) {
+        clearEditSecret();
+        if (body) {
+          body.innerHTML = '<p class="detail__prices-error">Unauthorized — wrong passphrase. Click Retry to try again.</p>';
+        }
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        return;
+      }
 
       if (!res.ok) {
         var msg = (payload && payload.error) || ('HTTP ' + res.status);
