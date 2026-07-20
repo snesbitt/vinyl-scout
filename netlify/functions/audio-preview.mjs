@@ -1,5 +1,24 @@
 // netlify/functions/audio-preview.mjs
-// version: 17
+// version: 18
+// v18 (2026-07-20): fixed a debug/production drift bug in ?debug=1 mode.
+// The debug branch in the request handler used to call
+// tryDeezerFreeText/tryDeezerByArtistCatalog UNCONDITIONALLY, even for
+// generic-artist ("Various Artists"/"Various"/"VA") records — but tryDeezer()
+// (what production actually calls) has always skipped both passes for
+// generic artists via the isGenericArtist() guard, specifically because
+// neither pass has a real artist identity to corroborate a title match
+// against for those records (see isGenericArtist's own comment). Net effect:
+// a debug=1 request against a generic-artist record could report a
+// DIFFERENT, less-safe candidate than production actually serves — exactly
+// backwards for a diagnostic mode whose whole purpose is showing what
+// production did. Fixed by threading an optional debugInfo param through
+// tryDeezer() itself (see its updated comment below) instead of keeping a
+// second, separately-maintained copy of the generic-artist guard in the
+// request handler — debug and production now make the literal same call.
+// No matching-logic changed, so no regression risk to any of the 93+73
+// already-resolving catalog/wishlist records; verified via a new committed
+// regression fixture, scripts/test-audio-preview.mjs, which asserts the
+// generic-artist skip-guard directly.
 // v17 (2026-07-16): added a KNOWN_COMPILATION_TRACKS override for Crosby,
 // Stills & Nash's "CSN" -> "Dark Star" (see the map entry itself for the
 // full root-cause trace and, importantly, an honesty note: this is the one
@@ -1107,12 +1126,34 @@ async function tryDeezerByAlbumTitleSearch(title, artist) {
   return bestGuess;
 }
 
-async function tryDeezer(artist, title) {
+// `debugInfo`, when provided (from ?debug=1 — see the request handler below),
+// is populated with each pass's raw result AS THEY ACTUALLY RUN, including
+// which passes were skipped. This function is now the SINGLE source of truth
+// for both production and debug mode — added 2026-07-20 after finding that
+// the debug branch used to call tryDeezerFreeText/tryDeezerByArtistCatalog
+// UNCONDITIONALLY, even for generic/"Various Artists" records, while this
+// function (what production actually serves) has always skipped both passes
+// for generic artists (see the isGenericArtist branch below — neither pass
+// has a real artist identity to corroborate against, so running them isn't
+// just wasted work, it's unsafe: exactly the false-positive class of bug the
+// GENERIC_COMPILATION_WORDS/titlesMatchStrict machinery elsewhere in this
+// file exists to prevent). That meant ?debug=1 could report a DIFFERENT,
+// less-safe match than production actually served for the same record —
+// misleading for exactly the diagnostic purpose debug mode exists for.
+// Fixed by threading debugInfo through this one function instead of keeping
+// a second, separately-maintained copy of the generic-artist guard in the
+// request handler: debug mode now always sees precisely what production
+// tried, and any pass this function legitimately skips shows up in `_debug`
+// as never having run (its debug key stays whatever debugInfo was
+// initialized to, e.g. `{}`) rather than showing a result that was never
+// actually eligible to be served.
+async function tryDeezer(artist, title, debugInfo) {
   // Pass (d): known-compilation-title override — checked first since a hit
   // here means we already know the other three passes will fail (the album
   // title itself isn't on Deezer under any name). See
   // tryDeezerKnownCompilationTrack above.
   const knownTrack = await tryDeezerKnownCompilationTrack(artist, title);
+  if (debugInfo) debugInfo.deezerKnownTrack = { track: knownTrack };
   if (knownTrack && knownTrack.preview_url) return knownTrack;
 
   // "Various Artists"-style placeholders carry no real identity to
@@ -1124,16 +1165,21 @@ async function tryDeezer(artist, title) {
   // search instead. Never corroborated against "Various Artists" itself —
   // that string carries no real identity to check against.
   if (isGenericArtist(artist)) {
-    return knownTrack || await tryDeezerByAlbumTitleSearch(title, null);
+    const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, null);
+    if (debugInfo) debugInfo.deezerAlbumTitle = { track: byAlbumTitle };
+    return knownTrack || byAlbumTitle;
   }
 
   const freeText = await tryDeezerFreeText(artist, title);
+  if (debugInfo) debugInfo.deezerFreeText = { track: freeText };
   if (freeText && freeText.preview_url) return freeText;
 
   const byCatalog = await tryDeezerByArtistCatalog(artist, title);
+  if (debugInfo) debugInfo.deezerCatalog = { track: byCatalog };
   if (byCatalog && byCatalog.preview_url) return byCatalog;
 
   const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, artist);
+  if (debugInfo) debugInfo.deezerAlbumTitle = { track: byAlbumTitle };
   if (byAlbumTitle && byAlbumTitle.preview_url) return byAlbumTitle;
 
   return knownTrack || freeText || byCatalog || byAlbumTitle || null;
@@ -1313,28 +1359,16 @@ export default async (req) => {
   // Tier 1: Deezer — the sole preview source as of v12 (see header comment).
   // Artist corroboration for pass (c) now happens entirely within Deezer's
   // own data (see tryDeezerByAlbumTitleSearch) — no Spotify signal needed.
+  // debug and non-debug modes now share the exact same call (see the v18
+  // comment on tryDeezer above) — debug mode no longer maintains its own
+  // copy of the generic-artist guard, so it can no longer drift from what
+  // production actually serves.
   let deezerTrack = null;
   try {
-    if (debug) {
-      const knownTrack = await tryDeezerKnownCompilationTrack(artist, title);
-      debug.deezerKnownTrack = { track: knownTrack };
-      const freeText = await tryDeezerFreeText(artist, title);
-      debug.deezerFreeText = { track: freeText };
-      const byCatalog = await tryDeezerByArtistCatalog(artist, title);
-      debug.deezerCatalog = { track: byCatalog };
-      const byAlbumTitle = await tryDeezerByAlbumTitleSearch(title, isGenericArtist(artist) ? null : artist);
-      debug.deezerAlbumTitle = { track: byAlbumTitle };
-      deezerTrack = (knownTrack && knownTrack.preview_url) ? knownTrack
-        : (freeText && freeText.preview_url) ? freeText
-        : (byCatalog && byCatalog.preview_url) ? byCatalog
-        : (byAlbumTitle && byAlbumTitle.preview_url) ? byAlbumTitle
-        : (knownTrack || freeText || byCatalog || byAlbumTitle || null);
-    } else {
-      deezerTrack = await tryDeezer(artist, title);
-    }
+    deezerTrack = await tryDeezer(artist, title, debug);
   } catch (e) {
     console.error("Deezer tier failed", e.message);
-    if (debug) debug.deezerFreeText.error = e.message;
+    if (debug) debug.error = e.message;
   }
 
   if (deezerTrack && deezerTrack.preview_url) {
