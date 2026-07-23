@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build Your Own · The Vinyl Scout</title>
+  <meta name="description" content="A ready-to-copy starting prompt for building a self-maintaining personal catalog with Claude. Works for any collection." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v=27" />
+  <style>
+    /* Build-Your-Own-page-only additions: prompt box, next-steps grid, need list, field note.
+       Scoped to this page only — nothing here touches style.css. */
+    .prompt-box {
+      position: relative;
+      margin: 0 0 24px;
+      padding: 20px 22px;
+      background: #22201b;
+      border: 1px solid #4a4438;
+      border-radius: 6px;
+    }
+    .prompt-box pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #efe9dc;
+    }
+    .prompt-copy {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: var(--bg);
+      color: var(--ink);
+      border: none;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .prompt-copy:hover { background: #fff; }
+
+    .next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 32px; }
+    .next-card { border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; padding: 14px 16px; background: var(--surface); }
+    .next-card__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--gold); margin-bottom: 4px; }
+    .next-card h4 { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
+    .next-card p { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+
+    .need-list { list-style: none; padding: 0; margin: 0 0 32px; }
+    .need-list li { position: relative; padding: 8px 0 8px 18px; font-size: 14px; line-height: 1.55; color: var(--ink-soft); border-bottom: 1px solid var(--rule); }
+    .need-list li:last-child { border-bottom: none; }
+    .need-list li::before { content: '—'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+
+    .field-note {
+      margin: 0 0 32px;
+      padding: 18px 22px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--gold);
+      border-radius: 2px;
+    }
+    .field-note__kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin: 0 0 8px; }
+    .field-note p { font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+
+    @media (max-width: 720px) {
+      .next-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="The Vinyl Scout — home">
+      <span class="brand__mark" aria-hidden="true">⦿</span>
+      <h1>The Vinyl Scout</h1>
+    </a>
+    <nav class="masthead__nav" aria-label="Primary">
+      <a href="/seed.html">Add</a>
+      <a href="/audit.html">Audit</a>
+      <a href="/wishlist.html">Wishlist</a>
+      <a href="/roadmap.html">Roadmap</a>
+      <a href="/guide.html">Guide</a>
+      <a href="/about.html">About</a>
+      <a href="/start.html" style="color:var(--accent)">Build Your Own</a>
+    </nav>
+  </header>
+
+  <article class="article">
+    <p class="article__kicker">Build your own · a starting point ·<br>July 2026</p>
+    <h1>Want a catalog like this, for your own collection?</h1>
+    <p class="article__lede">
+      This system started from one written request to Claude, then grew in
+      stages — a live pricing feed, nightly backups, a daily integrity
+      check — with every irreversible step held for approval along the
+      way. Below is a version of that starting request you can copy, adapt
+      to your own collection, and paste into a new Claude conversation.
+    </p>
+
+    <div class="prompt-box">
+      <button class="prompt-copy" id="vsCopyBtn" onclick="vsCopyPrompt()">Copy</button>
+      <pre id="vsPromptText">I want to build a personal catalog for my collection (records, books, watches, wine, sneakers — whatever I actually track), with a running estimate of what it's worth.
+
+Here's the pattern I want it to follow:
+1. Start from whatever list I already have, however messy, and help me turn it into a clean, structured record — one field per attribute that actually matters (condition, year, what I paid, current value).
+2. Pull live market prices on a schedule from a real source for my category (a marketplace's sold listings, an auction index, whatever fits), so the value stays current without me pricing anything by hand.
+3. Publish it as a small, real website I can check from my phone.
+4. Back the whole catalog up automatically every day, somewhere separate from the live copy — so a bad edit or a broken deploy costs a day, not the collection.
+5. Run a daily check that only reads and verifies — record count, prices present, backup landed — and tells me plainly if anything's wrong, without ever having the authority to fix it itself.
+6. Treat any bulk delete or destructive edit as something that always needs my explicit yes, no exceptions.
+
+Please help me scope this into a first small version we can finish today, tell me exactly what you'd need from me at each step (any account access, any purchase like a domain name, anything you can't do without my say-so), and don't do anything irreversible without checking with me first.</pre>
+    </div>
+
+    <div class="next-grid">
+      <div class="next-card"><div class="next-card__n">01</div><h4>Claude asks first</h4><p>Expect questions about what's actually worth tracking before anything gets built.</p></div>
+      <div class="next-card"><div class="next-card__n">02</div><h4>A first version, same session</h4><p>A working, if small, catalog is realistic to see before the conversation ends.</p></div>
+      <div class="next-card"><div class="next-card__n">03</div><h4>You approve real-world steps</h4><p>Connecting an account, spending money, or publishing something public always waits for your yes.</p></div>
+      <div class="next-card"><div class="next-card__n">04</div><h4>It grows in later passes</h4><p>The domain, the nightly backups, the daily check — all arrived after the first version, not in it. See the <a href="/roadmap.html">Roadmap</a> for the real order.</p></div>
+    </div>
+
+    <div class="field-note">
+      <p class="field-note__kicker">Worth knowing before you start</p>
+      <p>This catalog has recovered from two real failures — a bad edit and a broken deploy — both within a day, because the backup and the daily check already existed before they were needed. Build both from the start; they're the cheapest insurance in the whole system.</p>
+    </div>
+
+    <p style="font-size:13px;color:var(--ink-faint);margin-bottom:0;">Curious how this specific catalog actually works? Read the <a href="/guide.html">Guide</a>. Curious what order it was built in? Read the <a href="/roadmap.html">Roadmap</a>.</p>
+  </article>
+
+  <script>
+    function vsCopyPrompt() {
+      var text = document.getElementById('vsPromptText').textContent;
+      var btn = document.getElementById('vsCopyBtn');
+      function done(ok) {
+        if (!btn) return;
+        btn.textContent = ok ? 'Copied' : 'Select & copy manually';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 2200);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { done(false); });
+      } else {
+        done(false);
+      }
+    }
+  </script>
+
+</body>
+</html>
