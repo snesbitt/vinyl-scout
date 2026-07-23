@@ -1,0 +1,277 @@
+# Vinyl Scout — CLAUDE.md History Archive (audio-preview matching-logic detail)
+
+Moved out of `CLAUDE.md`'s "Charter drift to be aware of" section on 2026-07-23 to
+keep that file's context footprint smaller for future Claude sessions (every
+session working on this repo reads `CLAUDE.md` in full; this archive is only read
+on demand). Nothing here was deleted or altered — verbatim text, moved as-is.
+
+See `CLAUDE.md` for the current, condensed summary of where audio preview stands
+today, and `PROJECT.md` / `CHANGELOG_ARCHIVE.md` for the parallel project-wide
+version history (a separate numbering scheme from `audio-preview.mjs`'s own
+internal `version:` field referenced throughout this file).
+
+---
+
+Phase 4 (Audio Preview, `audio-preview.mjs` + the detail-modal Play button)
+was built at Susan's explicit request, ahead of the phase queue — Wishlist,
+which was actually next in line, is Phase 3 and shipped earlier (2026-07-04).
+Audio preview currently covers the collection detail modal only; wishlist
+playback was mentioned in the original roadmap sketch but is not yet built.
+`PROJECT.md` documents both as their own phases. When in doubt about what's
+actually live vs. what a phase label says, read the repo (or ask Susan)
+rather than trusting a "parked"/"planned" status by itself.
+
+Audio preview went through two implementations on 2026-07-11: an initial
+Spotify-only `spotify-preview.mjs` (retired), then `audio-preview.mjs`, which
+tries Spotify, then Deezer, then iTunes in sequence and returns whichever
+provider actually has a playable clip. This happened because Spotify's own
+`preview_url` restriction turned out to affect 100% of this catalog (0/93
+records) — see PROJECT.md's Phase 4 section for the full investigation and
+the empirical Deezer/iTunes validation behind the switch.
+
+`audio-preview.mjs` went through five further same-day matching-logic
+revisions (v3–v7) on 2026-07-11 — see PROJECT.md's Phase 4 section for the
+full changelog. The short version: don't trust an `available:true` count
+increase by itself. Every fix in that round (and every fix that will follow
+it) was verified by tracing the actual matched track back to its real Deezer
+album/artist via direct API calls, not just checking that the count went up
+— that discipline is what caught two separate wrong-track bugs (v6, v7) that
+a plain "did the number improve" check would have missed entirely, including
+one (v7) that was hiding behind a result that LOOKED like a successful fix
+from an earlier revision (v5's Led Zeppelin *IV* "recovery" was actually
+still playing the wrong track, just from a different unrelated album, until
+v6 caught it). If this file is touched again, re-run the full 93-record
+sweep (not just the specific records you're working on) after any matching-
+logic change — two of this session's regressions/bugs (v4's regression, v6's
+own discovery) were only found because of records outside the original
+target list. A local Node regression-test harness (extract the matching
+functions with `sed`, append test cases, run with plain `node`) was used
+before every deploy this session and is cheap enough to be worth recreating.
+
+`audio-preview.mjs` reached **version: 8** (2026-07-12) — added a YouTube
+tier 4, last-resort fallback for the 7 records confirmed genuinely absent
+from Spotify/Deezer/iTunes (see PROJECT.md's Phase 4 section). Needs
+`YOUTUBE_API_KEY`, which is **still not set as of 2026-07-12** (re-confirmed
+live via `_debug.youtube.configured === false`) — Susan needs to create a
+free Google Cloud Console API key herself (account/credential setup an agent
+shouldn't do unattended). Until then this tier gracefully reports "not
+configured," same pattern as Spotify when unconfigured, with zero effect on
+the other three tiers. Once the key is set, re-run the 7 gap records to
+confirm real coverage before treating this as fully closed. Unlike the other
+three tiers, YouTube returns no `preview_url` (no direct audio file) — only
+an `embed_url` that the frontend (`app.js` v32) renders as a 30-second-capped
+`<iframe>` instead of the native `<audio>` element. Bumped to **version: 9**
+same day — the "most popular track" promise is now provable rather than
+incidental: the Deezer free-text pass fetches the identified album's real,
+complete tracklist and picks the true top-`rank` track with a preview,
+instead of ranking only among whatever a relevance search happened to
+surface. Re-verified live (2026-07-12 QA sweep): Fleetwood Mac's *Rumours*
+still serves "The Chain" (Deezer's #1-ranked track); same 86/93 available,
+same 7 gaps, zero regressions.
+
+Bumped to **version: 10** (2026-07-13) after Susan hit one of the 7 known
+gaps directly — Duke Ellington's *Ellington '65* showed a bare "No matching
+track found" in the detail modal, which reads like a bug rather than a
+known, already-documented, pending-on-`YOUTUBE_API_KEY` state. Independently
+re-confirmed live before touching any code (not just trusted the existing
+doc note) that this album genuinely isn't on Deezer: walked all 5 Deezer
+"Duke Ellington" artist profiles' full album lists (43 + 44 albums on the
+two main ones) and ran a direct title search — no "Ellington '65" or
+"Ellington 65" anywhere. So this was never a matching-logic bug; the real
+bug was that "genuinely absent everywhere" and "not yet re-checked against
+YouTube because the key isn't set" returned the identical generic
+`reason: "no_match"`, giving the frontend no way to tell them apart. Fix:
+a new `reason: "no_match_pending_youtube"` fires specifically when tiers
+1–3 all miss AND `YOUTUBE_API_KEY` is unset (tier 4 never actually
+attempted) — `app.js` v34 renders this as "Not found on Spotify, Deezer, or
+Apple Music — a YouTube fallback is planned but not turned on yet." instead
+of the old dead-end copy. Pure messaging fix, no matching-logic touched, so
+no regression risk to the other 86 already-resolving records (spot-checked
+Air *Moon Safari* and Fleetwood Mac *Rumours* still resolve normally after
+deploy). This also exposed a real gap in the weekly automation: Job E's
+YouTube-key-activation check (below) only ever *acted* when the key flipped
+from unset to set — it never told Susan, week over week, that the 7 gap
+records were still sitting in this pending state in the meantime. Job E's
+prompt was updated the same day to report that pending count/list every
+week regardless of whether the key changed, so this doesn't go silently
+unmentioned again.
+
+Bumped to **version: 11** (2026-07-13) after a full 93-record accuracy sweep
+run per Susan's explicit request to review the whole catalog, not just
+presence/reason-checking but whether the returned track is actually the
+right one. Found a genuine wrong-artist bug: Sidney Bechet's *Petite Fleur*
+LP was serving Cyrille Aimée's unrelated vocal cover of the same jazz
+standard, because `tryDeezerByAlbumTitleSearch` (the third of three Deezer
+passes) picked the top-ranked track matching the album title with no check
+on who actually performed it. Fix: the function now accepts an optional
+corroboration artist, and when Spotify has already found a plausible-artist
+match for the same record, filters the album's tracklist down to tracks
+whose credited artist overlaps that artist before ranking — returning
+nothing at all rather than a wrong guess if none plausibly match. Gated
+narrowly (only engages when Spotify already agrees on the artist) to avoid
+regressing two known-legitimate cases where this same pass correctly serves
+a different-looking artist on purpose: compilation-curator credits (Kruder
+& Dorfmeister's *Conversions*, correctly credited to K&D on Deezer even
+though individual tracks are by other artists) and classical
+composer-vs-performer credits (Beethoven→Barenboim, Karajan→Berliner
+Philharmoniker, Scott Joplin→New England Conservatory Ragtime Ensemble) —
+confirmed live via `debug=1` that both have `spotify: {track: null}`, so the
+new filter never engages for them. Verified with a local Node regression
+test against the real observed buggy Cyrille Aimée data before deploy. Full
+clean re-sweep of all 93 records post-fix: **85/93 available** with a
+verified plausible-artist preview, **6 correctly `no_match_pending_youtube`**
+(same list as before — The Cure, Maria Callas, Duke Ellington, Rob Garza,
+The Swingle Singers, Various *Verve // Remixed*), **2 correctly
+`no_preview`** with an accurate artist match but no playable clip (Various
+Artists' *The Blues Volume 2* → Robert Johnson's own track; Sidney Bechet's
+*Petite Fleur* → now correctly matched to Bechet's own recording, just no
+preview clip available), **0 true unexplained `no_match`**, **0 errors**.
+See PROJECT.md v22 for the full changelog entry.
+
+Bumped to **version: 12** (2026-07-13) same day, per Susan's explicit request
+("I want the previews all from Deezer"). Removed the Spotify and iTunes
+tiers entirely — across the whole 93-record catalog, neither had ever
+contributed a single playable preview (Spotify: its own `preview_url`
+restriction affects 100% of this catalog; iTunes: confirmed dead since
+2026-07-11, its legacy search endpoint unconditionally redirects to HTML).
+The only real complication: Spotify's remaining job was supplying the v11
+artist-corroboration signal that fixed the Sidney Bechet/Cyrille Aimée
+wrong-artist bug — removing it meant rebuilding that mechanism without
+Spotify. Did this entirely within Deezer's own data instead:
+`tryDeezerByAlbumTitleSearch` now considers EVERY album Deezer returns for a
+title (previously only the first), prefers whichever candidate's credited
+artist overlaps ours, and corroborates again at the track level within
+whichever album it settles on — trusting an uncorroborated match only when
+it's the sole candidate, which is exactly what keeps the two legitimate
+producer/backing-band-credit cases working (Errol Brown & The
+Revolutionaries → Deezer's "The Revolutionaries"; The Scientist → Deezer's
+"Roots Radics" — both have only one matching album on Deezer, so no
+reordering or refusal ever applies). Verified this is strictly better than
+the v11 mechanism, not just a swap: live `debug=1` check post-deploy shows
+Sidney Bechet's *Petite Fleur* now resolves to a genuine, correctly-
+attributed Deezer preview (previously it could only surface a no-clip
+Spotify-sourced attribution, since Deezer's own pass had refused to guess).
+Also preserved the "matched but no preview clip" attribution UX natively
+from Deezer's own best-guess match (returned even when no candidate has a
+playable clip) so removing Spotify doesn't silently lose that detail for
+the cases where Deezer itself does the matching.
+Full 93-record re-sweep after deploy: **84/93 available, and confirmed
+programmatically that 100% of them come from Deezer** (zero non-Deezer
+providers in the available set — directly answers Susan's ask). **9
+`no_match_pending_youtube` entries across 7 distinct titles** (the catalog
+holds two separate pressings each of *The Blues Volume 2* and
+*Christmastime*): The Cure, Maria Callas, Duke Ellington, Rob Garza, Various
+*The Blues Volume 2* (×2), The Swingle Singers *Christmastime* (×2), Various
+*Verve // Remixed*. **0 `no_preview`, 0 true `no_match`, 0 errors.** One
+disclosed, expected change: *The Blues Volume 2* moved from "matched via
+Spotify, no clip" to "pending YouTube" — Deezer's own title-search guard
+was already blocking a match for this generic-enough title independent of
+Spotify (a pre-existing limitation, not something this change introduced),
+so this is a more honest categorization, not a regression. `app.js` bumped
+to **version: 35** to match: provider-name map and no-match copy now say
+"Deezer and YouTube" instead of naming three providers, two of which no
+longer run. See PROJECT.md v23 for the full changelog entry.
+
+`app.js` reached **version: 33** / `style.css` **version: 25** (2026-07-12) —
+added a quiet one-line "Most valuable" callout under the collection-value
+stat in the controls heading, naming the single highest-priced record
+(thumbnail + artist + title + price, in the app's existing typography — no
+badge, no change to the tile grid). Deliberately restrained: Susan has twice
+pulled back from decorative additions here (the green "FIND" badge removed
+per PROJECT.md v10, and pricing/metadata stripped off gallery tiles per
+app.js v26), so this stays inside the header's existing typographic language.
+Pure client-side read of already-stored `price_median`/`price_low` — no new
+endpoint, no network call. `mostValuableRecord()` compares raw numeric price
+across all records regardless of currency (only ever displays one record's
+own price in its own currency, never sums across them).
+
+Also on 2026-07-12: `wishlist.html`'s manual-add form never called the
+Discogs lookup at all, so manually-added items got no `cover_url` unless
+Susan pasted a Discogs URL herself — confirmed live via 1/56 items affected
+(Anita Baker's "Rapture"). Fixed in `wishlist.html` v13 by having the add
+flow call `/api/discogs/lookup` itself (best-effort, never blocks the add on
+failure); the Discogs URL and Notes fields were also dropped from the form
+per Susan's request in the same pass. If a similar "some records are missing
+X" report comes in again, check whether the manual-add path independently
+duplicates whatever enrichment the automated sync paths do — this bug and
+the wishlist's separate `current_ask`/`price_median` gap (populated only by
+the external weekly scout, not by anything in this repo, so newly-added
+items always start as "NEVER SOLD" until the following Monday) are the same
+shape of problem: manual adds bypass enrichment that automated adds get for
+free.
+
+**E2E QA sweep (2026-07-12, run against the live site after the v33/v25
+highlight deploy):** all 7 static pages return 200; `/api/records` returns
+93 records with valid shape; unauthenticated `POST /api/records` and
+`POST /api/save-cover` both correctly 401; `/api/discogs/lookup` with no
+params correctly 400; `/api/audio/preview` reachable and returning a real
+Deezer preview for a generic query; noindex + X-Frame-Options headers and
+`robots.txt` disallow all present. Wishlist ungated POST/DELETE round-trip
+re-verified end-to-end (add a test item, confirm it appears, delete it,
+confirm it's gone, no junk left behind) — one early check came back
+"not found" after the previously-documented ~2.5s Blobs read-lag, but a
+slower retry (found at 2s on a second attempt) confirmed this was a one-off
+propagation blip, not a regression; both backfilled wishlist records
+(Anita Baker, Andrés Segovia) still carry their `cover_url`/`current_ask`.
+`npm run smoke` cannot run from this environment's sandboxed shell (no
+outbound access to arbitrary internet hosts) — the full smoke-test logic was
+replicated via browser-side `fetch` instead and is the source of the results
+above; if a future agent has a real shell with internet access, prefer
+running `npm run smoke` directly.
+
+`audio-preview.mjs` reached **version: 13** through **version: 15** (2026-07-13),
+closing out all 7 remaining Deezer gaps and a regression found along the way —
+**93/93 records now resolve, 100% via Deezer.** Built at Susan's explicit
+direction: "lets start with The Cure — Standing on a Beach / its a best of
+album so choose a track like boys don't cry that is on another album too via
+Deezer," then "use this tactic for the other 8 albums." **v13** added
+`KNOWN_COMPILATION_TRACKS` — a small, explicit per-record override table (not
+a general heuristic): each entry names one specific, real track by the same
+artist (or an explicitly-named different artist, for generic "Various
+Artists" credits) that IS on Deezer under a different release, researched and
+Deezer-confirmed before being added, never guessed. The Cure's *Standing on a
+Beach* now resolves via "Boys Don't Cry" from Deezer's own *Greatest Hits*.
+**v14** extended the map to the remaining 6 titles the same researched way:
+Duke Ellington's *Ellington '65* → "Hello Dolly"; Maria Callas' *The
+Incomparable Maria Callas* → "Casta Diva"; Rob Garza's *The Dust Ups* →
+"Summer Is Ours"; The Swingle Singers' *Christmastime* → "Jingle Bells";
+Various Artists' *The Blues Volume 2* → Muddy Waters' "Got My Mojo Working";
+Various' *Verve // Remixed* → Willie Bobo's "Spanish Grease." Two silent-
+failure bugs surfaced and were fixed in the same pass: (1) map keys must be
+pre-normalized exactly as `normalizeTitle()` produces them at lookup time —
+a literal apostrophe, parenthesis, or slash left in a hand-written key (e.g.
+`"ellington '65"`, `"the dust ups (remix album)"`, `"verve // remixed"`)
+causes the lookup to silently miss with no error, not a crash, quietly
+falling through to the normal (failing) passes — caught by computing the
+real normalized key for all 7 pairs and diffing against the map, not by
+inspection; (2) Deezer's free-text search returns zero results for certain
+multi-term or parenthetical queries — confirmed live that `"Rob Garza" +
+"Summer Is Ours (G's Dust Up)"` and even the same query with the parens
+stripped both return nothing, while the shortened `"Garza" + "Summer Is
+Ours"` returns the correct track — fixed by giving that one entry an
+explicit shortened artist/track pair instead of the literal credited
+strings. **v15 found and fixed a genuine regression this same session
+introduced.** A full 93-record re-sweep after the v14 fixes turned up a NEW
+gap that hadn't existed before this session's changes: Scott Joplin's *Red
+Back Book* — previously a documented-working classical composer-vs-performer
+case — started returning `no_match_pending_youtube`. Root cause: this
+session's earlier v12 rewrite of `tryDeezerByAlbumTitleSearch` (the
+Deezer-only corroboration rebuild, see the v12 entry above) added a branch
+that returns null whenever more than one title-matching candidate exists and
+none corroborates against the stored artist — which is exactly what happens
+for a composer with no recordings of his own (2 Deezer albums match "Red
+Back Book" by title; neither has a single track credited to "Scott
+Joplin"). Fixed by restructuring the function to first check whether ANY
+candidate corroborates before deciding whether to filter at all: only
+rejects uncorroborated candidates when corroboration has proven to be a
+real, available signal somewhere among them; otherwise falls back to
+trusting the first/best-ranked match, same as the function's pre-v12
+behavior. Verified with a 4-case local Node regression suite (Bechet
+preferred over an unrelated cover, Errol Brown sole-candidate trust, the
+Scott Joplin fallback itself, and best-guess attribution with no preview
+clip) before deploying, then live via `debug=1`: *Red Back Book* now
+correctly resolves to "Joplin: Maple Leaf Rag" by the New England
+Conservatory Ragtime Ensemble. **Final re-sweep after v13/v14/v15: 93/93
+available, 100% Deezer, 0 pending-YouTube, 0 no-preview, 0 true no-match, 0
+errors** — the first fully clean, fully-explained sweep since audio preview
+shipped. See PROJECT.md v24 for the full changelog entry.

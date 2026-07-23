@@ -115,16 +115,16 @@ Aesthetic: editorial / record-shop / library catalog card.
 - Paste that JSON into `/seed.html` to reseed
 - Or manually re-run the script to retry failed records
 
-### Phase 2 completion summary
+### Phase 2 completion summary (snapshot at first completion, 2026-07-01 — superseded by the current figures in the Phase 2 status line above)
 
-- **Enrichment state (final):**
+- **Enrichment state at that point:**
   - 90/92 records have Discogs release IDs
   - 89/92 have market prices (EUR/USD from Discogs marketplace)
-  - 3 unmatched or no-data releases:
+  - 3 unmatched or no-data releases at the time:
     - Bob Marley & The Wailers — In Dub: ID found (3804112) but Discogs release page returns 403 on scrape (likely a Discogs archive issue)
     - Verve Remixed — Volume 4: multiple title variations, still unmatched after title refinements
     - Tosca — J.A.C.: no pricing data on Discogs (ID matched, but no marketplace data)
-  - Collection value total: ~€1,443.73 (displayed on home page with "X of Y priced" coverage label)
+  - Collection value total at that snapshot: ~€1,443.73 (displayed on home page with "X of Y priced" coverage label). Enrichment continued after this snapshot — see the Phase 2 status line above for the current total (≈€2,178.21) and current coverage (92/92 priced).
 - **Display:** Detail modal shows Market section with pricing, copies available, community data, and ratings
 - **Backup:** Full snapshot of enriched data available at `backups/2026-07-01.json`
 

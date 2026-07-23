@@ -24,3 +24,9 @@ audit.txt
 
 # Pre-apply scratch snapshots — not the canonical daily backups
 backups/pre-apply-*.json
+
+# One-shot fix/enrichment scripts — preserved locally, not deployed (publish="." would otherwise serve these live)
+enrich-release-info.py
+fix-tosca-id.py
+vinyl-scout-reseed.sh
+vs-enrich-batch.py
