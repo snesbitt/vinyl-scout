@@ -255,64 +255,17 @@
 
     <p>
       Mode determines <em>where</em> the work happens. A separate,
-      equally deliberate decision determines <em>how much model</em> that
-      work warrants — not every task carries the same risk, and assigning
-      more capability than a task requires is resource spent without a
-      corresponding return. Four tiers, ordered roughly by what they cost
-      to run:
-    </p>
-
-    <div class="model-grid">
-      <div class="model-card model-card--haiku">
-        <p class="model-card__name">Haiku</p>
-        <p class="model-card__tag">routine · read-only · high frequency</p>
-        <p class="model-card__desc">
-          The right tier for low-risk, high-frequency work that requires
-          little judgment and produces no side effects. On this system it
-          runs the nightly backup and the daily integrity check — jobs
-          that need to execute reliably, not creatively.
-        </p>
-      </div>
-      <div class="model-card model-card--sonnet">
-        <p class="model-card__name">Sonnet</p>
-        <p class="model-card__tag">the default</p>
-        <p class="model-card__desc">
-          The appropriate baseline for the majority of the work: an API
-          endpoint, an ordinary bug fix, a standard Cowork session. Most of
-          steps 02 through 06 below were built at this tier. Absent a
-          clear reason to move up or down, this is where the work belongs.
-        </p>
-      </div>
-      <div class="model-card model-card--opus">
-        <p class="model-card__name">Opus</p>
-        <p class="model-card__tag">hard problems · high stakes</p>
-        <p class="model-card__desc">
-          Reserved for decisions where an error carries real cost, or
-          where the reasoning genuinely spans several dimensions — a
-          schema decision, a defect that crosses multiple files. The
-          no-bulk-delete rule below was established at this tier, in the
-          direct aftermath of a data-loss incident.
-        </p>
-      </div>
-      <div class="model-card model-card--fable">
-        <p class="model-card__name">Fable</p>
-        <p class="model-card__tag">narrative &amp; prose · public-facing</p>
-        <p class="model-card__desc">
-          For language a real audience will encounter — a guide such as
-          this one, a public-facing page. Unnecessary for the
-          infrastructure itself: a system like this runs predominantly on
-          Sonnet and Haiku, and calls on Fable only for the rare page
-          meant to be read, not run.
-        </p>
-      </div>
-    </div>
-
-    <p class="model-rule">
-      <strong>The governing principle:</strong> default to Sonnet. Step
-      down to Haiku for anything scheduled or read-only, where the
-      efficiency compounds over time. Step up to Opus when the cost of
-      error is meaningful. Reserve Fable for the writing that represents
-      you publicly, not the code operating quietly underneath it.
+      equally deliberate decision determines <em>how much AI capability</em>
+      that work warrants — not every task carries the same risk, and
+      assigning more capability than a task requires is resource spent
+      without a corresponding return. Routine, unsupervised work — the
+      nightly backup, the daily integrity check — runs on a fast, low-cost
+      tier; ordinary building work runs on a standard tier; the hardest
+      problems, where an error carries real cost, get the most capable
+      tier available; and writing meant for a real audience, like this
+      page, gets a tier suited to prose. The governing principle: default
+      to the standard tier, step down for anything scheduled or
+      read-only, and step up only when the cost of a mistake justifies it.
     </p>
 
     <h2 id="step-02"><span class="article__num">02</span>Establish the data foundation</h2>
@@ -329,11 +282,11 @@
 
     <h2 id="step-03"><span class="article__num">03</span>Bring in an external valuation feed</h2>
     <p>
-      A <em>scheduled task</em> — a standing instruction that executes
-      weekly without intervention — retrieves marketplace prices through a
-      small server function connected to Discogs (eBay's sold-listings
-      data serves the same purpose for most other collecting categories),
-      and records a low, median, and high figure against each item. The
+      A <em>scheduled task</em> — a standing instruction that runs weekly
+      without anyone triggering it — pulls marketplace prices from a small
+      piece of code connected to Discogs (eBay's sold-listings data serves
+      the same purpose for most other collecting categories), and records
+      a low, median, and high figure against each item. The
       catalog's running total currently stands at roughly €2,200 — a
       number that carries weight only because the process behind it is
       verifiable.
@@ -345,8 +298,8 @@
 
     <h2 id="step-04"><span class="article__num">04</span>Build recoverability into the system</h2>
     <p>
-      Every night, a function commits the complete catalog as a dated JSON
-      file to the same GitHub repository that holds the code. Recovery is
+      Every night, an automated task saves the complete catalog as a dated
+      backup file into the same GitHub repository that holds the code. Recovery is
       not theoretical: after the second data-loss incident, restoring the
       collection meant pasting the previous day's file back in — a process
       that took about ten minutes.
@@ -391,9 +344,9 @@
       an ordinary <strong>GitHub</strong> repository, and pushing a change
       there constitutes the entire deployment process —
       <strong>Netlify</strong> detects it and rebuilds the site in under a
-      minute. Netlify also hosts the records and runs the server-side
-      functions: the public API, the Discogs lookup, and the nightly
-      backup that writes back into GitHub. Every component runs on a free
+      minute. Netlify also hosts the records and quietly runs the small
+      pieces of code behind the scenes: the Discogs price lookup and the
+      nightly backup that writes back into GitHub. Every component runs on a free
       tier, and none of it is treated as irreplaceable — the resilience
       comes from the process, not from any single piece surviving.
     </p>
