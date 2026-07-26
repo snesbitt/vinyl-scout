@@ -291,3 +291,11 @@ the actual matched track back to its real Deezer album/artist, and always
 re-run the full 93-record sweep (not just the specific records touched)
 after any matching-logic change. Two separate wrong-track bugs and one
 same-session regression were only caught this way.
+
+## 2026-07-26 — self-hosted fonts
+
+Fonts live in `/fonts` (Fraunces variable latin-full normal — covers the
+SOFT axis the old Google URL requested — plus IBM Plex Sans/Mono 400–600,
+official Fontsource/IBM releases). The Google Fonts link tags are gone;
+`@font-face` is inline in index.html's head and netlify.toml serves
+`/fonts/*` immutable for a year. Don't reintroduce a Google Fonts request.
