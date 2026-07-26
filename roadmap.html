@@ -23,6 +23,14 @@
     .phase__status--future { color: var(--ink-faint); border: 1px solid var(--rule); }
     .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin: 10px 0 0; }
     .phase__covers { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 8px 0 0; }
+    .roadmap-overview { max-width: 860px; margin: 18px auto 0; padding: 0 32px; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
+    .ro-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 2px; text-decoration: none; border: 1px solid var(--rule); color: var(--ink-soft); background: var(--surface); }
+    .ro-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .ro-chip.ro-live { color: var(--good); border-color: var(--good); }
+    .ro-chip.ro-future { color: var(--ink-faint); border-color: var(--rule); }
+    .ro-dot { font-size: 8px; line-height: 1; }
+    @media (max-width: 640px) { .roadmap-overview { padding: 0 18px; margin-top: 14px; } }
+
     .roadmap-note { max-width: 860px; margin: 26px auto 0; padding: 0 32px 90px; font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.03em; color: var(--ink-faint); }
     @media (max-width: 640px) {
       .roadmap-intro, .roadmap-note { padding-left: 18px; padding-right: 18px; }
@@ -58,12 +66,23 @@
 <h2 class="collection-title">Roadmap</h2>
 
 <p class="roadmap-intro">
-  Vinyl Scout is built in deliberate phases. Phases 1&ndash;4 are live; Phases 5&ndash;6 are on the horizon. Phase 4 (Listen) is the one phase pulled forward out of order, at the owner&rsquo;s request &mdash; see the note below.
+  Vinyl Scout is built in deliberate phases. Phases 1&ndash;5 are live; Phases 6&ndash;8 are on the horizon. Phase 4 (Listen) is the one phase pulled forward out of order, at the owner&rsquo;s request &mdash; see the note below.
 </p>
+
+<nav class="roadmap-overview" aria-label="All phases at a glance">
+  <a href="#phase-1" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>1 cataloguing by photo</a>
+  <a href="#phase-2" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>2 market enrichment</a>
+  <a href="#phase-3" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>3 wishlist</a>
+  <a href="#phase-4" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>4 listen</a>
+  <a href="#phase-5" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>5 2026 reliability &amp; polish</a>
+  <a href="#phase-6" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>6 editorial polish pass</a>
+  <a href="#phase-7" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>7 iOS app</a>
+  <a href="#phase-8" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>8 close the wishlist gap</a>
+</nav>
 
 <main class="roadmap">
 
-  <section class="phase phase--live">
+  <section class="phase phase--live" id="phase-1">
     <div class="phase__rail">1</div>
     <div class="phase__body">
       <div class="phase__head">
@@ -75,7 +94,7 @@
     </div>
   </section>
 
-  <section class="phase phase--live">
+  <section class="phase phase--live" id="phase-2">
     <div class="phase__rail">2</div>
     <div class="phase__body">
       <div class="phase__head">
@@ -87,7 +106,7 @@
     </div>
   </section>
 
-  <section class="phase phase--live">
+  <section class="phase phase--live" id="phase-3">
     <div class="phase__rail">3</div>
     <div class="phase__body">
       <div class="phase__head">
@@ -99,7 +118,7 @@
     </div>
   </section>
 
-  <section class="phase phase--live">
+  <section class="phase phase--live" id="phase-4">
     <div class="phase__rail">4</div>
     <div class="phase__body">
       <div class="phase__head">
@@ -111,8 +130,20 @@
     </div>
   </section>
 
-  <section class="phase phase--future">
+  <section class="phase phase--live" id="phase-5">
     <div class="phase__rail">5</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">2026 reliability &amp; polish</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">Faster pages, a fixed cover, safer backups</p>
+      <p class="phase__covers">Fraunces and IBM Plex moved off Google Fonts onto self-hosted files with a year-long cache, so the collection loads without a request chain to Google's servers. A missing cover (Steely Dan&rsquo;s Aja, whose Cover Art Archive link had gone dead) was replaced with a verified-loading image. And a nightly-backup merge conflict &mdash; two days of automatic backups that had diverged from the fonts work on disjoint files &mdash; was resolved keeping both sides intact, rather than discarding either.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--future" id="phase-6">
+    <div class="phase__rail">6</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">Editorial polish pass</h3>
@@ -123,8 +154,8 @@
     </div>
   </section>
 
-  <section class="phase phase--future">
-    <div class="phase__rail">6</div>
+  <section class="phase phase--future" id="phase-7">
+    <div class="phase__rail">7</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">iOS app</h3>
@@ -135,8 +166,8 @@
     </div>
   </section>
 
-  <section class="phase phase--future">
-    <div class="phase__rail">7</div>
+  <section class="phase phase--future" id="phase-8">
+    <div class="phase__rail">8</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">Close the wishlist gap</h3>
