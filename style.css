@@ -1083,11 +1083,15 @@ main {
 
 /* ---------- Mobile ---------- */
 @media (max-width: 720px) {
-  .masthead { padding: 12px 18px; gap: 12px; }
+  .masthead { padding: 12px 18px; gap: 8px; flex-wrap: wrap; }
   .brand { gap: 8px; }
   .brand h1 { font-size: clamp(24px, 6.4vw, 32px); }
   .brand__mark { font-size: 18px; }
-  .masthead__nav { gap: 14px; }
+  /* Nav drops to its own full-width row instead of squeezing the brand name
+     to nothing or running off-screen: 7 links at 10px never fit beside the
+     title on a phone. flex-basis:100% forces the wrap every time, so this
+     doesn't flicker between one and two rows at in-between widths. */
+  .masthead__nav { gap: 10px 14px; flex-wrap: wrap; flex-basis: 100%; }
 
   .controls {
     grid-template-columns: 1fr;
