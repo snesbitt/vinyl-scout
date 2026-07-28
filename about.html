@@ -40,40 +40,42 @@
   <p class="article__kicker">How it works · v25 charter · July 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
-    The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
-    LPs: what's owned, what condition it's in, what each pressing is worth
-    on the secondary market, and which exact edition you own. Powered by Discogs API
-    enrichment for accurate pricing and pressing data, and an audio preview of each
-    album's most popular track (Deezer, with YouTube as a last resort for the
-    handful of releases Deezer doesn't have). No accounts, no third-party tracking,
-    no automations that quietly delete data.
+    The Vinyl Scout is a small, focused web app for tracking one person's vinyl
+    collection: what's owned, its condition, what each pressing is worth, and
+    which exact edition it is. It pulls in real pricing and pressing data from
+    Discogs, and plays a short preview of each album's most popular track. No
+    accounts, no third-party tracking, no automation that quietly deletes data.
   </p>
 
   <h2><span class="article__num">01</span>What it is</h2>
   <p>
-    A single-tenant catalog of physical records. The owner photographs covers in
-    small batches, Claude identifies artist and title from each cover, and a short
-    list of <code>Artist - Title</code> lines gets pasted into
+    A catalog for one person's records. The owner photographs covers in small
+    batches. Claude reads each cover and identifies artist and title, and a
+    short list of <code>Artist - Title</code> lines gets pasted into
     <a href="/seed.html">/seed.html</a> to register the records. Every entry
     is editable on <a href="/audit.html">/audit.html</a>.
   </p>
   <p>
     Each record is enriched with Discogs data: accurate pressing ID, marketplace prices
     (low, median, high from sales history), community ownership and wishlist counts,
-    and ratings. The current lowest price refreshes on demand (per-record button or batch script). Median/high sales history is collected browser-side, since Discogs serves release pages only to real browsers, and a refresh never overwrites it.
+    and ratings. The lowest price refreshes on demand, either one record at a time
+    or in bulk. Median and high prices come from a browser-based lookup, since
+    Discogs blocks automated requests for that data; refreshing the low price
+    never overwrites them.
   </p>
   <p>
-    The collection page itself (what you came from) is read-only: a searchable,
-    genre-filterable list or gallery. The gallery view keeps cards to cover art plus
-    artist and title only; switch to list view to see each record's Low/Median/High
-    price alongside it. The header also names the single highest-value record in
-    the collection, just below the total collection value. Tap any record for the
-    detail view, which shows the full Discogs marketplace snapshot, including the
-    community rating, and, where available, a Play button that previews the
-    album's most popular track.
+    The collection page itself, what you came from, is read-only: anyone with
+    the link can search and filter by genre, but not edit. Switch between a
+    gallery view (cover art, artist, and title) and a list view, which also
+    shows each record's low, median, and high price. The header names the
+    single highest-value record, just below the total collection value. Tap
+    any record to see the full detail: the complete Discogs snapshot, the
+    community rating, and, where available, a Play button for a preview of
+    the album's most popular track.
   </p>
 
   <h2><span class="article__num">02</span>The stack</h2>
+  <p>The plumbing, for anyone who wants it. Skip ahead if you don't.</p>
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
@@ -122,7 +124,16 @@
 
   <h2><span class="article__num">05</span>Wishlist</h2>
   <p>
-    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>. Records come from three places: added by hand (artist and title only; cover art and a Discogs reference are looked up automatically at add-time), or imported from Spotify, where a weekly sync reads the most-played albums across the owner&rsquo;s designated playlists, keeps only those on vinyl, and skips anything already owned, or imported from the owner&rsquo;s Amazon cart, which the same weekly sync reads (and never modifies). Each row shows album art, the current asking price or Discogs median sale price, and a link to current listings; a brand-new item shows no price at all until the following Monday's scout run. Adding and removing wishlist items needs no edit key; it's the one part of the site left open, since typing a passphrase on mobile every session wasn't practical for a list used this casually; the collection itself is unaffected and stays fully gated. The weekly scout refreshes prices; nothing is auto-removed, and anything deleted by hand is never auto-re-added.
+    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>, kept apart from the collection. Records arrive three ways: added by hand (cover art and a Discogs reference are looked up automatically), imported from Spotify (a weekly sync reads the owner&rsquo;s most-played albums, keeps only the ones on vinyl, and skips anything already owned), or imported from the owner&rsquo;s Amazon cart (the same weekly sync reads it, and never changes it).
+  </p>
+  <p>
+    Each row shows the album art, the current asking price or Discogs&rsquo; median sale price, and a link to current listings. A brand-new item shows no price at all until the following Monday's scout run.
+  </p>
+  <p>
+    Adding and removing items needs no edit key. It's the one part of the site left open, since typing a passphrase on mobile every session wasn't practical for a list used this casually. The collection itself stays fully gated.
+  </p>
+  <p>
+    The weekly scout refreshes prices. Nothing is auto-removed, and anything deleted by hand is never auto-re-added.
   </p>
   <p>
     A note on ordering, in the same spirit as the pricing data above: today the list sorts alphabetically by artist and nothing else. There is no ranking by value, rarity, or how long something has been on the list, and no hidden scoring behind it. A real priority system is on the roadmap; see <a href="/roadmap.html#phase-9">Phase 9</a> for what that would take.
@@ -130,26 +141,26 @@
 
   <h2><span class="article__num">06</span>Audio preview</h2>
   <p>
-    Every record's detail view has a Play button that fetches the album's most
-    popular track and plays a short preview clip in place. It looks up the track
-    on Deezer, which needs no account or API key; a small explicit list covers
-    best-of and compilation albums that aren't on Deezer under their own title
-    (a representative single from the same artist stands in instead), and
-    YouTube is a last resort for anything genuinely absent from Deezer. A small
-    credit line under the player names which source it came from. It's a pure
-    lookup (nothing is stored), and quietly says so if nothing anywhere has a
-    match or a playable clip for that particular track.
+    Every record's detail view has a Play button. It fetches the album's most
+    popular track and plays a short preview clip in place. It looks up the
+    track on Deezer first, no sign-up needed. A small hand-picked list covers
+    best-of and compilation albums that aren't on Deezer under their own
+    title, pointing to a representative single from the same artist instead.
+    YouTube is the last resort, for anything genuinely absent from Deezer. A
+    credit line under the player names the source. It's a pure lookup:
+    nothing is stored. If nothing anywhere has a match or a playable clip, it
+    says so quietly.
   </p>
 
   <h2><span class="article__num">07</span>Data & backups</h2>
   <p>
-    Every record is backed up automatically. A nightly function commits the entire
-    catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. You can
-    also trigger a backup on demand from the API.
+    Every record is backed up automatically. A nightly job commits the whole
+    catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. A
+    backup can also run on demand.
   </p>
   <p>
-    The catalog is read-only for the public (anyone can browse). Edits require a
-    shared secret key, sent as a request header. There are no user accounts.
+    The catalog is read-only for the public; anyone can browse it. Edits
+    require an edit key. There are no user accounts.
   </p>
 
 </article>
