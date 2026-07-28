@@ -395,7 +395,7 @@
         if (res.status === 401) {
           clearEditSecret();
           failed++;
-          lastError = 'Unauthorized — wrong passphrase. Reload and try again.';
+          lastError = 'Unauthorized: wrong passphrase. Reload and try again.';
           break;
         } else if (res.ok) {
           added++;
@@ -403,7 +403,7 @@
           failed++;
           var bodyTxt = '';
           try { bodyTxt = await res.text(); } catch (_) {}
-          lastError = 'HTTP ' + res.status + (bodyTxt ? ' — ' + bodyTxt.slice(0, 80) : '');
+          lastError = 'HTTP ' + res.status + (bodyTxt ? ': ' + bodyTxt.slice(0, 80) : '');
         }
       } catch (err) {
         failed++;
@@ -420,7 +420,7 @@
       preview.hidden = true;
       preview.innerHTML = '';
     } else if (added > 0) {
-      setStatus('Added ' + added + '/' + result.parsed.length + ' — ' + failed + ' failed. Last error: ' + lastError, 'error');
+      setStatus('Added ' + added + '/' + result.parsed.length + ', ' + failed + ' failed. Last error: ' + lastError, 'error');
     } else {
       setStatus('All ' + result.parsed.length + ' failed. Last error: ' + lastError, 'error');
     }

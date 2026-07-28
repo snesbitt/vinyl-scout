@@ -524,7 +524,7 @@
 </section>
 
 <div class="audit-help">
-  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up a release on Discogs by artist+title or by catalog number. Condition uses Goldmine grading — see <a href='/about#grading'>About</a>.
+  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up a release on Discogs by artist+title or by catalog number. Condition uses Goldmine grading; see <a href='/about#grading'>About</a>.
 </div>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
@@ -658,12 +658,12 @@ async function api(path, opts) {
   const res = await fetch(path, opts);
   if (res.status === 401) {
     clearEditSecret();
-    throw new Error('Unauthorized — wrong passphrase. Try again.');
+    throw new Error('Unauthorized: wrong passphrase. Try again.');
   }
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json()).error || ''; } catch (e) {}
-    throw new Error('HTTP ' + res.status + (detail ? ' — ' + detail : ''));
+    throw new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
   }
   if (res.status === 204) return null;
   return res.json();
@@ -806,7 +806,7 @@ async function saveField(id, field, raw, inputEl) {
 async function deleteRecord(id) {
   const existing = allRecords.find(function (r) { return r.id === id; });
   if (!existing) return;
-  const label = (existing.artist || '?') + ' — ' + (existing.title || '?');
+  const label = (existing.artist || '?') + ': ' + (existing.title || '?');
   if (!confirm('Delete this record?\n\n' + label + '\n\nID: ' + id)) return;
   try {
     await api('/api/records/' + encodeURIComponent(id), { method: 'DELETE' });
@@ -910,7 +910,7 @@ function openLookup(id) {
   lookupState = { id: id, candidates: [] };
   var modal = document.getElementById('lookup-modal');
   document.getElementById('lookup-title').textContent = 'Pressing lookup';
-  document.getElementById('lookup-sub').textContent = (rec.artist || '?') + ' — ' + (rec.title || '?');
+  document.getElementById('lookup-sub').textContent = (rec.artist || '?') + ': ' + (rec.title || '?');
   renderSearchControls(rec);
   modal.hidden = false;
   // Speed: if the record has artist+title, run that search immediately so
@@ -926,9 +926,9 @@ function renderSearchControls(rec) {
     + '<div class="lookup-search">'
     +   '<div class="lookup-search__row">'
     +     '<button type="button" class="lookup-search__btn js-search-meta">↻ Artist + title</button>'
-    +     '<span class="lookup-search__hint">' + escapeHtml((rec.artist || '?') + ' — ' + (rec.title || '?')) + '</span>'
+    +     '<span class="lookup-search__hint">' + escapeHtml((rec.artist || '?') + ': ' + (rec.title || '?')) + '</span>'
     +   '</div>'
-    +   '<div class="lookup-search__or">— or narrow it —</div>'
+    +   '<div class="lookup-search__or">or narrow it</div>'
     +   '<div class="lookup-search__row">'
     +     '<input type="text" id="lookup-catno" class="lookup-search__input" placeholder="Catalog # or barcode off the sleeve" autocomplete="off" spellcheck="false" inputmode="latin">'
     +     '<button type="button" class="lookup-search__btn js-search-catno">Number</button>'
@@ -996,7 +996,7 @@ function runSearch(mode, note) {
       // many sleeve numbers (distributor/reissue codes) aren't in Discogs' fields.
       // Re-run as artist+title automatically so Susan is never stranded.
       if (cands.length === 0 && attempted === 'catno' && (rec.artist || rec.title)) {
-        runSearch('meta', 'No Discogs match for that number — showing artist + title results instead.');
+        runSearch('meta', 'No Discogs match for that number: showing artist + title results instead.');
         return;
       }
       lookupState.candidates = cands;
