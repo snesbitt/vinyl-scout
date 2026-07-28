@@ -20,6 +20,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
     wishlist.html      Hunt list — add/delete are UNGATED (no edit secret, see below)
     guide.html         User-facing how-to guide
     about/roadmap.html Static info pages
+    start.html         "Build Your Own" — copyable starting prompt for replicating this project
     app.js             Frontend (vanilla IIFE). Cache-bust: // version: N
     style.css          Styles. Cache-bust via ?v=N in <link>
     netlify.toml       publish=".", functions dir, security headers, ignore cmd
@@ -32,8 +33,12 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
       discogs-pricing.mjs/api/discogs-pricing POST gated · writes record · scrapes (see PROJECT.md v25 — no auth check at all before 2026-07-20)
       wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE UNGATED (see below)
       audio-preview.mjs  /api/audio/preview  GET ungated · pure read (audio
-                         preview, multi-provider: Spotify -> Deezer -> iTunes
-                         -> YouTube last-resort, needs YOUTUBE_API_KEY)
+                         preview: Deezer first, then a small hand-picked
+                         override table for compilations/best-ofs Deezer
+                         doesn't carry under their own title, then YouTube
+                         last-resort (needs YOUTUBE_API_KEY) — Spotify and
+                         iTunes tiers were removed at v12, 2026-07-13; also
+                         serves wishlist.html's preview buttons, same code)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -265,11 +270,16 @@ only when the divergence was noticed and manually reconciled file-by-file.)
 Phase 4 (Audio Preview, `audio-preview.mjs` + the detail-modal Play button)
 was built at Susan's explicit request, ahead of the phase queue — Wishlist,
 which was actually next in line, is Phase 3 and shipped earlier (2026-07-04).
-Audio preview currently covers the collection detail modal only; wishlist
-playback was mentioned in the original roadmap sketch but is not yet built.
-`PROJECT.md` documents both as their own phases. When in doubt about what's
-actually live vs. what a phase label says, read the repo (or ask Susan)
-rather than trusting a "parked"/"planned" status by itself.
+Audio preview shipped for the collection detail modal first; wishlist
+playback (mentioned in the original roadmap sketch) shipped separately on
+2026-07-14 (`wishlist.html` v15, commit `83b56ec`) and is live too — both
+surfaces call the same `/api/audio/preview` endpoint. This note previously
+said wishlist playback was "not yet built," which stopped being true that
+day — corrected here since it's exactly the kind of stale status claim this
+section warns about. `PROJECT.md` documents both as their own phases. When
+in doubt about what's actually live vs. what a phase label says, read the
+repo (or ask Susan) rather than trusting a "parked"/"planned" status by
+itself.
 
 **Current state (as of `audio-preview.mjs` version 15, 2026-07-13):** all
 93 records resolve to a real, individually-verified-correct playable
@@ -299,7 +309,3 @@ SOFT axis the old Google URL requested — plus IBM Plex Sans/Mono 400–600,
 official Fontsource/IBM releases). The Google Fonts link tags are gone;
 `@font-face` is inline in index.html's head and netlify.toml serves
 `/fonts/*` immutable for a year. Don't reintroduce a Google Fonts request.
-
-## Editorial standard
-
-Editorial standard for external-facing docs: see ~/Projects/project-hub/EDITORIAL_STYLE.md (added 2026-07-28). Also: "edit key" and "passphrase" are used interchangeably here, worth standardizing.
