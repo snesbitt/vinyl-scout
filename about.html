@@ -41,7 +41,7 @@
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout is a small, opinionated web app for tracking one person's vinyl
-    LPs — what's owned, what condition it's in, what each pressing is worth
+    LPs: what's owned, what condition it's in, what each pressing is worth
     on the secondary market, and which exact edition you own. Powered by Discogs API
     enrichment for accurate pricing and pressing data, and an audio preview of each
     album's most popular track (Deezer, with YouTube as a last resort for the
@@ -60,16 +60,16 @@
   <p>
     Each record is enriched with Discogs data: accurate pressing ID, marketplace prices
     (low, median, high from sales history), community ownership and wishlist counts,
-    and ratings. The current lowest price refreshes on demand (per-record button or batch script). Median/high sales history is collected browser-side — Discogs serves release pages only to real browsers — and a refresh never overwrites it.
+    and ratings. The current lowest price refreshes on demand (per-record button or batch script). Median/high sales history is collected browser-side, since Discogs serves release pages only to real browsers, and a refresh never overwrites it.
   </p>
   <p>
-    The collection page itself — what you came from — is read-only: a searchable,
+    The collection page itself (what you came from) is read-only: a searchable,
     genre-filterable list or gallery. The gallery view keeps cards to cover art plus
     artist and title only; switch to list view to see each record's Low/Median/High
     price alongside it. The header also names the single highest-value record in
     the collection, just below the total collection value. Tap any record for the
     detail view, which shows the full Discogs marketplace snapshot, including the
-    community rating, and — where available — a Play button that previews the
+    community rating, and, where available, a Play button that previews the
     album's most popular track.
   </p>
 
@@ -77,7 +77,7 @@
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog — POST/DELETE here are intentionally open, no edit key, since typing a passphrase on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only — Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
+    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog; POST/DELETE here are intentionally open, no edit key, since typing a passphrase on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only, using Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
@@ -89,20 +89,20 @@
     community data, and ratings.
   </p>
   <ul>
-    <li><strong>id</strong> — opaque 16-character hex string (e.g. <code>rec_a1b2c3d4e5f60718</code>).</li>
-    <li><strong>artist</strong>, <strong>title</strong> — required strings.</li>
-    <li><strong>year</strong>, <strong>genre</strong> — optional. Year is 1900–2100.</li>
-    <li><strong>cover_url</strong> — optional image URL or inline data URL.</li>
-    <li><strong>notes</strong> — optional free text.</li>
-    <li><strong>condition</strong> — Goldmine grade (default <em>VG</em>). See below.</li>
-    <li><strong>price_low</strong>, <strong>price_median</strong>, <strong>price_high</strong> — market prices in <code>price_currency</code>, optional. Low is the current cheapest listing; median and high are from the release's last-30-sales history.</li>
-    <li><strong>price_last_sold</strong> — string date of the most recent completed sale (e.g. <code>"Apr 23, 2026"</code>), or <code>null</code> if the release has never sold.</li>
-    <li><strong>copies_available</strong> — count of copies currently for sale, optional.</li>
-    <li><strong>have_count</strong>, <strong>want_count</strong> — Discogs community ownership and wishlist counts, optional.</li>
-    <li><strong>rating_avg</strong>, <strong>rating_count</strong> — Discogs community rating (0–5) and number of ratings, optional.</li>
-    <li><strong>price_currency</strong> — ISO code (<em>USD</em>, <em>EUR</em>, <em>GBP</em>), optional.</li>
-    <li><strong>price_updated_at</strong> — ISO timestamp of last refresh, optional.</li>
-    <li><strong>discogs_release_id</strong> — cached release ID for fast refreshes, optional.</li>
+    <li><strong>id</strong>: opaque 16-character hex string (e.g. <code>rec_a1b2c3d4e5f60718</code>).</li>
+    <li><strong>artist</strong>, <strong>title</strong>: required strings.</li>
+    <li><strong>year</strong>, <strong>genre</strong>: optional. Year is 1900–2100.</li>
+    <li><strong>cover_url</strong>: optional image URL or inline data URL.</li>
+    <li><strong>notes</strong>: optional free text.</li>
+    <li><strong>condition</strong>: Goldmine grade (default <em>VG</em>). See below.</li>
+    <li><strong>price_low</strong>, <strong>price_median</strong>, <strong>price_high</strong>: market prices in <code>price_currency</code>, optional. Low is the current cheapest listing; median and high are from the release's last-30-sales history.</li>
+    <li><strong>price_last_sold</strong>: string date of the most recent completed sale (e.g. <code>"Apr 23, 2026"</code>), or <code>null</code> if the release has never sold.</li>
+    <li><strong>copies_available</strong>: count of copies currently for sale, optional.</li>
+    <li><strong>have_count</strong>, <strong>want_count</strong>: Discogs community ownership and wishlist counts, optional.</li>
+    <li><strong>rating_avg</strong>, <strong>rating_count</strong>: Discogs community rating (0–5) and number of ratings, optional.</li>
+    <li><strong>price_currency</strong>: ISO code (<em>USD</em>, <em>EUR</em>, <em>GBP</em>), optional.</li>
+    <li><strong>price_updated_at</strong>: ISO timestamp of last refresh, optional.</li>
+    <li><strong>discogs_release_id</strong>: cached release ID for fast refreshes, optional.</li>
   </ul>
 
   <h2 id="grading"><span class="article__num">04</span>Condition grades</h2>
@@ -110,19 +110,19 @@
     Vinyl Scout uses Goldmine grading (the US standard for record sleeves and discs). Each record stores its own condition code. Default is <em>VG</em> (Very Good).
   </p>
   <ul>
-    <li><strong>M</strong> — Mint. Never played, still sealed or in perfect condition.</li>
-    <li><strong>NM</strong> — Near Mint. Played once or twice, looks and sounds unplayed.</li>
-    <li><strong>VG+</strong> — Very Good Plus. Minor wear; fully playable with no defects.</li>
-    <li><strong>VG</strong> — Very Good. Light surface marks, plays without issue.</li>
-    <li><strong>G+</strong> — Good Plus. Noticeable wear, plays through, some surface noise.</li>
-    <li><strong>G</strong> — Good. Significant wear, plays but with some noise.</li>
-    <li><strong>F</strong> — Fair. Heavy wear, plays but may skip or have extended noise.</li>
-    <li><strong>P</strong> — Poor. Severely damaged, barely playable.</li>
+    <li><strong>M</strong>: Mint. Never played, still sealed or in perfect condition.</li>
+    <li><strong>NM</strong>: Near Mint. Played once or twice, looks and sounds unplayed.</li>
+    <li><strong>VG+</strong>: Very Good Plus. Minor wear; fully playable with no defects.</li>
+    <li><strong>VG</strong>: Very Good. Light surface marks, plays without issue.</li>
+    <li><strong>G+</strong>: Good Plus. Noticeable wear, plays through, some surface noise.</li>
+    <li><strong>G</strong>: Good. Significant wear, plays but with some noise.</li>
+    <li><strong>F</strong>: Fair. Heavy wear, plays but may skip or have extended noise.</li>
+    <li><strong>P</strong>: Poor. Severely damaged, barely playable.</li>
   </ul>
 
   <h2><span class="article__num">05</span>Wishlist</h2>
   <p>
-    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>. Records come from three places: added by hand (artist and title only — cover art and a Discogs reference are looked up automatically at add-time), or imported from Spotify — a weekly sync reads the most-played albums across the owner&rsquo;s designated playlists, keeps only those on vinyl, and skips anything already owned &mdash; or imported from the owner&rsquo;s Amazon cart, which the same weekly sync reads (and never modifies). Each row shows album art, the current asking price or Discogs median sale price, and a link to current listings; a brand-new item shows no price at all until the following Monday's scout run. Adding and removing wishlist items needs no edit key — it's the one part of the site left open, since typing a passphrase on mobile every session wasn't practical for a list used this casually; the collection itself is unaffected and stays fully gated. The weekly scout refreshes prices; nothing is auto-removed, and anything deleted by hand is never auto-re-added.
+    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>. Records come from three places: added by hand (artist and title only; cover art and a Discogs reference are looked up automatically at add-time), or imported from Spotify, where a weekly sync reads the most-played albums across the owner&rsquo;s designated playlists, keeps only those on vinyl, and skips anything already owned, or imported from the owner&rsquo;s Amazon cart, which the same weekly sync reads (and never modifies). Each row shows album art, the current asking price or Discogs median sale price, and a link to current listings; a brand-new item shows no price at all until the following Monday's scout run. Adding and removing wishlist items needs no edit key; it's the one part of the site left open, since typing a passphrase on mobile every session wasn't practical for a list used this casually; the collection itself is unaffected and stays fully gated. The weekly scout refreshes prices; nothing is auto-removed, and anything deleted by hand is never auto-re-added.
   </p>
   <p>
     A note on ordering, in the same spirit as the pricing data above: today the list sorts alphabetically by artist and nothing else. There is no ranking by value, rarity, or how long something has been on the list, and no hidden scoring behind it. A real priority system is on the roadmap; see <a href="/roadmap.html#phase-9">Phase 9</a> for what that would take.
@@ -137,7 +137,7 @@
     (a representative single from the same artist stands in instead), and
     YouTube is a last resort for anything genuinely absent from Deezer. A small
     credit line under the player names which source it came from. It's a pure
-    lookup — nothing is stored — and quietly says so if nothing anywhere has a
+    lookup (nothing is stored), and quietly says so if nothing anywhere has a
     match or a playable clip for that particular track.
   </p>
 
