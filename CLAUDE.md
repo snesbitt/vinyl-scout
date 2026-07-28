@@ -299,3 +299,7 @@ SOFT axis the old Google URL requested — plus IBM Plex Sans/Mono 400–600,
 official Fontsource/IBM releases). The Google Fonts link tags are gone;
 `@font-face` is inline in index.html's head and netlify.toml serves
 `/fonts/*` immutable for a year. Don't reintroduce a Google Fonts request.
+
+## Editorial standard
+
+Editorial standard for external-facing docs: see ~/Projects/project-hub/EDITORIAL_STYLE.md (added 2026-07-28). Also: "edit key" and "passphrase" are used interchangeably here, worth standardizing.
