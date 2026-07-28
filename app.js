@@ -291,7 +291,7 @@ el.textContent = txt;
     var price = formatPrice(top.amount, r.price_currency);
     var cover = r.cover_url ? '<img src="' + escapeAttr(r.cover_url) + '" alt="">' : '';
     el.innerHTML = cover
-      + '<span>Most valuable &mdash; <strong>' + escapeHtml(r.artist || 'Unknown') + '</strong>, '
+      + '<span>Most valuable: <strong>' + escapeHtml(r.artist || 'Unknown') + '</strong>, '
       + '<em>' + escapeHtml(r.title || 'Untitled') + '</em>'
       + (price ? ' &middot; <span class="controls__highlight-price">' + escapeHtml(price) + '</span>' : '')
       + '</span>';
@@ -388,7 +388,7 @@ el.textContent = txt;
     if (currentView === 'list') {
       main.className = 'list';
       main.innerHTML = records.map(function (r) {
-        var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
+        var label = (r.artist || 'Unknown') + ': ' + (r.title || 'Untitled');
         return ''
           + '<button type="button" class="row" '
           +   'data-id="' + escapeAttr(r.id) + '" '
@@ -407,7 +407,7 @@ el.textContent = txt;
         var cover = r.cover_url
           ? '<img src="' + escapeAttr(r.cover_url) + '" alt="" loading="lazy">'
           : '<div class="tile__nocover" aria-hidden="true">' + escapeHtml(initial) + '</div>';
-        var label = (r.artist || 'Unknown') + ' — ' + (r.title || 'Untitled');
+        var label = (r.artist || 'Unknown') + ': ' + (r.title || 'Untitled');
         return ''
           + '<button type="button" class="tile" '
           +   'data-id="' + escapeAttr(r.id) + '" '
@@ -595,13 +595,13 @@ el.textContent = txt;
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
             : payload.reason === 'no_match_pending_youtube'
-              ? 'Not found on Deezer — a YouTube fallback is planned but not turned on yet.'
-              : 'No matching track found — checked Deezer and YouTube.';
+              ? 'Not found on Deezer: a YouTube fallback is planned but not turned on yet.'
+              : 'No matching track found: checked Deezer and YouTube.';
         var t2 = payload.track || {};
         var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
           ? '<a class="detail__audio-spotify-link" href="' + escapeAttr(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + escapeHtml(providerLabel) + ' ↗</a>'
           : '';
-        var label2 = [t2.artists, t2.name].filter(Boolean).join(' — ');
+        var label2 = [t2.artists, t2.name].filter(Boolean).join(': ');
         if (body) {
           body.innerHTML = ''
             + (label2 ? '<p class="detail__audio-track">' + escapeHtml(label2) + '</p>' : '')
@@ -612,7 +612,7 @@ el.textContent = txt;
       }
 
       var t = payload.track || {};
-      var label = [t.artists, t.name].filter(Boolean).join(' — ');
+      var label = [t.artists, t.name].filter(Boolean).join(': ');
       // YouTube (tier 4, last resort) never has a preview_url — it gives no
       // direct audio file, only an embeddable video. Render an iframe capped
       // to the same ~30s clip convention (via the embed_url's own start/end
@@ -681,7 +681,7 @@ el.textContent = txt;
       if (res.status === 401) {
         clearEditSecret();
         if (body) {
-          body.innerHTML = '<p class="detail__prices-error">Unauthorized — wrong passphrase. Click Retry to try again.</p>';
+          body.innerHTML = '<p class="detail__prices-error">Unauthorized: wrong passphrase. Click Retry to try again.</p>';
         }
         btn.disabled = false;
         btn.textContent = 'Retry';
