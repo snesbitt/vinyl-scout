@@ -222,7 +222,7 @@
     var s = '';
     try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
     if (s) return s;
-    s = prompt('Enter edit passphrase (writes are protected):') || '';
+    s = prompt('Enter edit key (writes are protected):') || '';
     if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
     return s;
   }
@@ -357,7 +357,7 @@
 
     var editSecret = getEditSecret();
     if (!editSecret) {
-      setStatus('Edit passphrase required to add records.', 'error');
+      setStatus('Edit key required to add records.', 'error');
       addBtn.disabled = false;
       addBtn.textContent = originalText;
       return;
@@ -395,7 +395,7 @@
         if (res.status === 401) {
           clearEditSecret();
           failed++;
-          lastError = 'Unauthorized: wrong passphrase. Reload and try again.';
+          lastError = 'Unauthorized: wrong edit key. Reload and try again.';
           break;
         } else if (res.ok) {
           added++;

@@ -79,7 +79,7 @@
   <ul>
     <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
     <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog; POST/DELETE here are intentionally open, no edit key, since typing a passphrase on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only, using Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
+    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog; POST/DELETE here are intentionally open, no edit key, since re-entering one on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only, using Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
     <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
     <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
   </ul>
@@ -130,7 +130,7 @@
     Each row shows the album art, the current asking price or Discogs&rsquo; median sale price, and a link to current listings. A brand-new item shows no price at all until the following Monday's scout run.
   </p>
   <p>
-    Adding and removing items needs no edit key. It's the one part of the site left open, since typing a passphrase on mobile every session wasn't practical for a list used this casually. The collection itself stays fully gated.
+    Adding and removing items needs no edit key. It's the one part of the site left open, since re-entering one on mobile every session wasn't practical for a list used this casually. The collection itself stays fully gated.
   </p>
   <p>
     The weekly scout refreshes prices. Nothing is auto-removed, and anything deleted by hand is never auto-re-added.
