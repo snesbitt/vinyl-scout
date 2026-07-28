@@ -101,7 +101,7 @@
 <body>
 
 <header class="masthead">
-  <a class="brand" href="/" aria-label="The Vinyl Scout — home">
+  <a class="brand" href="/" aria-label="The Vinyl Scout: home">
     <span class="brand__mark" aria-hidden="true">⦿</span>
     <h1>The Vinyl Scout</h1>
   </a>
@@ -226,13 +226,13 @@
           : payload.reason === 'no_preview'
             ? 'No preview clip available for this track.'
             : payload.reason === 'no_match_pending_youtube'
-              ? 'Not found on Deezer — a YouTube fallback is planned but not turned on yet.'
-              : 'No matching track found — checked Deezer and YouTube.';
+              ? 'Not found on Deezer: a YouTube fallback is planned but not turned on yet.'
+              : 'No matching track found: checked Deezer and YouTube.';
         var t2 = payload.track || {};
         var link = (payload.reason === 'no_preview' && t2.external_url && providerLabel)
           ? '<a class="detail__audio-spotify-link" href="' + esc(t2.external_url) + '" target="_blank" rel="noopener">Listen on ' + esc(providerLabel) + ' ↗</a>'
           : '';
-        var label2 = [t2.artists, t2.name].filter(Boolean).join(' — ');
+        var label2 = [t2.artists, t2.name].filter(Boolean).join(': ');
         if (panel) {
           panel.innerHTML = ''
             + (label2 ? '<p class="detail__audio-track">' + esc(label2) + '</p>' : '')
@@ -245,7 +245,7 @@
       }
 
       var t = payload.track || {};
-      var label = [t.artists, t.name].filter(Boolean).join(' — ');
+      var label = [t.artists, t.name].filter(Boolean).join(': ');
       var playerHtml = (payload.provider === 'youtube' && t.embed_url)
         ? '<iframe class="detail__audio-player detail__audio-youtube" '
           + 'src="' + esc(t.embed_url) + '" '
@@ -272,7 +272,7 @@
   function render() {
     if (activePreviewId) stopPreview(activePreviewId);
     var list = $('wl-list');
-    if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet — add the first record below.</div>'; renderPager(0); return; }
+    if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet, add the first record below.</div>'; renderPager(0); return; }
     items.sort(function (a, b) { return (a.artist || '').toLowerCase().localeCompare((b.artist || '').toLowerCase()); });
 
     var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -290,7 +290,7 @@
       var link = rid ? 'https://www.discogs.com/sell/release/' + encodeURIComponent(rid) : 'https://www.discogs.com/search/?q=' + encodeURIComponent((w.artist || '') + ' ' + (w.title || '')) + '&type=release';
       return '<div class="wl-item">'
         + (w.cover_url ? '<img class="wl-thumb" src="' + esc(w.cover_url) + '" alt="" loading="lazy">' : '<span class="wl-thumb" aria-hidden="true"></span>')
-        + '<span class="wl-who"><span class="wl-artist">' + esc(w.artist) + '</span> — <span class="wl-title">' + esc(w.title) + '</span>'
+        + '<span class="wl-who"><span class="wl-artist">' + esc(w.artist) + '</span>: <span class="wl-title">' + esc(w.title) + '</span>'
         + '</span>'
         + '<button type="button" class="wl-play" data-id="' + esc(w.id) + '" data-artist="' + esc(w.artist) + '" data-title="' + esc(w.title) + '" aria-label="Play preview" title="Play preview">▶</button>'
         + '<span class="wl-nums">' + nums.join(' · ')
