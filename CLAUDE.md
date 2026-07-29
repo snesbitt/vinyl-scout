@@ -190,10 +190,24 @@ whatever the sync jobs touched to already be current.
   after an early version swept too broadly), collapses to unique albums,
   excludes anything already owned or already wishlisted, and adds only
   releases confirmed to exist on vinyl (Discogs lookup; digital-only
-  releases are skipped). Never deletes. Respects a persistent no-re-add
-  rule via `sync-state.json` — once Susan deletes a wishlist item, this job
-  will never re-add it, regardless of how many times it resurfaces in her
-  playlists.
+  releases are skipped). Never deletes. Meant to respect a persistent
+  no-re-add rule via `sync-state.json` — once Susan deletes a wishlist item,
+  this job should never re-add it, regardless of how many times it
+  resurfaces in her playlists.
+  **BUG, found and half-fixed 2026-07-29:** this rule was aspirational only.
+  `sync-state.json` had an `auto_added` list but no `deleted` list, and
+  `wishlist.mjs`'s DELETE handler never wrote anywhere — so a deleted item
+  had zero record anywhere, and the next sync that saw it in a playlist
+  re-added it. `wishlist.mjs` v3 now records every deletion into a new
+  `deleted` array in `sync-state.json` (normalized `artist title` key, same
+  format as `auto_added`; committed via the GitHub Contents API, same
+  pattern as `save-cover.mjs`/`run-backup.mjs`). **This job's own prompt
+  (external to this repo, in Susan's Claude scheduled tasks) still needs to
+  be updated to actually check `deleted` before adding** — that half of the
+  fix isn't done, since this session couldn't locate the live trigger for
+  this specific job among Susan's current scheduled tasks to edit it. Until
+  that prompt-side check exists, deletions are recorded but not yet
+  enforced.
 - **Job C2 — Amazon cart sync** (named explicitly in PROJECT.md v9).
   Read-only sweep of Susan's Amazon active cart + saved-for-later, matched
   to the specific pressing each listing names, added to the wishlist the
