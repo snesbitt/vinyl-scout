@@ -164,11 +164,6 @@
     .next-card h4 { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
     .next-card p { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
 
-    .need-list { list-style: none; padding: 0; margin: 0 0 32px; }
-    .need-list li { position: relative; padding: 8px 0 8px 18px; font-size: 14px; line-height: 1.55; color: var(--ink-soft); border-bottom: 1px solid var(--rule); }
-    .need-list li:last-child { border-bottom: none; }
-    .need-list li::before { content: '—'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
-
     .field-note {
       margin: 0 0 32px;
       padding: 18px 22px;
@@ -225,15 +220,15 @@
     <h1>Six steps to an accurate collection inventory</h1>
     <p class="article__lede">
       Know what you have. Check it's still accurate. Know how to recover it
-      when it's not. Build the six steps below in order — each one works
-      alone — and the same steps hold for books, watches, wine, or shoes.
+      when it's not. Build the six steps below in order. Each one works
+      alone, and the same steps hold for books, watches, wine, or shoes.
     </p>
 
     <p class="purpose-banner">
       <strong>This page is the how-to:</strong> the method and the exact
       prompt to build a catalog like this yourself, for any collection. For
-      what this specific catalog does today — its data model, its feature
-      set, its stack — read <a href="/about.html">About</a> instead.
+      what this specific catalog does today: its data model, its feature
+      set, its stack. Read <a href="/about.html">About</a> instead.
     </p>
 
     <ul class="stepper" aria-label="Jump to a step">
@@ -252,7 +247,7 @@
       Four modes, four jobs. Each one earns more accountability than the
       last. <strong>Chat</strong> decides: which fields to track, which
       grading standard to apply, how to describe things in language a
-      reader can trust — this page included. <strong>The terminal</strong>
+      reader can trust, this page included. <strong>The terminal</strong>
       (Claude Code) builds: the API, the storage layer, and the backup
       function were all written there, and every deploy gets reviewed
       before it ships. <strong>Cowork</strong> maintains: it operates on
@@ -314,12 +309,12 @@
 
     <p>
       Mode picks <em>where</em> the work happens. Model picks <em>how much
-      power it needs</em> — a separate decision. Not every task carries the
+      power it needs</em>, a separate decision. Not every task carries the
       same risk, and giving a task more power than it needs is cost with no
       return. Routine, unsupervised work runs cheap and fast. Ordinary
       building work runs on the standard tier. Hard problems, where a
       mistake is costly, get the strongest model available. Writing meant
-      for a real reader — this page — gets a tier built for prose.
+      for a real reader, this page included, gets a tier built for prose.
     </p>
 
     <div class="model-grid">
@@ -354,8 +349,8 @@
     <h2 id="step-02"><span class="article__num">02</span>Define the data first</h2>
     <p>
       Decide upfront what you're tracking and what actually matters:
-      condition, year, price paid, current value. Everything downstream —
-      a spreadsheet, a small site like this one — gets built from that one
+      condition, year, price paid, current value. Everything downstream
+      (a spreadsheet, a small site like this one) gets built from that one
       decision. A messy list is a fine starting point; the cleanup itself
       is the easy part. Budget one afternoon. Most of it is entering
       items, not designing the schema.
@@ -364,8 +359,8 @@
     <h2 id="step-03"><span class="article__num">03</span>Pull real market prices, on a schedule</h2>
     <p>
       A scheduled task runs weekly, unattended. It pulls prices from a
-      real source for the category — Discogs here; eBay's sold listings
-      do the same job for most other collecting categories — and logs a
+      real source for the category (Discogs here; eBay's sold listings
+      do the same job for most other collecting categories) and logs a
       low, median, and high figure for every item. This catalog's running
       total: about €2,200, a number that carries weight only because the
       process behind it can be checked.
@@ -383,10 +378,10 @@
       pasting the previous day's file back in. Ten minutes. Done.
     </p>
 
-    <h2 id="step-05"><span class="article__num">05</span>Check it daily — read-only, always</h2>
+    <h2 id="step-05"><span class="article__num">05</span>Check it daily: read-only, always</h2>
     <p>
       The final safeguard is a daily check that <strong>reads and never
-      writes</strong> — a distinction that matters more than it sounds. It
+      writes</strong>, a distinction that matters more than it sounds. It
       counts the records, confirms prices are present, verifies the prior
       night's backup landed, and reconciles the live catalog against it.
       It has no authority to change anything itself; fixing it stays a
@@ -418,7 +413,7 @@
     <p>
       Nothing here is special. The code lives in an ordinary
       <strong>GitHub</strong> repository. Pushing a change is the entire
-      deploy — <strong>Netlify</strong> rebuilds the site in under a
+      deploy. <strong>Netlify</strong> rebuilds the site in under a
       minute. Netlify also hosts the data and runs the background jobs:
       the Discogs price pull, the nightly backup to GitHub. Every
       component runs on a free tier. Nothing is irreplaceable. The system
@@ -520,7 +515,7 @@ Please help me scope this into a first small version we can finish today, tell m
     <p style="font-size:15px;line-height:1.6;color:var(--ink-soft);margin-bottom:20px;">
       All of this runs inside Cowork, working from a single project folder
       Claude keeps on your behalf: the code, the data, and a file called
-      CLAUDE.md — Claude's own running notes on how the system works,
+      CLAUDE.md, Claude's own running notes on how the system works,
       decisions already made, and what's still open. Every new Cowork
       session reads that folder first, so it picks up exactly where the
       last one left off, and writes its notes back before it ends. You
@@ -538,7 +533,7 @@ Please help me scope this into a first small version we can finish today, tell m
     <h2 style="margin-top:0;">What we'd tell you before you start</h2>
     <p>
       Build in this order. Each step works alone. The slow part isn't the
-      pitch — it's debugging: one fix breaking another, each fix demanding
+      pitch. It's debugging: one fix breaking another, each fix demanding
       a fresh deploy to confirm it. Both data-loss incidents happened
       during that stretch.
     </p>
@@ -547,7 +542,7 @@ Please help me scope this into a first small version we can finish today, tell m
       failure has one traceable cause. Every incident here traces back to
       a job that could write when it should have only read. Document how
       the system works, as on <a href="/about.html">About</a>. Expect
-      version one to be wrong — that's what backups and the daily check
+      version one to be wrong. That's what backups and the daily check
       are for. A mistake should cost you a day. Never the collection.
     </p>
   </article>
