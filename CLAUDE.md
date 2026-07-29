@@ -337,3 +337,10 @@ compute. No server/schema change: no new fields, no new endpoint. State
 discount badge (e.g. "▼18%") when current_ask sits meaningfully below
 price_median. Still open: no Discogs want/have scarcity data on wishlist
 items, so that third signal from the original roadmap copy isn't in v1.
+
+## 2026-07-29 — serif swap: Instrument Serif to Lora
+
+Portfolio-wide taste call: Lora replaces Instrument Serif across all 7
+pages + style.css, including the two direct 'Instrument Serif' refs
+(audit.html's edit-mode style block, roadmap.html's .phase__name). Same
+self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
