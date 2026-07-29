@@ -1180,3 +1180,8 @@ main {
     gap: 18px 12px;
   }
 }
+
+/* Footer — persistent, minimal, same pattern used across the portfolio */
+footer.site-footer { border-top: 1px solid var(--rule); padding: 1.2rem 0 2.2rem; margin-top: 0.75rem; text-align: center; }
+footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
+@media (min-width: 640px) { footer.site-footer { padding: 1.5rem 0 3rem; } footer.site-footer .wrap { font-size: 11px; } }
