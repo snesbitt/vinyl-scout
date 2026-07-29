@@ -17,6 +17,52 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
+  <style>
+    .stack-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 18px 0 8px;
+    }
+    .stack-item {
+      border: 1px solid var(--rule);
+      background: var(--bg-soft);
+      border-radius: 6px;
+      padding: 16px 18px;
+    }
+    .stack-item--wide { grid-column: 1 / -1; }
+    .stack-item__label {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 18px;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .stack-item__desc {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    .stack-item__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .stack-item__list li {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      padding: 8px 0;
+      border-top: 1px solid var(--rule);
+    }
+    .stack-item__list li:first-child { border-top: none; padding-top: 0; }
+    .stack-item__list strong { color: var(--ink); font-weight: 600; }
+    @media (max-width: 640px) {
+      .stack-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
@@ -82,13 +128,33 @@
 
   <h2><span class="article__num">02</span>The stack</h2>
   <p>The plumbing, for anyone who wants it. Skip ahead if you don't.</p>
-  <ul>
-    <li><strong>Frontend.</strong> Static HTML, CSS, and one JavaScript file. No framework, no build step. Served from Netlify's CDN.</li>
-    <li><strong>Storage.</strong> A single Netlify Blobs store called <em>records</em>. One JSON blob per record, keyed by ID.</li>
-    <li><strong>API.</strong> Netlify Functions v2. Records: GET (list) · POST (upsert by ID) · DELETE (single), gated by an edit key. Wishlist: the same trio at <code>/api/wishlist</code>, backed by its own Blobs store so wishlist writes can never touch the catalog; POST/DELETE here are intentionally open, no edit key, since re-entering one on mobile every session wasn't practical for a page used casually. Enrichment: <code>/api/discogs/lookup</code> (match by artist/title, public), <code>/api/discogs-pricing</code> (fetch + store pricing, gated). Audio: <code>/api/audio/preview</code> (most-popular-track preview lookup, public, read-only, using Deezer first, with a small per-title override list for best-of/compilation albums Deezer doesn't carry under their own name, then YouTube as a last resort for the rest).</li>
-    <li><strong>Source.</strong> Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. Every change ships via <code>git push</code>; Netlify rebuilds in under a minute.</li>
-    <li><strong>Authoring.</strong> Code and copy written collaboratively with Claude; deploys reviewed and run by the owner.</li>
-  </ul>
+  <div class="stack-grid">
+    <div class="stack-item">
+      <p class="stack-item__label">Frontend</p>
+      <p class="stack-item__desc">Static HTML, CSS, one JS file. No framework, no build step. Served from Netlify's CDN.</p>
+    </div>
+    <div class="stack-item">
+      <p class="stack-item__label">Storage</p>
+      <p class="stack-item__desc">One Netlify Blobs store, <em>records</em>. One JSON blob per record, keyed by ID.</p>
+    </div>
+    <div class="stack-item stack-item--wide">
+      <p class="stack-item__label">API</p>
+      <ul class="stack-item__list">
+        <li><strong>Records</strong> — GET (list), POST (upsert), DELETE. Gated by an edit key.</li>
+        <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are open, no edit key: retyping one on mobile every session wasn't practical.</li>
+        <li><strong>Enrichment</strong> — <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
+        <li><strong>Audio</strong> — <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
+      </ul>
+    </div>
+    <div class="stack-item">
+      <p class="stack-item__label">Source</p>
+      <p class="stack-item__desc">Plain Git repo at <a href="https://github.com/snesbitt/vinyl-scout">github.com/snesbitt/vinyl-scout</a>. <code>git push</code> deploys; Netlify rebuilds in under a minute.</p>
+    </div>
+    <div class="stack-item">
+      <p class="stack-item__label">Authoring</p>
+      <p class="stack-item__desc">Code and copy written with Claude. Deploys reviewed and run by the owner.</p>
+    </div>
+  </div>
 
   <h2><span class="article__num">03</span>The catalog record</h2>
   <p>
