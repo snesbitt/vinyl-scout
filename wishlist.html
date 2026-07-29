@@ -19,7 +19,13 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Wishlist — version: 16. Mobile touch-target fix (2026-07-20): .wl-play
+    /* Wishlist — version: 17. Wishlist Priority (2026-07-29, Phase 9 pulled
+       forward at Susan's request): sort now defaults to a score combining
+       discount-from-median and age-on-list, with a Priority/A–Z toggle and
+       three weight presets (Discount first / Balanced / Longest waiting) --
+       see the script's own comment for the scoring rationale. No new
+       server field: everything needed already existed on each item.
+       version: 16. Mobile touch-target fix (2026-07-20): .wl-play
        (the inline preview play/pause button on each row) was 36x36px,
        under the 44px minimum PROJECT.md's Working Agreement specifies for
        tap targets — bumped width/height/min-width to 44px (already
@@ -96,6 +102,10 @@
     .wl-play.is-playing { border-color: var(--accent); color: var(--accent); }
     .wl-audio-panel { margin: 0 0 5px; padding: 10px 12px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 3px 3px; background: var(--surface); }
     .wl-audio-panel[hidden] { display: none; }
+    .wl-sort { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+    .wl-weights { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wl-weights[hidden] { display: none; }
+    .wl-discount { color: var(--good); }
     @media (max-width: 720px) { .wl-wrap { padding: 0 18px 64px; } }
   </style>
 </head>
@@ -122,6 +132,17 @@
 
 <main class="wl-wrap">
   <p class="wl-intro">Prices update every Monday. </p>
+  <div class="wl-sort">
+    <div class="controls__view" role="group" aria-label="Sort order">
+      <button type="button" id="wl-sort-priority" class="vbtn is-on" aria-pressed="true">Priority</button>
+      <button type="button" id="wl-sort-alpha" class="vbtn" aria-pressed="false">A&ndash;Z</button>
+    </div>
+    <div class="wl-weights" id="wl-weights" role="group" aria-label="Priority weighting">
+      <button type="button" class="chip" data-weight="discount">Discount first</button>
+      <button type="button" class="chip is-on" data-weight="balanced">Balanced</button>
+      <button type="button" class="chip" data-weight="age">Longest waiting</button>
+    </div>
+  </div>
   <div id="wl-list"><div class="empty">Loading…</div></div>
   <div id="wl-pager" class="wl-pager"></div>
 
@@ -149,6 +170,61 @@
   var PAGE_SIZE = 20;
   var currentPage = 1;
   var activePreviewId = null;
+
+  // Wishlist Priority (v1, 2026-07-29). The list used to sort alphabetically
+  // and nothing else. This adds a real score built from the two signals that
+  // already exist on every item -- how far the current ask sits below the
+  // historical median (a good-deal signal) and how long the item has sat on
+  // the list (a patience signal) -- combined into one sortable number. There
+  // is no Discogs want/have scarcity data on wishlist items (unlike the
+  // catalog), so v1 works with what's actually there. How much a discount
+  // should outweigh waiting time is a taste call, not something to compute,
+  // so it's a control (three presets), not a hardcoded constant.
+  var SORT_KEY = 'wlSortMode';    // 'priority' | 'alpha'
+  var WEIGHT_KEY = 'wlWeight';    // 'discount' | 'balanced' | 'age'
+  var WEIGHTS = { discount: 0.8, balanced: 0.5, age: 0.2 };
+  var AGE_CAP_DAYS = 180; // an item older than 6 months maxes out the age signal
+
+  function getSortMode() { var v = localStorage.getItem(SORT_KEY); return v === 'alpha' ? 'alpha' : 'priority'; }
+  function setSortMode(v) { localStorage.setItem(SORT_KEY, v); }
+  function getWeightKey() { var v = localStorage.getItem(WEIGHT_KEY); return WEIGHTS.hasOwnProperty(v) ? v : 'balanced'; }
+  function setWeightKey(v) { localStorage.setItem(WEIGHT_KEY, v); }
+
+  function discountFraction(w) {
+    if (w.price_median == null || w.current_ask == null || w.price_median <= 0) return 0;
+    var d = (w.price_median - w.current_ask) / w.price_median;
+    return d < 0 ? 0 : (d > 1 ? 1 : d);
+  }
+  function ageFraction(w) {
+    if (!w.created_at) return 0;
+    var days = (Date.now() - new Date(w.created_at).getTime()) / 86400000;
+    if (isNaN(days) || days < 0) return 0;
+    return Math.min(days / AGE_CAP_DAYS, 1);
+  }
+  function priorityScore(w) {
+    var weight = WEIGHTS[getWeightKey()];
+    return weight * discountFraction(w) + (1 - weight) * ageFraction(w);
+  }
+  function discountPercent(w) {
+    if (w.price_median == null || w.current_ask == null || w.price_median <= 0) return null;
+    var d = (w.price_median - w.current_ask) / w.price_median;
+    return d >= 0.01 ? Math.round(d * 100) : null; // only surface a real discount, not noise
+  }
+
+  function renderSortControls() {
+    var mode = getSortMode();
+    var weight = getWeightKey();
+    var pBtn = $('wl-sort-priority'), aBtn = $('wl-sort-alpha');
+    if (pBtn) { pBtn.classList.toggle('is-on', mode === 'priority'); pBtn.setAttribute('aria-pressed', mode === 'priority' ? 'true' : 'false'); }
+    if (aBtn) { aBtn.classList.toggle('is-on', mode === 'alpha'); aBtn.setAttribute('aria-pressed', mode === 'alpha' ? 'true' : 'false'); }
+    var weightsEl = $('wl-weights');
+    if (weightsEl) {
+      weightsEl.hidden = mode !== 'priority';
+      Array.prototype.slice.call(weightsEl.querySelectorAll('.chip')).forEach(function (chip) {
+        chip.classList.toggle('is-on', chip.dataset.weight === weight);
+      });
+    }
+  }
 
   async function load() {
     try {
@@ -272,8 +348,15 @@
   function render() {
     if (activePreviewId) stopPreview(activePreviewId);
     var list = $('wl-list');
+    renderSortControls();
     if (!items.length) { list.innerHTML = '<div class="empty">Nothing here yet, add the first record below.</div>'; renderPager(0); return; }
-    items.sort(function (a, b) { return (a.artist || '').toLowerCase().localeCompare((b.artist || '').toLowerCase()); });
+
+    var mode = getSortMode();
+    if (mode === 'alpha') {
+      items.sort(function (a, b) { return (a.artist || '').toLowerCase().localeCompare((b.artist || '').toLowerCase()); });
+    } else {
+      items.sort(function (a, b) { return priorityScore(b) - priorityScore(a); });
+    }
 
     var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
@@ -286,6 +369,7 @@
       if (w.price_median != null) nums.push(fmt(w.price_median));
       else if (w.current_ask != null) nums.push(fmt(w.current_ask) + ' listed');
       else nums.push('NEVER SOLD');
+      var pct = discountPercent(w);
       var rid = w.discogs_release_id;
       var link = rid ? 'https://www.discogs.com/sell/release/' + encodeURIComponent(rid) : 'https://www.discogs.com/search/?q=' + encodeURIComponent((w.artist || '') + ' ' + (w.title || '')) + '&type=release';
       return '<div class="wl-item">'
@@ -294,6 +378,7 @@
         + '</span>'
         + '<button type="button" class="wl-play" data-id="' + esc(w.id) + '" data-artist="' + esc(w.artist) + '" data-title="' + esc(w.title) + '" aria-label="Play preview" title="Play preview">▶</button>'
         + '<span class="wl-nums">' + nums.join(' · ')
+        + (pct != null ? ' · <span class="wl-discount">▼' + pct + '%</span>' : '')
         + ' · <a href="' + link + '" target="_blank" rel="noopener">see listings</a>'
         + '<button class="wl-del" data-id="' + esc(w.id) + '" aria-label="Remove">×</button></span>'
         + '</div>'
@@ -385,6 +470,16 @@
       if (e.target && e.target.id === 'wl-prev' && !e.target.disabled) { currentPage--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       if (e.target && e.target.id === 'wl-next' && !e.target.disabled) { currentPage++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     });
+    var pBtn = $('wl-sort-priority'), aBtn = $('wl-sort-alpha');
+    if (pBtn) pBtn.addEventListener('click', function () { setSortMode('priority'); currentPage = 1; render(); });
+    if (aBtn) aBtn.addEventListener('click', function () { setSortMode('alpha'); currentPage = 1; render(); });
+    var weightsEl = $('wl-weights');
+    if (weightsEl) {
+      weightsEl.addEventListener('click', function (e) {
+        var chip = e.target.closest && e.target.closest('.chip');
+        if (chip && chip.dataset.weight) { setWeightKey(chip.dataset.weight); render(); }
+      });
+    }
     load();
   });
 })();

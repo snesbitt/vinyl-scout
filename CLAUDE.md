@@ -323,3 +323,17 @@ SOFT axis the old Google URL requested — plus IBM Plex Sans/Mono 400–600,
 official Fontsource/IBM releases). The Google Fonts link tags are gone;
 `@font-face` is inline in index.html's head and netlify.toml serves
 `/fonts/*` immutable for a year. Don't reintroduce a Google Fonts request.
+
+## 2026-07-29 — Wishlist priority (Phase 9, pulled forward)
+
+wishlist.html now defaults to a Priority sort instead of pure alphabetical,
+with an A-Z toggle to go back. Priority combines two signals that already
+existed on every item — discount from current_ask vs price_median, and
+age since created_at (capped at 180 days) — via a weight chosen from three
+presets (Discount first / Balanced / Longest waiting), since how much a
+discount should outweigh waiting time is a taste call, not something to
+compute. No server/schema change: no new fields, no new endpoint. State
+(sort mode + weight choice) lives in localStorage only. Rows also show a
+discount badge (e.g. "▼18%") when current_ask sits meaningfully below
+price_median. Still open: no Discogs want/have scarcity data on wishlist
+items, so that third signal from the original roadmap copy isn't in v1.
