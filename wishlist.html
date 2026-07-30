@@ -189,8 +189,11 @@
   function setWeightKey(v) { localStorage.setItem(WEIGHT_KEY, v); }
 
   function effectivePrice(w) {
-    if (w.current_ask != null) return w.current_ask;
+    // Must match the priority the row itself displays (price_median first,
+    // current_ask only as a fallback) -- sorting by a different field than
+    // what's shown made "Cheapest"/"Most expensive" look randomly ordered.
     if (w.price_median != null) return w.price_median;
+    if (w.current_ask != null) return w.current_ask;
     return null;
   }
   function ageDays(w) {
