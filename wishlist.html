@@ -19,12 +19,13 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Wishlist — version: 17. Wishlist Priority (2026-07-29, Phase 9 pulled
-       forward at Susan's request): sort now defaults to a score combining
-       discount-from-median and age-on-list, with a Priority/A–Z toggle and
-       three weight presets (Discount first / Balanced / Longest waiting) --
-       see the script's own comment for the scoring rationale. No new
-       server field: everything needed already existed on each item.
+    /* Wishlist — version: 18. Wishlist Priority (2026-07-29, Phase 9 pulled
+       forward at Susan's request; simplified 2026-07-30): sort defaults to
+       Priority mode with a Cheapest/Most expensive toggle, plus a plain
+       A–Z option -- see the script's own comment for history (a blended
+       discount+age score and a "Longest waiting" preset were both tried
+       and dropped as unclear/unneeded). No new server field: everything
+       needed already existed on each item.
        version: 16. Mobile touch-target fix (2026-07-20): .wl-play
        (the inline preview play/pause button on each row) was 36x36px,
        under the 44px minimum PROJECT.md's Working Agreement specifies for
@@ -140,7 +141,6 @@
     <div class="wl-weights" id="wl-weights" role="group" aria-label="Priority weighting">
       <button type="button" class="chip is-on" data-weight="cheapest">Cheapest</button>
       <button type="button" class="chip" data-weight="expensive">Most expensive</button>
-      <button type="button" class="chip" data-weight="age">Longest waiting</button>
     </div>
   </div>
   <div id="wl-list"><div class="empty">Loading…</div></div>
@@ -171,17 +171,15 @@
   var currentPage = 1;
   var activePreviewId = null;
 
-  // Wishlist Priority (v2, 2026-07-30). v1 blended a discount signal and an
-  // age signal into one weighted score behind a "Balanced" preset that
-  // tested unclear in practice -- what is a blend actually prioritizing?
-  // v2 replaces the blend with three literal, honest sorts: cheapest current
-  // price first, most expensive current price first, or oldest addition
-  // first. Each does exactly what its label says, nothing hidden in a
-  // weight. The discount-percent badge on each row is unchanged and still
+  // Wishlist Priority (v3, 2026-07-30). v2 added a "Longest waiting" preset
+  // alongside Cheapest/Most expensive, but it wasn't earning its place --
+  // dropped. Two literal, honest sorts remain: cheapest current price first,
+  // or most expensive current price first. Each does exactly what its label
+  // says. The discount-percent badge on each row is unchanged and still
   // shows regardless of sort mode.
   var SORT_KEY = 'wlSortMode';    // 'priority' | 'alpha'
-  var WEIGHT_KEY = 'wlWeight';    // 'cheapest' | 'expensive' | 'age'
-  var SORT_MODES = ['cheapest', 'expensive', 'age'];
+  var WEIGHT_KEY = 'wlWeight';    // 'cheapest' | 'expensive'
+  var SORT_MODES = ['cheapest', 'expensive'];
 
   function getSortMode() { var v = localStorage.getItem(SORT_KEY); return v === 'alpha' ? 'alpha' : 'priority'; }
   function setSortMode(v) { localStorage.setItem(SORT_KEY, v); }
@@ -196,14 +194,8 @@
     if (w.current_ask != null) return w.current_ask;
     return null;
   }
-  function ageDays(w) {
-    if (!w.created_at) return -1;
-    var days = (Date.now() - new Date(w.created_at).getTime()) / 86400000;
-    return isNaN(days) ? -1 : days;
-  }
   function priorityCompare(a, b) {
     var mode = getWeightKey();
-    if (mode === 'age') return ageDays(b) - ageDays(a);
     var pa = effectivePrice(a), pb = effectivePrice(b);
     if (pa == null && pb == null) return 0;
     if (pa == null) return 1;  // unknown price sorts last either direction
