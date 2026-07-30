@@ -1066,9 +1066,27 @@ async function acceptPressing(idx) {
     existing.catalog_no = merged.catalog_no;
     existing.country = merged.country;
     existing.format = merged.format;
+
+    // Auto-fetch cover art from the same match, so accepting a pressing
+    // doesn't leave "no artwork" as a separate manual step every time.
+    // Best-effort: never blocks or fails the pressing apply above.
+    var coverMsg = '';
+    if (!existing.cover_url && merged.discogs_release_id != null) {
+      try {
+        var coverRes = await api('/api/discogs/cover', {
+          method: 'POST',
+          body: JSON.stringify({ recordId: id, releaseId: merged.discogs_release_id })
+        });
+        existing.cover_url = coverRes.cover_url;
+        coverMsg = ' + cover fetched';
+      } catch (coverErr) {
+        coverMsg = ' (cover fetch failed: ' + coverErr.message + ' — upload one manually)';
+      }
+    }
+
     closeLookup();
     render();
-    toast('Pressing applied');
+    toast('Pressing applied' + coverMsg);
   } catch (err) {
     setResults('<div class="lookup-status is-error">Apply failed: ' + escapeHtml(err.message) + '</div>');
   }
