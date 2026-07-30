@@ -344,3 +344,21 @@ Portfolio-wide taste call: Lora replaces Instrument Serif across all 7
 pages + style.css, including the two direct 'Instrument Serif' refs
 (audit.html's edit-mode style block, roadmap.html's .phase__name). Same
 self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
+
+## 2026-07-30 — Wishlist sort clarity + automatic Discogs cover art
+
+- Wishlist sort presets replaced: "Discount first / Balanced / Longest
+  waiting" (a blended weighted score) is now "Cheapest / Most expensive /
+  Longest waiting" (literal sorts on current price or age, no blend). The
+  "Balanced" preset tested unclear — a blend of two signals with no visible
+  ratio isn't something a person can reason about. The per-row discount %
+  badge is unchanged and still shows regardless of sort mode.
+- New `netlify/functions/discogs-cover.mjs`: when a pressing match is
+  accepted in Audit (`acceptPressing()`), if the record has no `cover_url`
+  yet, the accepted release's cover art is now fetched from Discogs and
+  committed to `covers/<id>.jpg` automatically — same GitHub-contents-API
+  commit path as `save-cover.mjs`, just server-initiated instead of a manual
+  upload. Gated by the same `X-Edit-Key`; reuses the existing `DISCOGS_TOKEN`
+  and `GITHUB_TOKEN` env vars, no new secrets. Best-effort: a failed fetch
+  doesn't block the pressing apply, it just leaves cover_url unset with a
+  toast telling Susan to upload one manually.
