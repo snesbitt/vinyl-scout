@@ -161,7 +161,21 @@
   'use strict';
 
   function $(id) { return document.getElementById(id); }
-  function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+  // 2026-07-31: the old textContent-round-trip trick escaped &, <, > but not
+  // " or ' -- fine for plain text nodes, but this helper is also used inside
+  // double-quoted attributes (src=, data-id=, data-artist=, data-title=), so
+  // a wishlist item's artist/title/cover_url containing a `"` could break
+  // out of the attribute and inject markup. The POST /wishlist endpoint is
+  // deliberately ungated (Susan's own 2026-07-11 decision -- not re-gating
+  // it), so this escaping is the only thing standing between an ungated
+  // write and a stored-XSS hit. Explicit character map, escapes both quote
+  // styles, safe in either context.
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   function showError(msg) { var el = $('error-banner'); el.textContent = msg; el.hidden = false; }
   function clearError() { var el = $('error-banner'); el.textContent = ''; el.hidden = true; }
   function fmt(n) { return (n == null || isNaN(n)) ? null : '€' + Number(n).toFixed(2); }
