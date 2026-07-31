@@ -362,3 +362,29 @@ self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
   and `GITHUB_TOKEN` env vars, no new secrets. Best-effort: a failed fetch
   doesn't block the pressing apply, it just leaves cover_url unset with a
   toast telling Susan to upload one manually.
+
+## 2026-07-31 — Security audit fixes + Discogs token rotation
+
+- `wishlist.html`: `esc()` escaped `&<>` but not quotes, so the cover/data-*
+  attributes built from wishlist items (artist, title, cover URL — all
+  attacker-writable via the deliberately ungated `POST /api/wishlist`)
+  could break out of their attribute and inject arbitrary HTML. Replaced
+  with an explicit `&<>"'` character-map escaper. No functional change —
+  every legitimate wishlist item renders identically. Committed `ef65e79`,
+  landed on `main` at `7ffa854` after a same-day git-merge detour (stray
+  `tmp_obj_*`/lock debris in `.git/objects`, unrelated to the fix itself;
+  resolved via reset + cherry-pick).
+- `enrich-release-info.py` (gitignored, not tracked in git): dropped the
+  hardcoded Discogs Personal Access Token in favor of reading
+  `DISCOGS_TOKEN` from the environment, with a clear error if unset.
+- Discogs token rotated end to end: the old token had been hardcoded in a
+  tracked commit before this file was gitignored (recoverable from git
+  history, commit `8818453`), so treated as compromised. New Personal
+  Access Token generated at discogs.com/settings/developers, `DISCOGS_
+  TOKEN` updated in Netlify (Site configuration → Environment variables),
+  site redeployed so `discogs-lookup.mjs` / `discogs-pricing.mjs` /
+  `discogs-cover.mjs` all pick up the new value.
+- Leftover `safety-backup` branch (an insurance branch from the git-merge
+  detour above, same diff as `7ffa854`, fully incorporated) — Susan to
+  run `git branch -D safety-backup` locally; the device bridge's lock
+  handling can't reliably do ref deletes.
