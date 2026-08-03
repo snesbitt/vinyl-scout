@@ -19,8 +19,29 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 3 (2026-08-03). Still PREVIEW MOCK ONLY —
-       see the v1 note below, nothing here calls a real API.
+    /* Concert Radar — version: 4 (2026-08-03).
+       v4: the "Coming Soon" list below is STILL a preview mock (sample
+       data, see v1/v2/v3 notes) — but the Search card now also fires a REAL
+       query against the new /api/tour-dates function (netlify/functions/
+       tour-dates.mjs, SeatGeek-backed), added as its own "Live Results"
+       section so real and sample data are never visually blended — the
+       project's existing discipline (see CLAUDE.md, the "Preview — sample
+       data" banner history) is not to let real and fake data look the same.
+       - Added an explicit "Search" button (was previously live-filter-only
+         via keystroke) — a real network call shouldn't fire on every
+         keypress, so Search is now a deliberate action; Enter in the
+         Artist field also triggers it.
+       - Loading / error / empty states are all visible, persistent text
+         (per CLAUDE.md's "No silent failures" rule) — no console-only
+         failures, no setTimeout-hides-error.
+       - Live cards show a "Live" tag + "via SeatGeek", a real working
+         "Get tickets ↗" link (target=_blank), and — for transparency after
+         the tribute-band false-match bug tour-dates.mjs v2 shipped with —
+         a small "Matched: <performer>" line so it's always visible exactly
+         which SeatGeek performer record the results came from.
+       - City field now also filters the LIVE results client-side (server
+         only takes an artist + a fixed Berkeley radius; city narrows what's
+         displayed from that same result set).
        v3 changes, all per Susan's request, same session as v2:
        - Removed the "Preview — sample data, not real listings" banner and
          the "Matching artists from your collection..." intro line. The
@@ -73,10 +94,25 @@
     .cr-input:focus { outline: none; border-color: var(--accent); }
     .cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .cr-field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 5px; }
+    .cr-search-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .cr-search-btn { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ink); color: var(--bg); border: 0; border-radius: 2px; padding: 0 18px; min-height: 44px; cursor: pointer; flex: 0 0 auto; }
+    .cr-search-btn:hover { background: var(--accent); }
+    .cr-search-btn:disabled { background: var(--rule); color: var(--ink-faint); cursor: default; }
     .cr-search-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
     .cr-clear { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
     .cr-clear:hover { color: var(--accent); }
     .cr-clear[hidden] { display: none; }
+
+    .cr-live { margin: 0 0 30px; }
+    .cr-live[hidden] { display: none; }
+    .cr-live-status { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); padding: 14px; border: 1px dashed var(--rule); border-radius: 3px; text-align: center; }
+    .cr-live-status.is-error { color: var(--bad, #b3392c); border-color: var(--bad, #b3392c); border-style: solid; }
+    .cr-live-query { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 10px; }
+    .cr-live-item { border: 1px solid var(--good); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .cr-live-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--good); border: 1px solid var(--good); border-radius: 2px; padding: 2px 6px; }
+    .cr-live-matched { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 6px; }
+    .cr-live-cta { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; margin-top: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 0 14px; text-decoration: none; }
+    .cr-live-cta:hover { background: var(--ink); color: var(--bg); }
 
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
     .cr-watch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
@@ -121,8 +157,10 @@
       .cr-wrap { padding: 0 18px 64px; }
       .cr-hero { grid-template-columns: 1fr; }
       .cr-fields { grid-template-columns: 1fr; }
-      .cr-item { flex-direction: column; align-items: flex-start; }
+      .cr-item, .cr-live-item { flex-direction: column; align-items: flex-start; }
       .cr-meta { text-align: left; }
+      .cr-search-actions { flex-direction: column; align-items: stretch; }
+      .cr-search-btn { width: 100%; }
     }
   </style>
 </head>
@@ -161,6 +199,9 @@
           <input type="text" id="cr-f-city" class="cr-input" placeholder="e.g. Oakland" autocomplete="off" />
         </div>
       </div>
+      <div class="cr-search-actions">
+        <button type="button" id="cr-search-btn" class="cr-search-btn">Search live listings</button>
+      </div>
       <div class="cr-search-meta">
         <span id="cr-count">&nbsp;</span>
         <button type="button" id="cr-clear" class="cr-clear" hidden>Clear</button>
@@ -180,6 +221,11 @@
       <p class="cr-watch-note">Once the real matching function exists, artists watched here will alert you the moment a tour date is announced. For now this just checks against the sample shows below.</p>
     </div>
   </div>
+
+  <section id="cr-live" class="cr-live" hidden>
+    <h3 class="cr-section-label">Live Results</h3>
+    <div id="cr-live-body"></div>
+  </section>
 
   <h3 class="cr-section-label">Coming Soon</h3>
   <div id="cr-list" class="cr-list"></div>
@@ -233,7 +279,10 @@
     watchList: document.getElementById('cr-watch-list'),
     watchArtistInput: document.getElementById('cr-watch-artist'),
     watchCityInput: document.getElementById('cr-watch-city'),
-    watchAddBtn: document.getElementById('cr-watch-add-btn')
+    watchAddBtn: document.getElementById('cr-watch-add-btn'),
+    searchBtn: document.getElementById('cr-search-btn'),
+    live: document.getElementById('cr-live'),
+    liveBody: document.getElementById('cr-live-body')
   };
 
   function fmtPrice(low, high) {
@@ -366,6 +415,101 @@
     saveJSON(LS_WATCH, watching);
     renderWatchList();
   });
+
+  // --- Live search: real query against /api/tour-dates (SeatGeek-backed). ---
+  // Kept in its own section, never merged into the SHOWS sample list above —
+  // this codebase's established discipline is to never let real and sample
+  // data look the same (see CLAUDE.md's "Preview — sample data" history).
+
+  function showLiveStatus(msg, isError) {
+    els.liveBody.innerHTML = '<div class="cr-live-status' + (isError ? ' is-error' : '') + '">' + esc(msg) + '</div>';
+  }
+
+  function renderLiveResults(shows, meta, queriedArtist) {
+    var cityQ = els.cityInput.value.trim().toLowerCase();
+    var filtered = (shows || []).filter(function (s) {
+      if (!cityQ) return true;
+      return (s.city || '').toLowerCase().indexOf(cityQ) !== -1 ||
+        (s.venue || '').toLowerCase().indexOf(cityQ) !== -1;
+    });
+
+    var matchedLine = meta.matched_performer
+      ? '<div class="cr-live-matched">Matched performer: ' + esc(meta.matched_performer) +
+        (meta.match_tier === 'fuzzy' ? ' — closest match found, double-check before trusting' : '') +
+        '</div>'
+      : '';
+
+    if (!meta.matched_performer) {
+      els.liveBody.innerHTML = matchedLine +
+        '<div class="cr-live-status">No SeatGeek performer found matching “' + esc(queriedArtist) +
+        '.” Try the exact act name (as billed, not a nickname).</div>';
+      return;
+    }
+
+    if (!filtered.length) {
+      els.liveBody.innerHTML = matchedLine +
+        '<div class="cr-live-status">No upcoming ' + esc(meta.matched_performer) + ' shows found within ' +
+        esc(meta.range || 'range') + ' of Berkeley' +
+        (cityQ ? ' matching “' + esc(els.cityInput.value.trim()) + '”' : '') + '.</div>';
+      return;
+    }
+
+    els.liveBody.innerHTML = matchedLine + filtered.map(function (s) {
+      var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
+      return '<div class="cr-live-item">' +
+        '<div class="cr-who">' +
+          '<div class="cr-artist">' + esc(s.artist || meta.matched_performer) + '</div>' +
+          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+        '</div>' +
+        '<div class="cr-meta">' +
+          '<div class="cr-date">' + esc(s.dateLabel || s.date || 'Date TBA') + '</div>' +
+          (hasPrice ? '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  var liveSearchInFlight = false;
+  function runLiveSearch() {
+    if (liveSearchInFlight) return;
+    var artist = els.artistInput.value.trim();
+    els.live.hidden = false;
+    if (!artist) {
+      showLiveStatus('Enter an artist name above, then search.', true);
+      els.artistInput.focus();
+      return;
+    }
+    liveSearchInFlight = true;
+    els.searchBtn.disabled = true;
+    els.searchBtn.textContent = 'Searching…';
+    showLiveStatus('Searching SeatGeek for “' + artist + '” near Berkeley…', false);
+
+    fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+      .then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+      })
+      .then(function (r) {
+        if (!r.ok) {
+          showLiveStatus((r.data && r.data.error) ? r.data.error : ('Search failed (HTTP ' + r.status + ').'), true);
+          return;
+        }
+        renderLiveResults(r.data.shows, r.data.meta || {}, artist);
+      })
+      .catch(function (err) {
+        showLiveStatus('Could not reach the search endpoint: ' + err.message, true);
+      })
+      .finally(function () {
+        liveSearchInFlight = false;
+        els.searchBtn.disabled = false;
+        els.searchBtn.textContent = 'Search live listings';
+      });
+  }
+
+  els.searchBtn.addEventListener('click', runLiveSearch);
+  els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
+  els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
 
   renderList();
 })();

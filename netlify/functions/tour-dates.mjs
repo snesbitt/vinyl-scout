@@ -1,13 +1,46 @@
 // netlify/functions/tour-dates.mjs
-// version: 1
+// version: 3
 // Phase 11 — Concert Radar real feed test (SeatGeek first; Ticketmaster later,
 // per Susan's 2026-08-03 call to start with SeatGeek since Ticketmaster's own
 // developer signup was slow).
 //
+// v2: v1 used a free-text `q=<artist>` search on /events, combined with
+// lat/lon/range. Live-tested against ?artist=Rolling%20Stones and it matched
+// "Unauthorized Rolling Stones" — a tribute act at a small San Leandro venue —
+// because `q` searches loosely across performer/venue/title text and doesn't
+// distinguish a tribute band from the real one. Same wrong-match class of bug
+// as the audio-preview matching saga (see CLAUDE.md): never trust a loose
+// text match without verifying the actual matched entity. Fixed by resolving
+// the artist to a real SeatGeek performer FIRST (via /performers?q=, filtered
+// to an exact normalized-name match — a tribute act's performer name doesn't
+// equal the real artist's), then querying /events scoped to that performer's
+// exact slug. If no exact performer match is found, returns an empty list
+// rather than falling back to a loose text search.
+//
+// v3: live-tested "Kruder & Dorfmeister" (real Fox Theater Oakland Oct 2026
+// date confirmed by Susan) and got zero results — TWO compounding bugs:
+// (a) v2's norm() only stripped a LEADING "the ", and never unified "&" vs
+// "and", so "Kruder & Dorfmeister" (query) vs however SeatGeek's own
+// performer record spells it never produced an exact string match; (b) v2
+// had no fallback at all once the exact-match check failed — a real,
+// lower-profile act with no exact hit just silently returned nothing, which
+// is worse than the wrong-match bug it was fixed to avoid, not better. v3
+// fixes both: norm() now unifies "&"/"and", strips "the" anywhere (not just
+// leading), and a bumped per_page (20, from 10) gives less-mainstream acts
+// more room to appear in the performer search at all. A guarded fallback
+// tier now runs if no exact match: candidates must contain EVERY normalized
+// token of the query as a substring of their own normalized name (so a
+// partial/reordered name still counts) AND must not contain an obvious
+// tribute/cover-act keyword (tribute, unauthorized, cover, salute, "as
+// performed by", homage) — this is what a real act's performer record does
+// NOT trip and a copy act's almost always does. `meta.match_tier` reports
+// which path found the result ("exact" | "fuzzy" | null) so this stays
+// auditable instead of a silent guess.
+//
 // PURE READ. This function queries the SeatGeek Platform API and returns
-// upcoming events near a hardcoded home location, optionally scoped to one
-// artist. It NEVER touches the Netlify Blobs "records"/"wishlist" stores and
-// NEVER writes anything.
+// upcoming events near a hardcoded home location, scoped to one artist. It
+// NEVER touches the Netlify Blobs "records"/"wishlist" stores and NEVER
+// writes anything.
 //
 // Not gated by the edit secret: same rationale as discogs-lookup.mjs — this
 // is a pure read of public event data, exposes nothing from the catalog, and
@@ -21,7 +54,12 @@
 // [into the real matching function], not stay in a static page").
 //
 // Env vars expected:
-//   SEATGEEK_CLIENT_ID      — SeatGeek Platform API client_id (required)
+//   SEATGEEK_CLIENT_ID      — SeatGeek Platform API client_id (required).
+//                             Must be scoped to "Functions" (or "All scopes")
+//                             in Netlify's env var UI — "Builds, Runtime"
+//                             alone is NOT enough for a serverless function
+//                             to read it at request time (bit us on first
+//                             deploy, 2026-08-03).
 //   SEATGEEK_CLIENT_SECRET  — optional; SeatGeek's own docs say client_secret
 //                             is optional for read-only calls like /events,
 //                             so this function tries client_id alone first
@@ -62,26 +100,16 @@ export default async (req) => {
     return json({ error: "Provide an artist name, e.g. ?artist=Kraftwerk" }, 400);
   }
 
-  const search = new URLSearchParams();
-  search.set("client_id", clientId);
-  if (clientSecret) search.set("client_secret", clientSecret);
-  // Free-text `q` search across performer/venue/title — avoids having to
-  // guess SeatGeek's internal performer slug (e.g. "The Rolling Stones" is
-  // slugged "rolling-stones", not "the-rolling-stones"). All SeatGeek
-  // arguments combine, so q + lat/lon + range narrows to "this artist, near
-  // Berkeley" in one call.
-  search.set("q", artist);
-  search.set("lat", String(HOME_LAT));
-  search.set("lon", String(HOME_LON));
-  search.set("range", range);
-  search.set("sort", "datetime_utc.asc");
-  search.set("per_page", "10");
+  function authParams() {
+    const p = new URLSearchParams();
+    p.set("client_id", clientId);
+    if (clientSecret) p.set("client_secret", clientSecret);
+    return p;
+  }
 
-  const seatGeekUrl = "https://api.seatgeek.com/2/events?" + search.toString();
-
-  let data;
-  try {
-    const res = await fetch(seatGeekUrl);
+  async function seatGeekGet(path, params) {
+    const full = "https://api.seatgeek.com/2/" + path + "?" + params.toString();
+    const res = await fetch(full);
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).message || ""; } catch (e) {}
@@ -89,13 +117,78 @@ export default async (req) => {
       err.upstream = true;
       throw err;
     }
-    data = await res.json();
+    return res.json();
+  }
+
+  // Normalize for comparison: lowercase, unify "&"/"and", drop punctuation,
+  // strip standalone "the" ANYWHERE (not just a leading one), collapse
+  // whitespace. Makes "Kruder & Dorfmeister" == "Kruder and Dorfmeister" and
+  // "The Rolling Stones" == "Rolling Stones" regardless of which form
+  // SeatGeek's own performer record happens to use.
+  function norm(s) {
+    return (s || "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .replace(/\bthe\b/g, " ")
+      .replace(/\band\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  var TRIBUTE_WORDS = /\b(tribute|unauthorized|unauthorised|cover band|coverband|salute|as performed by|homage|allstars)\b/;
+
+  let performer = null;
+  let matchTier = null;
+  let events = [];
+  try {
+    // Step 1: resolve the real performer by name. Try an EXACT normalized
+    // match first — this alone is what excludes tribute/cover acts (e.g.
+    // "Unauthorized Rolling Stones") whose name merely contains the searched
+    // artist as a substring. per_page bumped to 20 so a lower-profile act
+    // (lower SeatGeek `score`) has more room to appear in results at all.
+    const perfParams = authParams();
+    perfParams.set("q", artist);
+    perfParams.set("per_page", "20");
+    perfParams.set("sort", "score.desc");
+    const perfData = await seatGeekGet("performers", perfParams);
+    const performers = Array.isArray(perfData.performers) ? perfData.performers : [];
+    const wantNorm = norm(artist);
+    const wantTokens = wantNorm.split(" ").filter(Boolean);
+
+    performer = performers.find((p) => norm(p.name) === wantNorm) || null;
+    if (performer) {
+      matchTier = "exact";
+    } else if (wantTokens.length) {
+      // Step 1b: guarded fallback. Every query token must appear in the
+      // candidate's normalized name (catches real formatting drift, e.g. a
+      // stray middle initial or "&" left unexpanded somewhere), AND the
+      // candidate must not read as a tribute/cover act. First survivor wins
+      // since SeatGeek already sorted by score.desc.
+      performer = performers.find((p) => {
+        var n = norm(p.name);
+        if (TRIBUTE_WORDS.test((p.name || "").toLowerCase())) return false;
+        return wantTokens.every((t) => n.indexOf(t) !== -1);
+      }) || null;
+      if (performer) matchTier = "fuzzy";
+    }
+
+    // Step 2: only query events if we found a genuine performer match.
+    if (performer && performer.slug) {
+      const evParams = authParams();
+      evParams.set("performers.slug", performer.slug);
+      evParams.set("lat", String(HOME_LAT));
+      evParams.set("lon", String(HOME_LON));
+      evParams.set("range", range);
+      evParams.set("sort", "datetime_utc.asc");
+      evParams.set("per_page", "10");
+      const evData = await seatGeekGet("events", evParams);
+      events = Array.isArray(evData.events) ? evData.events : [];
+    }
   } catch (err) {
     if (err.upstream) return json({ error: err.message }, 502);
     return json({ error: "Could not reach SeatGeek: " + err.message }, 502);
   }
-
-  const events = Array.isArray(data.events) ? data.events : [];
 
   const shows = events.map((e) => {
     const venue = e.venue || {};
@@ -125,5 +218,16 @@ export default async (req) => {
     };
   });
 
-  return json({ shows, meta: { query: artist, lat: HOME_LAT, lon: HOME_LON, range } }, 200);
+  return json({
+    shows,
+    meta: {
+      query: artist,
+      matched_performer: performer ? performer.name : null,
+      matched_slug: performer ? performer.slug : null,
+      match_tier: matchTier,
+      lat: HOME_LAT,
+      lon: HOME_LON,
+      range,
+    },
+  }, 200);
 };
