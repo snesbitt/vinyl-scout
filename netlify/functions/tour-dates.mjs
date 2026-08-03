@@ -1,5 +1,5 @@
 // netlify/functions/tour-dates.mjs
-// version: 3
+// version: 4
 // Phase 11 — Concert Radar real feed test (SeatGeek first; Ticketmaster later,
 // per Susan's 2026-08-03 call to start with SeatGeek since Ticketmaster's own
 // developer signup was slow).
@@ -36,6 +36,25 @@
 // NOT trip and a copy act's almost always does. `meta.match_tier` reports
 // which path found the result ("exact" | "fuzzy" | null) so this stays
 // auditable instead of a silent guess.
+//
+// v4: live-tested ?artist=Sade and got back "Ultimate Sade Tribute Concert"
+// at a small San Leandro theater — caught by Susan asking "is that real?",
+// not by anything this function checked. Root cause: v3's tribute-word
+// blocklist only ever ran against the PERFORMER name, and only in the fuzzy
+// fallback path. This tribute act is registered on SeatGeek under the bare
+// performer name "Sade" — no "tribute"/"unauthorized" qualifier anywhere in
+// the performer record — so it passed the EXACT-match tier clean, and the
+// blocklist never got a chance to run at all. The one place this act
+// couldn't hide was the EVENT's own title ("Ultimate Sade Tribute
+// Concert"), which v3 fetched into `title` but never checked or even
+// surfaced in the API response consumers actually render. Fixed: every
+// event (regardless of which tier matched the performer) now has its own
+// title/short_title checked against the tribute blocklist, and any event
+// that trips it is dropped before the response is built — not just relied
+// on to be obvious from the (frequently blander) performer name. Blocklist
+// also widened with two more common tribute-show phrasings that don't
+// contain the word "tribute" at all: "the music of <artist>" and "a
+// celebration of <artist>".
 //
 // PURE READ. This function queries the SeatGeek Platform API and returns
 // upcoming events near a hardcoded home location, scoped to one artist. It
@@ -136,7 +155,7 @@ export default async (req) => {
       .trim();
   }
 
-  var TRIBUTE_WORDS = /\b(tribute|unauthorized|unauthorised|cover band|coverband|salute|as performed by|homage|allstars)\b/;
+  var TRIBUTE_WORDS = /\b(tribute|unauthorized|unauthorised|cover band|coverband|salute|as performed by|homage|allstars|the music of|a celebration of|celebrating the music)\b/;
 
   let performer = null;
   let matchTier = null;
@@ -183,7 +202,15 @@ export default async (req) => {
       evParams.set("sort", "datetime_utc.asc");
       evParams.set("per_page", "10");
       const evData = await seatGeekGet("events", evParams);
-      events = Array.isArray(evData.events) ? evData.events : [];
+      const rawEvents = Array.isArray(evData.events) ? evData.events : [];
+      // Filter on the EVENT's own title, not just the performer name — a
+      // tribute/cover act can be registered on SeatGeek under the exact
+      // bare artist name (no qualifier), but the event title it books under
+      // is almost always where the "tribute" language actually shows up.
+      events = rawEvents.filter((e) => {
+        var titleText = ((e.title || "") + " " + (e.short_title || "")).toLowerCase();
+        return !TRIBUTE_WORDS.test(titleText);
+      });
     }
   } catch (err) {
     if (err.upstream) return json({ error: err.message }, 502);

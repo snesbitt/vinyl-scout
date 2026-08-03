@@ -19,7 +19,20 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 7 (2026-08-03).
+    /* Concert Radar — version: 8 (2026-08-03).
+       v8, two fixes from the same live-review pass:
+       - Coming Soon cards gained a "+ Watch" button (parity with the one
+         Live Results already had) — there was previously no way to start
+         watching an artist directly from a Coming Soon card, only via the
+         Watching panel's own form or from an ad-hoc Search result.
+       - Companion fix lives in netlify/functions/tour-dates.mjs v4: Susan
+         caught a real "Ultimate Sade Tribute Concert" rendering as a plain
+         "Sade" show — a tribute act registered on SeatGeek under the bare
+         artist name, which the exact-match performer check couldn't catch
+         since the "tribute" language only ever showed up in the event's
+         own title, which the matching logic wasn't checking. See that
+         file's v4 note for the full fix (event-title-based blocklist,
+         applied to every match regardless of tier).
        v7: Coming Soon is no longer the static 6-show mock array — it's now
        real data. On load (and every 12h after, or on demand via the new
        Refresh link), the page collects every distinct artist name across
@@ -406,13 +419,16 @@
     } else {
       els.list.innerHTML = shows.map(function (s) {
         var cta = s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '';
+        var already = isWatching(s.artist);
+        var watchBtn = '<button type="button" class="cr-watch-inline-btn" data-watch-artist="' + esc(s.artist) + '" data-watch-city="' + esc(s.city || '') + '"' +
+          (already ? ' disabled' : '') + '>' + (already ? 'Watching ✓' : '+ Watch') + '</button>';
         var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
         return '<div class="cr-item" data-id="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">' +
           '<div class="cr-who">' +
             '<div class="cr-artist">' + esc(s.artist) + '</div>' +
             '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
             '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
-            cta +
+            '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
           '</div>' +
           '<div class="cr-meta">' +
             '<div class="cr-date">' + esc(s.dateLabel || s.date || '') + '</div>' +
@@ -476,6 +492,13 @@
   });
 
   els.list.addEventListener('click', function (e) {
+    var watchBtn = e.target.closest('[data-watch-artist]');
+    if (watchBtn) {
+      addWatch(watchBtn.getAttribute('data-watch-artist'), watchBtn.getAttribute('data-watch-city'));
+      watchBtn.textContent = 'Watching ✓';
+      watchBtn.disabled = true;
+      return;
+    }
     var btn = e.target.closest('[data-del]');
     if (!btn) return;
     var id = btn.getAttribute('data-del');
