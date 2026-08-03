@@ -19,7 +19,35 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 4 (2026-08-03).
+    /* Concert Radar — version: 5 (2026-08-03).
+       v5, all direct UI/UX feedback after the v4 live-search launch:
+       - Removed the "N of N shows" line and the old local live-filter
+         wiring on the Artist/City fields — those fields now do ONE thing
+         (feed the live SeatGeek search), not double as a hidden filter over
+         the Coming Soon sample list too. That dual-purpose is what made
+         "6 of 6 shows" show up somewhere it didn't obviously belong.
+       - Coming Soon is now a collapsible section (button + chevron,
+         defaults collapsed, state remembered via localStorage
+         cr_soon_open_v1) with a count badge in its own label so the number
+         of shows is still visible without opening it.
+       - Live search result cards gained an "Add to Coming Soon" button —
+         confirmed real shows can now be pinned into the Coming Soon list
+         instead of only living in a one-off search result. Added shows are
+         tagged "Live" (green), never "Sample" (red/red-bordered) — keeps
+         the same real-vs-sample visual distinction the rest of this page
+         already relies on, just inside one shared list instead of two.
+         Persisted via localStorage cr_added_shows_v1.
+       - Cut the Watching panel's explanatory paragraph — it read like an
+         internal build note ("Once the real matching function exists...")
+         rather than something a person browsing the page needs.
+       - The "Matched performer: X" line under live results now only shows
+         when the match was a fuzzy/fallback one — an exact match doesn't
+         need the caveat, so it's quieter in the common case.
+       - Live results also gained a "+ Watch <artist>" action (once per
+         matched artist, not per show — watching is an artist+city concept,
+         not a per-date one) so a search that finds nothing upcoming still
+         lets you start watching that artist right from the result, instead
+         of re-typing the name into the separate Watching panel.
        v4: the "Coming Soon" list below is STILL a preview mock (sample
        data, see v1/v2/v3 notes) — but the Search card now also fires a REAL
        query against the new /api/tour-dates function (netlify/functions/
@@ -94,11 +122,10 @@
     .cr-input:focus { outline: none; border-color: var(--accent); }
     .cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .cr-field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 5px; }
-    .cr-search-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .cr-search-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
     .cr-search-btn { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ink); color: var(--bg); border: 0; border-radius: 2px; padding: 0 18px; min-height: 44px; cursor: pointer; flex: 0 0 auto; }
     .cr-search-btn:hover { background: var(--accent); }
     .cr-search-btn:disabled { background: var(--rule); color: var(--ink-faint); cursor: default; }
-    .cr-search-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
     .cr-clear { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
     .cr-clear:hover { color: var(--accent); }
     .cr-clear[hidden] { display: none; }
@@ -108,11 +135,25 @@
     .cr-live-status { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); padding: 14px; border: 1px dashed var(--rule); border-radius: 3px; text-align: center; }
     .cr-live-status.is-error { color: var(--bad, #b3392c); border-color: var(--bad, #b3392c); border-style: solid; }
     .cr-live-query { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 10px; }
+    .cr-live-watch-row { margin: 0 0 12px; }
+    .cr-watch-inline-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; background: transparent; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 8px 14px; min-height: 36px; cursor: pointer; }
+    .cr-watch-inline-btn:hover { background: var(--ink); color: var(--bg); }
+    .cr-watch-inline-btn:disabled { border-color: var(--good); color: var(--good); background: transparent; cursor: default; }
     .cr-live-item { border: 1px solid var(--good); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
     .cr-live-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--good); border: 1px solid var(--good); border-radius: 2px; padding: 2px 6px; }
     .cr-live-matched { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 6px; }
-    .cr-live-cta { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; margin-top: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 0 14px; text-decoration: none; }
+    .cr-live-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .cr-live-cta { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 0 14px; text-decoration: none; }
     .cr-live-cta:hover { background: var(--ink); color: var(--bg); }
+    .cr-live-add-btn { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--good); border: 1px solid var(--good); background: transparent; border-radius: 2px; padding: 0 14px; cursor: pointer; }
+    .cr-live-add-btn:hover { background: var(--good); color: var(--bg); }
+    .cr-live-add-btn:disabled { color: var(--ink-faint); border-color: var(--rule); cursor: default; background: transparent; }
+
+    .cr-section-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent; border: 0; cursor: pointer; padding: 0; margin: 0 0 12px; text-align: left; }
+    .cr-soon-count { color: var(--ink-mute); font-weight: 400; }
+    .cr-toggle-chevron { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); transition: transform 0.15s ease; }
+    .cr-section-toggle[aria-expanded="true"] .cr-toggle-chevron { transform: rotate(180deg); }
+    .cr-soon-body[hidden] { display: none; }
 
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
     .cr-watch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
@@ -201,9 +242,6 @@
       </div>
       <div class="cr-search-actions">
         <button type="button" id="cr-search-btn" class="cr-search-btn">Search live listings</button>
-      </div>
-      <div class="cr-search-meta">
-        <span id="cr-count">&nbsp;</span>
         <button type="button" id="cr-clear" class="cr-clear" hidden>Clear</button>
       </div>
     </div>
@@ -218,7 +256,6 @@
           <button type="button" id="cr-watch-add-btn" class="cr-watch-btn">Watch</button>
         </div>
       </div>
-      <p class="cr-watch-note">Once the real matching function exists, artists watched here will alert you the moment a tour date is announced. For now this just checks against the sample shows below.</p>
     </div>
   </div>
 
@@ -227,11 +264,15 @@
     <div id="cr-live-body"></div>
   </section>
 
-  <h3 class="cr-section-label">Coming Soon</h3>
-  <div id="cr-list" class="cr-list"></div>
-
-  <div id="cr-reset" class="cr-reset" hidden>
-    <button type="button" id="cr-reset-btn">Restore deleted sample shows</button>
+  <button type="button" id="cr-soon-toggle" class="cr-section-toggle" aria-expanded="false" aria-controls="cr-soon-body">
+    <span class="cr-section-label">Coming Soon <span id="cr-soon-count" class="cr-soon-count"></span></span>
+    <span class="cr-toggle-chevron" aria-hidden="true">&#9662;</span>
+  </button>
+  <div id="cr-soon-body" class="cr-soon-body" hidden>
+    <div id="cr-list" class="cr-list"></div>
+    <div id="cr-reset" class="cr-reset" hidden>
+      <button type="button" id="cr-reset-btn">Restore deleted sample shows</button>
+    </div>
   </div>
 
 </main>
@@ -240,6 +281,8 @@
 (function(){
   var LS_DELETED = 'cr_deleted_ids_v1';
   var LS_WATCH = 'cr_watching_v1';
+  var LS_ADDED = 'cr_added_shows_v1';
+  var LS_SOON_OPEN = 'cr_soon_open_v1';
 
   var SHOWS = [
     { id: 'sade-greek-20261018', artist: 'Sade', venue: 'Greek Theatre', city: 'Berkeley, CA', date: '2026-10-18', dateLabel: 'Sun, Oct 18, 2026', source: 'Ticketmaster', priceLow: 95, priceHigh: 310 },
@@ -267,12 +310,16 @@
 
   var deleted = loadJSON(LS_DELETED);
   var watching = loadJSON(LS_WATCH);
+  var addedShows = loadJSON(LS_ADDED);
+  var soonOpen = (function () {
+    try { return localStorage.getItem(LS_SOON_OPEN) === '1'; }
+    catch (e) { return false; }
+  })();
 
   var els = {
     artistInput: document.getElementById('cr-f-artist'),
     cityInput: document.getElementById('cr-f-city'),
     clearBtn: document.getElementById('cr-clear'),
-    countLine: document.getElementById('cr-count'),
     list: document.getElementById('cr-list'),
     resetWrap: document.getElementById('cr-reset'),
     resetBtn: document.getElementById('cr-reset-btn'),
@@ -282,50 +329,62 @@
     watchAddBtn: document.getElementById('cr-watch-add-btn'),
     searchBtn: document.getElementById('cr-search-btn'),
     live: document.getElementById('cr-live'),
-    liveBody: document.getElementById('cr-live-body')
+    liveBody: document.getElementById('cr-live-body'),
+    soonToggle: document.getElementById('cr-soon-toggle'),
+    soonBody: document.getElementById('cr-soon-body'),
+    soonCount: document.getElementById('cr-soon-count')
   };
 
   function fmtPrice(low, high) {
     return '$' + low.toLocaleString() + ' – $' + high.toLocaleString();
   }
 
-  function visibleShows() {
-    var artistQ = els.artistInput.value.trim().toLowerCase();
-    var cityQ = els.cityInput.value.trim().toLowerCase();
-    return SHOWS.filter(function (s) {
-      if (deleted.indexOf(s.id) !== -1) return false;
-      if (artistQ && s.artist.toLowerCase().indexOf(artistQ) === -1) return false;
-      if (cityQ && s.city.toLowerCase().indexOf(cityQ) === -1 && s.venue.toLowerCase().indexOf(cityQ) === -1) return false;
-      return true;
-    }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  // Coming Soon = the sample SHOWS (minus any deleted) plus any real shows
+  // pinned over from a live search (minus any the user's since removed).
+  // Every item still carries which kind it is (`_kind`) so rendering and
+  // deletion can treat sample vs. real shows differently.
+  function comingSoonShows() {
+    var sample = SHOWS.filter(function (s) { return deleted.indexOf(s.id) === -1; })
+      .map(function (s) { return Object.assign({ _kind: 'sample' }, s); });
+    var live = addedShows.map(function (s) { return Object.assign({ _kind: 'live' }, s); });
+    return sample.concat(live).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+  }
+
+  function setSoonOpen(open) {
+    soonOpen = open;
+    els.soonBody.hidden = !open;
+    els.soonToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    try { localStorage.setItem(LS_SOON_OPEN, open ? '1' : '0'); } catch (e) {}
   }
 
   function renderList() {
-    var shows = visibleShows();
-    var totalRemaining = SHOWS.length - deleted.length;
-
-    els.countLine.textContent = shows.length + ' of ' + totalRemaining + ' shows';
-    var hasFilter = els.artistInput.value.trim() || els.cityInput.value.trim();
-    els.clearBtn.hidden = !hasFilter;
+    var shows = comingSoonShows();
+    els.soonCount.textContent = '(' + shows.length + ')';
 
     if (!shows.length) {
-      els.list.innerHTML = '<div class="cr-empty">' +
-        (totalRemaining ? 'No shows match those filters.' : 'No sample shows left — use Restore below to bring them back.') +
-        '</div>';
+      els.list.innerHTML = '<div class="cr-empty">No shows left — use Restore below to bring the sample ones back.</div>';
     } else {
       els.list.innerHTML = shows.map(function (s) {
-        return '<div class="cr-item" data-id="' + esc(s.id) + '">' +
+        var isSample = s._kind === 'sample';
+        var tag = isSample
+          ? '<span class="cr-sample">Sample</span>'
+          : '<span class="cr-live-tag">Live</span>';
+        var cta = isSample
+          ? '<span class="cr-cta">Get tickets</span>'
+          : (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '');
+        var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
+        return '<div class="cr-item" data-id="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">' +
           '<div class="cr-who">' +
             '<div class="cr-artist">' + esc(s.artist) + '</div>' +
-            '<div class="cr-venue">' + esc(s.venue) + ' — ' + esc(s.city) + '</div>' +
-            '<div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via ' + esc(s.source) + '</span></div>' +
-            '<span class="cr-cta">Get tickets</span>' +
+            '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+            '<div class="cr-tags">' + tag + '<span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+            cta +
           '</div>' +
           '<div class="cr-meta">' +
-            '<div class="cr-date">' + esc(s.dateLabel) + '</div>' +
-            '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' +
+            '<div class="cr-date">' + esc(s.dateLabel || s.date || '') + '</div>' +
+            (hasPrice ? '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' : '') +
           '</div>' +
-          '<button type="button" class="cr-item-del" aria-label="Remove ' + esc(s.artist) + ' from the list" data-del="' + esc(s.id) + '">&times;</button>' +
+          '<button type="button" class="cr-item-del" aria-label="Remove ' + esc(s.artist) + ' from the list" data-del="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">&times;</button>' +
         '</div>';
       }).join('');
     }
@@ -337,11 +396,15 @@
   function watchIsMatch(name) {
     var q = name.trim().toLowerCase();
     if (!q) return false;
-    return SHOWS.some(function (s) {
-      if (deleted.indexOf(s.id) !== -1) return false;
+    return comingSoonShows().some(function (s) {
       var a = s.artist.toLowerCase();
       return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
     });
+  }
+
+  function isWatching(artist) {
+    var q = artist.trim().toLowerCase();
+    return watching.some(function (w) { return w.artist.toLowerCase() === q; });
   }
 
   function renderWatchList() {
@@ -362,12 +425,14 @@
     }).join('');
   }
 
-  els.artistInput.addEventListener('input', renderList);
-  els.cityInput.addEventListener('input', renderList);
+  els.soonToggle.addEventListener('click', function () { setSoonOpen(!soonOpen); });
+
   els.clearBtn.addEventListener('click', function () {
     els.artistInput.value = '';
     els.cityInput.value = '';
-    renderList();
+    els.live.hidden = true;
+    els.liveBody.innerHTML = '';
+    els.clearBtn.hidden = true;
     els.artistInput.focus();
   });
 
@@ -375,11 +440,15 @@
     var btn = e.target.closest('[data-del]');
     if (!btn) return;
     var id = btn.getAttribute('data-del');
-    if (deleted.indexOf(id) === -1) {
+    var kind = btn.getAttribute('data-kind');
+    if (kind === 'live') {
+      addedShows = addedShows.filter(function (s) { return s.id !== id; });
+      saveJSON(LS_ADDED, addedShows);
+    } else if (deleted.indexOf(id) === -1) {
       deleted.push(id);
       saveJSON(LS_DELETED, deleted);
-      renderList();
     }
+    renderList();
   });
 
   els.resetBtn.addEventListener('click', function () {
@@ -388,24 +457,31 @@
     renderList();
   });
 
-  function addWatch() {
+  // Shared by the Watching panel's own form AND the "+ Watch <artist>"
+  // button on live search results.
+  function addWatch(artist, city) {
+    artist = (artist || '').trim();
+    if (!artist) return false;
+    city = (city || '').trim();
+    if (isWatching(artist)) return false;
+    watching.push({ artist: artist, city: city });
+    saveJSON(LS_WATCH, watching);
+    renderWatchList();
+    return true;
+  }
+
+  function submitWatchForm() {
     var artist = els.watchArtistInput.value.trim();
     if (!artist) { els.watchArtistInput.focus(); return; }
-    var city = els.watchCityInput.value.trim();
-    var exists = watching.some(function (w) { return w.artist.toLowerCase() === artist.toLowerCase(); });
-    if (!exists) {
-      watching.push({ artist: artist, city: city });
-      saveJSON(LS_WATCH, watching);
-      renderWatchList();
-    }
+    addWatch(artist, els.watchCityInput.value.trim());
     els.watchArtistInput.value = '';
     els.watchCityInput.value = '';
     els.watchArtistInput.focus();
   }
 
-  els.watchAddBtn.addEventListener('click', addWatch);
-  els.watchArtistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addWatch(); });
-  els.watchCityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addWatch(); });
+  els.watchAddBtn.addEventListener('click', submitWatchForm);
+  els.watchArtistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitWatchForm(); });
+  els.watchCityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitWatchForm(); });
 
   els.watchList.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-watch-del]');
@@ -425,6 +501,19 @@
     els.liveBody.innerHTML = '<div class="cr-live-status' + (isError ? ' is-error' : '') + '">' + esc(msg) + '</div>';
   }
 
+  // Full show objects from the last render, keyed by id, so the delegated
+  // click handler below can look one up when "Add to Coming Soon" is clicked
+  // without re-parsing anything out of the DOM.
+  var lastLiveShowsById = {};
+
+  function watchRowHtml(artist, city) {
+    var already = isWatching(artist);
+    return '<div class="cr-live-watch-row">' +
+      '<button type="button" class="cr-watch-inline-btn" data-watch-artist="' + esc(artist) + '" data-watch-city="' + esc(city || '') + '"' +
+      (already ? ' disabled' : '') + '>' + (already ? 'Watching ✓' : '+ Watch ' + esc(artist)) + '</button>' +
+    '</div>';
+  }
+
   function renderLiveResults(shows, meta, queriedArtist) {
     var cityQ = els.cityInput.value.trim().toLowerCase();
     var filtered = (shows || []).filter(function (s) {
@@ -433,10 +522,10 @@
         (s.venue || '').toLowerCase().indexOf(cityQ) !== -1;
     });
 
-    var matchedLine = meta.matched_performer
-      ? '<div class="cr-live-matched">Matched performer: ' + esc(meta.matched_performer) +
-        (meta.match_tier === 'fuzzy' ? ' — closest match found, double-check before trusting' : '') +
-        '</div>'
+    // Only surface the "matched performer" line when the match was a fuzzy
+    // fallback — an exact match doesn't need the caveat.
+    var matchedLine = (meta.matched_performer && meta.match_tier === 'fuzzy')
+      ? '<div class="cr-live-matched">Closest match: ' + esc(meta.matched_performer) + ' — double-check before trusting</div>'
       : '';
 
     if (!meta.matched_performer) {
@@ -446,22 +535,33 @@
       return;
     }
 
+    var watchRow = watchRowHtml(meta.matched_performer, els.cityInput.value.trim());
+
     if (!filtered.length) {
-      els.liveBody.innerHTML = matchedLine +
+      els.liveBody.innerHTML = matchedLine + watchRow +
         '<div class="cr-live-status">No upcoming ' + esc(meta.matched_performer) + ' shows found within ' +
         esc(meta.range || 'range') + ' of Berkeley' +
         (cityQ ? ' matching “' + esc(els.cityInput.value.trim()) + '”' : '') + '.</div>';
       return;
     }
 
-    els.liveBody.innerHTML = matchedLine + filtered.map(function (s) {
+    lastLiveShowsById = {};
+    filtered.forEach(function (s) { lastLiveShowsById[s.id] = s; });
+
+    els.liveBody.innerHTML = matchedLine + watchRow + filtered.map(function (s) {
       var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
+      var added = addedShows.some(function (a) { return a.id === s.id; });
       return '<div class="cr-live-item">' +
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist || meta.matched_performer) + '</div>' +
           '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
           '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
-          (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+          '<div class="cr-live-actions">' +
+            (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+            '<button type="button" class="cr-live-add-btn" data-add-show="' + esc(s.id) + '"' + (added ? ' disabled' : '') + '>' +
+              (added ? 'Added ✓' : '+ Add to Coming Soon') +
+            '</button>' +
+          '</div>' +
         '</div>' +
         '<div class="cr-meta">' +
           '<div class="cr-date">' + esc(s.dateLabel || s.date || 'Date TBA') + '</div>' +
@@ -471,11 +571,35 @@
     }).join('');
   }
 
+  els.liveBody.addEventListener('click', function (e) {
+    var watchBtn = e.target.closest('[data-watch-artist]');
+    if (watchBtn) {
+      addWatch(watchBtn.getAttribute('data-watch-artist'), watchBtn.getAttribute('data-watch-city'));
+      watchBtn.textContent = 'Watching ✓';
+      watchBtn.disabled = true;
+      return;
+    }
+    var addBtn = e.target.closest('[data-add-show]');
+    if (addBtn) {
+      var id = addBtn.getAttribute('data-add-show');
+      var show = lastLiveShowsById[id];
+      if (show && !addedShows.some(function (a) { return a.id === id; })) {
+        addedShows.push(show);
+        saveJSON(LS_ADDED, addedShows);
+        renderList();
+        addBtn.textContent = 'Added ✓';
+        addBtn.disabled = true;
+      }
+      return;
+    }
+  });
+
   var liveSearchInFlight = false;
   function runLiveSearch() {
     if (liveSearchInFlight) return;
     var artist = els.artistInput.value.trim();
     els.live.hidden = false;
+    els.clearBtn.hidden = false;
     if (!artist) {
       showLiveStatus('Enter an artist name above, then search.', true);
       els.artistInput.focus();
@@ -511,6 +635,7 @@
   els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
   els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
 
+  setSoonOpen(soonOpen);
   renderList();
 })();
 </script>
