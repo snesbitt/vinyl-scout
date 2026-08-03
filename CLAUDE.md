@@ -20,7 +20,8 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
     wishlist.html      Hunt list — add/delete are UNGATED (no edit secret, see below)
     guide.html         User-facing how-to guide
     about/roadmap.html Static info pages
-    concert-radar.html Phase 11 preview mock (sample data only, see 2026-08-03 note below) — "Concerts" in nav
+    concert-radar.html Phase 11 — LIVE, real SeatGeek-backed feature (see
+                        2026-08-03 note below) — "Concerts" in nav
     start.html         "Build Your Own" — copyable starting prompt for replicating this project
     app.js             Frontend (vanilla IIFE). Cache-bust: // version: N
     style.css          Styles. Cache-bust via ?v=N in <link>
@@ -40,6 +41,12 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          last-resort (needs YOUTUBE_API_KEY) — Spotify and
                          iTunes tiers were removed at v12, 2026-07-13; also
                          serves wishlist.html's preview buttons, same code)
+      tour-dates.mjs     /api/tour-dates     GET ungated · pure read (Phase
+                         11 Concert Radar — SeatGeek-backed; resolves an
+                         artist to a real SeatGeek performer first, then
+                         queries events scoped to that performer's slug,
+                         then filters every event's own title against a
+                         tribute/cover-act blocklist — see 2026-08-03 note)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -85,6 +92,8 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 | GITHUB_REPO    | save-cover, run-backup           | Target repo (default snesbitt/vinyl-scout) | optional               |
 | GITHUB_BRANCH  | save-cover, run-backup           | Target branch (default main)               | optional               |
 | YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview's YouTube tier is currently a dormant last-resort — all 93 records already resolve via Deezer, so this key's status doesn't affect coverage today. Status not independently reconfirmed this pass; get one free from Google Cloud Console if you do need to set it (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, this tier gracefully reports "not configured" with zero effect on the rest of the pipeline. |
+| SEATGEEK_CLIENT_ID    | tour-dates.mjs            | SeatGeek Platform API client_id, server-side only | Required for Concert Radar (Phase 11) — without it `/api/tour-dates` returns a 500. Must be scoped to "Functions" (or "All scopes") in Netlify's env var UI; "Builds, Runtime" alone isn't enough for a serverless function to read it at request time (bit us on first deploy, 2026-08-03). Currently set and live. |
+| SEATGEEK_CLIENT_SECRET| tour-dates.mjs            | SeatGeek Platform API client_secret, server-side only | Optional — SeatGeek's docs say client_secret isn't required for read-only calls like `/events`, so `tour-dates.mjs` tries `client_id` alone first and only adds the secret if this var is present. |
 
 Spotify and iTunes env vars (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`) are
 no longer used — both tiers were removed from `audio-preview.mjs` at v12
@@ -390,65 +399,67 @@ self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
   run `git branch -D safety-backup` locally; the device bridge's lock
   handling can't reliably do ref deletes.
 
-## 2026-08-03 — Concert Radar (Phase 11) static preview mock
+## 2026-08-03 — Concert Radar (Phase 11): mock → real, live, SeatGeek-backed
 
-`concert-radar.html` is new but is **a static sample-data mock only, not
-the real Phase 11 feature** — flagging this explicitly so a future session
-(or the weekly automation's Job D doc-reconcile pass) doesn't mistake a
-preview page for a shipped one. No Netlify function, no env vars, no live
-API calls: every "show" on the page is invented (real Bay Area venues,
-made-up dates/lineups), clearly labeled with a "Preview — sample data, not
-real listings" banner and a per-card "Sample" tag. Built this way at
-Susan's explicit request ("start with anything that doesn't need my
-involvement, like a mock with sample text") ahead of the real integration,
-which needs her to sign up for Ticketmaster/SeatGeek API keys herself —
-account creation isn't something an agent does on her behalf.
+`concert-radar.html` started the day as a static sample-data mock (v1) and
+ended it as a **real, live feature** — same day, several rounds of direct
+feedback against the deployed site. Full blow-by-blow (each bug, each
+fix, each live-verification step) lives in `PROJECT.md`'s Phase 11
+section; this note is the current-state summary for a session picking
+this file up cold.
 
-Home location is hardcoded to **Berkeley, CA** per Susan's explicit
-choice (2026-08-03) — deliberately not an env var yet, since that decision
-was made for the mock page itself; when the real matching function is
-built, `HOME_LOCATION` should move there, not stay in a static page.
+**Current state (as of `concert-radar.html` v12 / `tour-dates.mjs` v4):**
+- **Coming Soon** is real data, not a mock. On load (and every 12h after,
+  or on demand via Refresh), the page collects every distinct artist name
+  across the catalog (`/api/records`) and wishlist (`/api/wishlist`), and
+  looks each one up through `GET /api/tour-dates?artist=…` (SeatGeek
+  Platform API, concurrency-capped at 5 in flight). Results are cached in
+  `localStorage` (`cr_catalog_cache_v1`) so a normal visit is instant. An
+  artist with no confirmed match is silently omitted — same
+  graceful-degradation rule as audio preview.
+- **Artist resolution is strict, not loose text search.** `tour-dates.mjs`
+  resolves the queried name to a real SeatGeek *performer* first (exact
+  normalized match, then a guarded fuzzy fallback only if every query
+  token is present and no tribute/cover keyword matches), then queries
+  events scoped to that performer's slug — never a free-text search
+  across events, which is what let a tribute act slip through early on.
+  **Every event's own title is additionally checked against a
+  tribute/cover-act blocklist**, regardless of which tier matched the
+  performer — added after Susan directly challenged a "Sade" listing
+  ("is that real or are you hallucinating?") and it turned out to be
+  "Ultimate Sade Tribute Concert," registered on SeatGeek under the bare
+  artist name with no qualifier anywhere except the event title itself.
+  Never trust a match without checking what actually got matched — same
+  lesson as the audio-preview matching saga.
+- **Same-artist/same-venue multi-date shows group into one card** with a
+  date range (e.g. "Feb 6–20, 2027 · 7 dates") instead of one row per
+  date — a 7-night Buena Vista Social Club residency was rendering as 7
+  near-identical cards before this.
+- **Watching and Coming Soon are mutually exclusive ("either/or"), per
+  Susan's explicit rule.** Watching an artist removes its card(s) from
+  Coming Soon immediately; the Watching panel shows that artist's real
+  date/price/ticket-link inline instead, so nothing renders twice.
+  Un-watching brings the card(s) back. The Watching panel layout stacks
+  artist+delete-button on one row and date/price/ticket-link on a second
+  full-width row below, specifically so a long date range doesn't strand
+  the × delete button on its own orphaned line.
+- **Price data is a known, verified gap, not a bug.** Every currently
+  matched real show returns `priceLow`/`priceHigh: null` straight from
+  SeatGeek's own API (live-checked directly, not assumed) — `stats.
+  lowest_price`/`stats.highest_price` are the documented, correct fields
+  and the code already renders them whenever populated (confirmed working
+  via the Watching panel's price line). Most likely cause: these
+  particular shows are far enough out that secondary-market listings
+  haven't opened yet, or the API key's access tier doesn't include
+  pricing/stats — not independently confirmed which. Left as-is per
+  Susan's "put aside for now" (2026-08-03); don't fabricate a number here
+  if asked again without new information.
+- Home location is hardcoded to **Berkeley, CA** (`HOME_LAT`/`HOME_LON` in
+  `tour-dates.mjs`) per Susan's explicit 2026-08-03 choice — not an env
+  var yet.
+- Only SeatGeek is wired up. Ticketmaster (needs a slower manual-approval
+  signup) and a Spotify layer stay parked, same as roadmap.html's Phase
+  11 text always said — add later only if a real coverage gap shows up.
 
-**v2 same day**: added an Artist/City filter panel (top third of the
-page, modeled on Travel Intelligence's Origin/Destination field pair)
-and a Watching panel modeled on that same site's "Watched Trips" box —
-add an artist + optional city, see a per-row status against the sample
-shows ("Match in sample data" / "No matches yet"), remove with a ×. Also
-added per-show delete (persisted via `localStorage`, with a "Restore
-deleted sample shows" link once anything's been removed) and a price
-range line per card (e.g. "$95 – $310" — standard Ticketmaster/SeatGeek
-listing convention), and removed the "~N mi away" distance line per
-Susan's request. All of this is still client-side only against the same
-static `SHOWS` array from v1 — no new endpoint, no schema change, same
-`localStorage`-for-UI-state pattern wishlist.html already established.
-
-**What's still needed to turn this into the real Phase 11** (this list
-used to live on the page itself, in a "What turns this into the real
-feature" section — removed from the live page 2026-08-03 per Susan's
-request since it read as internal build notes on a page meant for
-browsing, but kept here so nothing about the plan is lost):
-
-1. Susan signs up for free self-serve API keys at Ticketmaster's
-   Discovery API and SeatGeek's platform (both instant, no manual
-   approval) — not something an agent does on her behalf.
-2. Two new Netlify env vars: `TICKETMASTER_API_KEY` and
-   `SEATGEEK_CLIENT_ID`, set the same way `DISCOGS_TOKEN` already is.
-3. A new ungated, read-only function (e.g. `netlify/functions/tour-
-   dates.mjs`, same pattern as `discogs-lookup.mjs`/`audio-preview.mjs`)
-   that takes the distinct artist names already in the catalog +
-   wishlist, queries both APIs for upcoming events, and filters to a
-   radius around home location (Berkeley, CA).
-4. The page's static/sample cards get replaced with a real fetch against
-   that endpoint, with the same graceful-degradation pattern as audio
-   preview: if an artist has no match, it's silently omitted, never an
-   error state.
-5. Artists saved in the Watching panel carry over as-is — they're
-   already just an artist name plus an optional city, stored the same
-   simple way (`localStorage`, key `cr_watching_v1`) real matching would
-   read them; that data model doesn't need to change.
-6. Bandsintown and a Spotify layer stay parked per roadmap.html's Phase
-   11 text — added later only if real coverage gaps show up.
-
-roadmap.html's Phase 11 card now links to this preview but its status
-badge is deliberately left at "Future," not "Live" — a mock isn't a
-shipped feature.
+roadmap.html's Phase 11 card status is now **Live**, not Future — see
+that file directly for the current phase description.

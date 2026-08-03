@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 27 · **Last revised:** 2026-08-03
+**Version:** 28 · **Last revised:** 2026-08-03
 
 **Changelog**
+- **v28 (2026-08-03)** — Phase 11 (Concert Radar) went from a static sample-data mock to a real, live, SeatGeek-backed feature, all in one day of direct back-and-forth against the deployed site. New endpoint `netlify/functions/tour-dates.mjs` (`GET /api/tour-dates?artist=…&range=…`, ungated pure read) resolves an artist name to a real SeatGeek performer (exact-normalized match first, then a guarded fuzzy fallback requiring every query token present and no tribute/cover keyword), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist regardless of match tier. That last check exists because of a real bug Susan caught live, not a hypothetical: `?artist=Sade` initially returned "Ultimate Sade Tribute Concert" — a tribute act registered on SeatGeek under the bare artist name with no qualifier anywhere except the event's own title, which v3 of the function fetched but never checked. Susan asked directly, "is that Sade listing REAL? is she actually on tour or are u hallucinating?" — verified live via the raw API response rather than reassuring without checking, confirmed it was a real bug (not a hallucination, but wrong), and fixed it generally (event-title filtering, widened blocklist) rather than special-casing Sade. `concert-radar.html` (now v12) rebuilt around this endpoint: Coming Soon sweeps every distinct artist across the catalog and wishlist through the endpoint (concurrency-capped at 5, cached in `localStorage` with a 12h staleness window); same-artist/same-venue multi-date shows group into one card with a date range instead of one row per date (fixing a 7-night Buena Vista Social Club residency that was rendering as 7 near-identical cards); Watching and Coming Soon became mutually exclusive by Susan's explicit "either/or" rule — watching an artist pulls its show(s) out of Coming Soon immediately, since the Watching panel now shows that artist's real date/price/ticket-link inline instead of a static badge; the "Restore hidden shows" undo link was removed (hiding a real show is final now); a site footer was added (the page never had one); and a Watching-row layout bug was fixed where a long date range pushed the row's × delete button onto its own orphaned line. Separately investigated, not fixed: every currently-matched real show returns null price data straight from SeatGeek's own API (live-verified across 10 different shows) — the code already renders price whenever SeatGeek provides it, so this is a data-availability gap upstream, not a bug; left as-is per Susan's "put aside for now." See the new Phase 11 section below for the full narrative, and CLAUDE.md's 2026-08-03 note for the current-state summary.
 - **v27 (2026-08-03)** — Weekly maintenance run: refreshed Discogs market data for all 94 catalog records (collection value ≈€2,232); scouted median/cheapest-listing prices for all 76 wishlist items; synced new vinyl-available albums into the wishlist from Spotify listening (Spring!, work in progress, classical, kitchen dancing playlists — 11 net-new adds after the no-re-add filter, sync-state.json updated) — no vinyl found in the Amazon cart this week; Job E health checks all green (cache-bust versions consistent site-wide aside from a minor app.js query-string/header-comment mismatch — see below; all 5 audio-preview canaries pass; YouTube fallback key still not configured, but 0 records are currently blocked on it — the 7 records once listed as YouTube-pending were already resolved by the Deezer override-table fix shipped in v25, confirmed live this run); cover-art spot check (12 records + 12 wishlist items) all resolve; full smoke-test parity 8/8 green. Minor drift noted, not yet fixed: index.html requests `app.js?v=37` but app.js's own header comment still says `version: 36` with no v37 changelog entry — functionally harmless (no stale-cache risk since 37 > 36) but the bookkeeping should be reconciled.
 - **v25 (2026-07-20)** — Two rounds in one day: a security audit that found and fixed a real, live gap, and a regression from that very fix — caught live via a screenshot Susan sent after deploying — fixed the same day. **Round 1 (audit fixes):** (1) **[Security, critical]** `discogs-pricing.mjs` (`POST /api/discogs-pricing`) had **zero server-side auth check** — despite this charter's own endpoint table and CLAUDE.md's repo-layout comment already (incorrectly) documenting it as edit-secret-gated, the code never actually verified `X-Edit-Key` against `EDIT_SECRET`. Confirmed by reading the file end to end before touching it: no auth reference existed anywhere. This mattered in practice, not just on paper — it's reachable from the public, unauthenticated "Refresh pricing" button in every record's detail modal, and a successful call writes real fields (`price_low`/`price_median`/`price_high`/`have_count`/`want_count`/rating) onto the record and burns a real Discogs API call, so any site visitor could trigger writes and quota burn at will. Fixed (function reaches **v20**) by copying `records.mjs`'s `checkWriteAuth()` verbatim rather than inventing a new gate: same `X-Edit-Key` header, same fail-closed comparison (rejects if `EDIT_SECRET` is unset), same 401 JSON shape. Every POST here is inherently a write (no public-read path exists in this file, unlike `records.mjs`), so the check runs unconditionally, before the `DISCOGS_TOKEN` read. Confirmed `/api/discogs/lookup` (genuinely public read) and `/api/wishlist` (deliberately ungated per Susan's 2026-07-11 request) are untouched. (2) `audio-preview.mjs` reaches **v18**: fixed a debug/production drift bug where `?debug=1` mode called the Deezer free-text and artist-catalog-walk passes unconditionally — even for generic-artist ("Various Artists"/"Various"/"VA") records — while `tryDeezer()`, what production actually calls, has always skipped both passes for generic artists via `isGenericArtist()` (neither pass has a real artist identity to corroborate a title match against for those records). Net effect: a `debug=1` request against a generic-artist record could report a different, less-safe candidate than production actually serves — exactly backwards for a diagnostic mode whose whole purpose is showing what production did. Fixed by threading an optional `debugInfo` param through `tryDeezer()` itself instead of keeping a second, separately-maintained copy of the generic-artist guard in the request handler, so debug and production now make the literal same call. (3) Mobile touch-target/zoom-on-focus fixes on the two pages Susan edits from most on her phone: `audit.html`'s inline-edit fields (**v17**, paired with `style.css?v=27`) — base `.audit-input` font-size 14px→16px (with per-field overrides as low as 12px removed, since they'd otherwise still override the new 16px base back below the iOS-zoom threshold) and min-height 36px→44px; `.audit-select.js-condition` (the Goldmine condition dropdown) got the identical fix even though the originating report named only "`.audit-input` and related classes" — same inline-edit surface, same tap-and-type interaction, leaving it out would have been an inconsistent half-fix. `seed.html`'s textarea (**v5**, no version bump — its own internal numbering already didn't match its latest dated entry before this edit, a pre-existing drift left alone rather than guessed at) — base font-size 14px→16px; the existing ≤640px mobile query already correctly set 16px but only covers viewports up to 640px, so an iPhone in landscape (852px on an iPhone 15) fell through to the un-fixed 14px base rule. (4) `style.css` reaches **v27**: `.chip` (genre filter pills) and `.vbtn` (List/Gallery toggle) raised from 34px (38px even inside the ≤720px mobile query) to the 44px minimum this charter's own Working Agreement specifies, scoped to the mobile breakpoint only — desktop deliberately stays 34px, since the 44px rule is framed as a mobile-Safari concern and bumping the pointer-driven desktop rule too would add visual bulk for no accessibility benefit there. `wishlist.html`'s `.wl-play` inline preview button (**v16**) got the same fix, 36px→44px. (5) Two stale-comment bugs fixed in the same pass: `audit.html`'s and `seed.html`'s internal `// version: N (paired with style.css?v=…)` comments had drifted from their own `<link>` tags — audit.html's said `?v=25` against an actual `?v=26`, seed.html's said `?v=23` against the same actual `?v=26` (three versions stale) — both now track the link tag exactly, `?v=27`. `app.js`'s `buildAudioBlock()` inline comment still described the retired three-provider (Spotify→Deezer→iTunes) architecture, more than a week after `audio-preview.mjs` v12 (2026-07-13) removed Spotify and iTunes entirely — corrected to describe the actual current architecture (Deezer multi-pass, YouTube last resort); no functional change, no version bump. (6) Added `scripts/test-audio-preview.mjs` — the first *committed, permanent* regression fixture for `audio-preview.mjs`'s matching/scoring logic. Nearly every prior fix in this file's history (v3–v7, v11, v15, and others) mentions being "verified with a local Node regression suite" before deploy, but none of those suites were ever committed — only `scripts/smoke.mjs` existed, and that's a live black-box check against the deployed site, not unit coverage of the matching functions. The new fixture imports the real exported functions (`containsWholeWords`, `artistsOverlap`, `isGenericArtist`, `tryDeezerByAlbumTitleSearch`, `tryDeezer` — newly exported as named exports in `audio-preview.mjs` **v19**, additive and inert to the deployed default-export handler) with a mocked `global.fetch`, no live network calls, no API key needed: 17 assertions covering the Bechet/Aimée wrong-artist bug (v11), the Led Zeppelin whole-word-containment bug (v6), the Scott Joplin composer-fallback regression (v15), and the generic-artist skip-guard fix (2) above exercises directly. `npm run test:audio-preview` added to `package.json`. Verified: `node scripts/test-audio-preview.mjs` → **17 passed, 0 failed**. (7) Added a consolidated "Weekly automation (Jobs A–E)" reference section to CLAUDE.md, synthesized entirely from this changelog's v6/v7/v9/v20/v21 entries and CLAUDE.md's own existing prose (no invented details) — before this, the external `weekly-vinyl-median-refresh` scheduled task's full spec was only reconstructable by cross-referencing all of those against each other. Explicit about which job letters (C2, D, E) are actually named in the source material versus which (A, B, C) are the section's own inferred sequential labels. **Round 2 (a real regression, found live via a screenshot, fixed same day):** Round 1 item (1)'s fix was correct on the server — but broke the "Refresh pricing" button for Susan herself. `app.js`'s client-side `refreshPricing()` was never updated to actually send a passphrase with its `POST /api/discogs-pricing` call, so once the endpoint was correctly gated, the button 401'd for everyone, including its own intended user — a fail-closed gate rejecting a request that never carried a credential at all, working exactly as designed on the server side, while leaving Susan stuck with no way to use a button she was supposed to have. Caught live: Susan deployed round 1, tried the button, hit the 401, and sent a screenshot. Root-caused rather than just patched around: the server-side gate itself was re-verified correct (re-read `checkWriteAuth()` side by side with `records.mjs`'s), which narrowed the bug to the one caller inside this repo that actually depends on it. Fixed by mirroring `audit.html`'s existing `getEditSecret()`/`clearEditSecret()` pattern verbatim rather than inventing a new one — same `sessionStorage` key (`vs_edit_secret`), same prompt-once-then-cache behavior, so a passphrase entered on either page carries over within the same browser tab — wired into `refreshPricing()`'s fetch call as an `X-Edit-Key` header. A 401 response now calls `clearEditSecret()` (in case the cached passphrase itself was the wrong one) and flips the button to "Retry" instead of leaving it stuck disabled with no path forward. `app.js` bumped to **v36**. Verified by re-reading `refreshPricing()` end-to-end post-fix and confirming the request now actually carries the header before it reaches the server. **The lesson this exposes:** a server-side auth fix and its in-repo caller are two separate pieces of surface area even when they land in the same session — round 1's own QA (syntax check, code-level checklist) confirmed the gate itself worked, but nothing in that pass exercised the one place in this repo that calls it, which is exactly the kind of gap "diagnose, then fix" and a live post-deploy check exist to catch. Documented here in full, not glossed over, per this charter's own "Honesty over confidence" rule and the precedent set by v15's and v21's same-session regression writeups. **Also fixed as part of this pass, doc-accuracy only, no behavior change:** CLAUDE.md's repo-layout table didn't say `discogs-pricing.mjs` was gated at all (unlike every other row, which explicitly states `gated`/`ungated`) — now says so explicitly, and the `EDIT_SECRET` environment-variable table row now lists `discogs-pricing.mjs` among the files it gates, matching what the code has actually done since Round 1 item (1). This charter's own endpoint table (below) already correctly stated `/api/discogs-pricing` as edit-secret-required before today — that claim was simply false until Round 1 item (1) made it true; confirmed accurate now, no change needed there.
 - **v26 (2026-07-20, changelog backfill for code shipped 2026-07-14 & 2026-07-16)** — `audio-preview.mjs` drifted to v16 and v17 in an out-of-scope session that never wrote a changelog entry; backfilling now for changelog parity, verified against the actual commits and the file's own inline comments, nothing invented. **v16 (2026-07-14): wishlist coverage sweep**, per Susan's request for 100% wishlist preview coverage (this endpoint already serves `wishlist.html` as well as the catalog detail modal — same code, no separate wishlist path). Audited all 73 wishlist items live: 69/73 already resolved correctly, 4 gaps found and fixed. Three were genuine "filed under a different release" cases resolved via new `KNOWN_COMPILATION_TRACKS` entries (each confirmed against Deezer's raw API first, per this file's standing discipline): Dimitri From Paris x Sister Sledge's *Le Chic Remix* box -> Sister Sledge's "Thinking of You (Dimitri from Paris Remix)"; Statik Sound System's "Revolutionary Pilot" -> the same track, correctly credited, just filed under the album *DJ-Kicks: Kruder & Dorfmeister* rather than any album titled "Revolutionary Pilot"; Rachmaninoff's "Fantasia" -> the wishlist entry itself is mislabeled, the actual paired piece is Vaughan Williams' "Fantasia on a Theme by Thomas Tallis" (confirmed via Discogs). The fourth (Adele's *25*) was a real matching-logic bug, not a content gap: `tryDeezerByArtistCatalog`'s `/search/artist?q=Adele` call doesn't return the real Adele at all (confirmed live — four small unrelated artists instead, even at `limit=15`). Fixed generally, not just for Adele, by supplementing the artist-search candidate pool with whatever artist a same-query free-text track search turns up, gated by `artistsOverlap` so an unrelated artist can never slip in — a best-effort supplement only, so no previously-working match can regress. **v17 (2026-07-16): one `KNOWN_COMPILATION_TRACKS` override for Crosby, Stills & Nash's *CSN* -> "Dark Star"**, added after Susan reported the detail modal playing "For What It's Worth" instead. Root-caused: the stored title "CSN" normalizes to a single token, which fails this file's "specific enough for containment" gate and falls through to an unrelated same-artist result — not a real content gap (the actual 1977 *CSN* album, Discogs release 3904782, is genuinely on Deezer, and "Dark Star" is its obvious representative track, confirmed via Wikipedia/AllMusic). **Flagged honestly in the code itself and repeated here:** this is the one entry in the whole map that was never confirmed live against Deezer's raw API before shipping — cross-origin fetches to `api.deezer.com` failed in the sandbox it was written in. Ships safely regardless because the override mechanism fails closed to the existing (broken) behavior if the query doesn't corroborate, so it cannot make anything worse — but per the code's own note, this specific record's preview button still wants a live tap-and-listen confirmation from Susan.
@@ -14,7 +15,7 @@
 
 ## Identity
 
-**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. Susan has ~75 LPs; the catalog currently holds **93 records**. She works primarily from mobile (iPhone, Safari).
+**Vinyl Scout** is Susan's personal vinyl record cataloging app. Lives at vinylscout.org on Netlify. The catalog currently holds **94 records** (live-verified via `/api/records`, 2026-08-03). She works primarily from mobile (iPhone, Safari).
 
 The site is **publicly viewable but not advertised**: it's excluded from search engines (noindex), and the only people who edit it are those who hold the edit secret. It is not a private/login-walled site — anyone with the URL can view the gallery.
 
@@ -255,9 +256,105 @@ the last two sessions, not just the newest change:
 
 ---
 
-## Phase 5+ — Future / Parked
+## Phase 11 — LIVE: Concert Radar
 
-Not in scope. When asked about: "that's Phase N, parked" and stop.
+**Status:** ✓ Live (2026-08-03), pulled forward ahead of Phase 10 at Susan's
+explicit request, the same way Phases 4 and 9 were — built in one day from
+a static sample-data mock (v1) to a real, live, SeatGeek-backed feature,
+through several rounds of direct feedback against the deployed site.
+
+**The whole thing in one sentence:** A page (`/concert-radar.html`) that
+matches artists from the catalog and wishlist against real upcoming tour
+dates near Berkeley, CA, plus a Watching panel for artists worth tracking
+even before a confirmed date exists.
+
+**How it works:**
+- `GET /api/tour-dates?artist=…&range=…` (`netlify/functions/tour-
+  dates.mjs`) — pure read, ungated, same reasoning as `discogs-lookup.mjs`
+  and `audio-preview.mjs`. SeatGeek Platform API only for now; Ticketmaster
+  (slower manual-approval signup) and a Spotify layer stay parked per the
+  original roadmap text, added later only if a real coverage gap shows up.
+- **Artist resolution is strict.** The queried name is resolved to a real
+  SeatGeek *performer* first — an exact normalized-name match, then a
+  guarded fuzzy fallback only if every query token is present in the
+  candidate's name AND it doesn't read as a tribute/cover act. Events are
+  then queried scoped to that performer's exact slug — never a loose
+  free-text search across events, which is what let a tribute act
+  ("Unauthorized Rolling Stones") slip through in an early version.
+- **Every event's own title is checked against a tribute/cover-act
+  blocklist, regardless of which tier matched the performer.** This is
+  the fix for a real bug Susan caught live: `?artist=Sade` returned
+  "Ultimate Sade Tribute Concert" — a tribute act registered on SeatGeek
+  under the bare artist name "Sade," no qualifier anywhere except the
+  event's own title, which an earlier version fetched but never checked.
+  Susan asked directly, "is that Sade listing REAL? is she actually on
+  tour or are u hallucinating?" — verified live against the raw API
+  response before answering (not reassurance without checking), confirmed
+  it was a real bug, and fixed it generally rather than special-casing
+  Sade: every event's title/short_title is now filtered against a
+  tribute/unauthorized/cover-band/salute/"the music of"/"a celebration
+  of" blocklist regardless of match tier. Same discipline as the
+  audio-preview matching saga: never trust a match without verifying what
+  actually got matched.
+- **Coming Soon** sweeps every distinct artist name across the catalog
+  (`/api/records`) and wishlist (`/api/wishlist`) through `/api/tour-
+  dates` on load (concurrency-capped at 5 in flight) and every 12h after,
+  or on demand via Refresh. Results cache in `localStorage`
+  (`cr_catalog_cache_v1`) so a normal visit is instant. An artist with no
+  confirmed match is silently omitted — same graceful-degradation rule
+  audio preview established.
+- **Same-artist/same-venue multi-date shows group into one card** with a
+  date range ("Feb 6–20, 2027 · 7 dates") instead of one row per date —
+  fixed after Susan flagged a 7-night Buena Vista Social Club residency
+  rendering as 7 near-identical cards. Ticket link points at the earliest
+  date; price shows the min/max across the group; deleting hides every
+  date in the group, not just the first.
+- **Watching and Coming Soon are mutually exclusive ("either/or"), per
+  Susan's explicit rule** ("if i'm watching an artist/concert, remove the
+  instance from coming soon. its either or."). Watching an artist removes
+  its card(s) from Coming Soon immediately; the Watching panel shows that
+  artist's real date/price/ticket-link inline instead, so nothing ever
+  renders in both places. Un-watching brings the card(s) back.
+- Home location is hardcoded to **Berkeley, CA** (`HOME_LAT`/`HOME_LON` in
+  `tour-dates.mjs`) per Susan's explicit 2026-08-03 choice — not an env
+  var yet; would move there if/when a second home location is ever needed.
+
+**Known, verified gap — not a bug:** every currently-matched real show
+returns `priceLow`/`priceHigh: null` straight from SeatGeek's own API
+(live-checked directly across 10 different real shows spanning different
+artists, venues, and dates months apart — not assumed). The code reads
+the correct documented fields (`stats.lowest_price`/`stats.highest_price`)
+and already renders them whenever populated, proven by the Watching
+panel's own price line working correctly against test data. Most likely
+explanation: these particular shows are far enough out that secondary-
+market listings haven't opened yet, or the API key's access tier doesn't
+include pricing/stats — not independently confirmed which. Left as-is per
+Susan's "put aside for now" (2026-08-03); don't fabricate a number here
+without new information, and don't re-attempt a "fix" that isn't a fix.
+
+**QA discipline applied:** every round shipped only after a local jsdom
+test suite passed (mocked `fetch`, no live network calls from the sandbox
+— confirmed the sandbox cannot reach external hosts directly), `npm run
+check` passed, and — critically — live verification against the real
+deployed site via browser tools after each push, not just a green build.
+Two self-caught bugs never shipped broken: a dangling reference to a
+just-removed DOM element (would have thrown on page load and broken the
+whole page, caught via a grep sweep before testing), and an un-watch
+handler that didn't restore a card to Coming Soon (caught by a test
+written specifically to check the round-trip, not just the one-way
+action).
+
+---
+
+## Phase 5+ (excluding 9 and 11) — Future / Parked
+
+Phases 5 and 9 are live — see roadmap.html for their descriptions (this
+charter documents Phases 1–4 and 11 in full; 5 and 9 are lighter-touch
+additions documented primarily in roadmap.html and CLAUDE.md's dated
+notes). Phase 10 (Travel Intelligence hooks) depended on Phase 11 existing
+first — now that Phase 11 is live, Phase 10 is technically unblocked but
+has not been started. Phases 6, 7, 8, and 10 remain not in scope. When
+asked about any of them: "that's Phase N, parked" and stop.
 
 ---
 
@@ -385,6 +482,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `POST /api/wishlist` — **ungated as of 2026-07-11** (was edit-secret required); upsert one item by `id`
 - `DELETE /api/wishlist/:id` — **ungated as of 2026-07-11** (was edit-secret required); delete one item by `id`
 - `GET  /api/audio/preview?artist=…&title=…` — public; pure read; tries Deezer first (plus a small hand-picked override table for compilation/best-of albums not on Deezer under their own title), then YouTube as a last resort — Spotify and iTunes tiers were removed at v12 (2026-07-13), see the v23 changelog entry; returns whichever provider's most-popular-track preview is playable, or a graceful `available:false` reason. Also serves `wishlist.html`'s per-row preview buttons (shipped 2026-07-14, commit `83b56ec`), same endpoint.
+- `GET  /api/tour-dates?artist=…&range=…` — public; pure read; Phase 11 Concert Radar, SeatGeek-backed. Resolves the artist to a real SeatGeek performer first (exact match, then a guarded fuzzy fallback), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist. Returns upcoming shows near Berkeley, CA (hardcoded) with date, venue, price (when SeatGeek provides it), and a ticket URL. Powers `/concert-radar.html`'s Coming Soon sweep and its ad-hoc Search panel.
 
 ---
 
@@ -400,5 +498,6 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Phase 2**: Market enrichment. Discogs IDs + pricing — live.
 - **Phase 3**: Wishlist. Live (2026-07-04). Writes ungated as of 2026-07-11 (see above).
 - **Phase 4**: Audio preview. Live (2026-07-11) — built ahead of the queue at Susan's direct request.
-- **Catalog**: Susan's full collection. 93 records (reset empty after May 2026; reseeded June–July 2026).
+- **Phase 11**: Concert Radar. Live (2026-08-03) — built ahead of Phase 10 at Susan's direct request, same day as its own mock-to-real evolution. SeatGeek-backed artist/tour-date matching at `/concert-radar.html`.
+- **Catalog**: Susan's full collection. 94 records (reset empty after May 2026; reseeded June–July 2026).
 —

@@ -19,7 +19,23 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 11 (2026-08-03).
+    /* Concert Radar — version: 12 (2026-08-03).
+       v12: Get Tickets and +Watch buttons sat at two different heights
+       wherever they appear side by side (Coming Soon cards, Live Results)
+       — .cr-live-cta was min-height:44px, .cr-watch-inline-btn was 36px
+       with padding-based sizing instead. Matched .cr-watch-inline-btn to
+       the same 44px/inline-flex/box-sizing approach so both buttons in a
+       row line up exactly. Also investigated Susan's "still no prices in
+       Coming Soon" report: live-checked /api/tour-dates directly for all
+       10 currently-matched real shows (Herbie Hancock, Diana Ross x2,
+       Beck x2, Al Di Meola, Rhye, Bonobo, Thievery Corporation, Kruder &
+       Dorfmeister, Steel Pulse, Buena Vista Social Club x7) — every one
+       returns priceLow/priceHigh: null straight from SeatGeek's own API,
+       confirmed not a code bug (the correct stats.lowest_price/
+       stats.highest_price fields are read, and already render correctly
+       whenever populated — proven by the v11 Watching-panel work). Left
+       as-is per Susan's "put aside for now" — no code change, since there
+       is no real data to add without fabricating it.
        v11: two fixes to the Watching panel, live-review pass after v10
        shipped. (1) A long entry (Buena Vista Social Club's "Feb 6–20,
        2027 · 7 dates") was pushing the row's × onto its own orphaned line

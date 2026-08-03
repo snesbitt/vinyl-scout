@@ -84,7 +84,7 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v25 charter · July 2026</p>
+  <p class="article__kicker">How it works · v28 charter · August 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
     The Vinyl Scout tracks one person's vinyl collection: what's owned, its
@@ -146,6 +146,7 @@
         <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are open, no edit key: retyping one on mobile every session wasn't practical.</li>
         <li><strong>Enrichment</strong> — <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
         <li><strong>Audio</strong> — <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
+        <li><strong>Concert Radar</strong> — <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed, resolves an artist to a real performer before querying events, near Berkeley, CA.</li>
       </ul>
     </div>
     <div class="stack-item">
@@ -226,7 +227,24 @@
     says so quietly.
   </p>
 
-  <h2><span class="article__num">07</span>Data & backups</h2>
+  <h2><span class="article__num">07</span>Concert Radar</h2>
+  <p>
+    A separate page, <a href="/concert-radar.html">/concert-radar.html</a>,
+    matches every artist in the collection and wishlist against real
+    upcoming tour dates near Berkeley, CA, via SeatGeek. Coming Soon
+    refreshes automatically; same-artist, same-venue shows with several
+    dates group into one card with a date range instead of one row per
+    night. Watch an artist to track it before a confirmed date exists
+    &mdash; a watched artist's real date, price, and ticket link show up
+    right in the Watching panel, and its shows drop out of Coming Soon so
+    nothing appears twice. Price isn't always available: SeatGeek doesn't
+    publish it for every show, most often ones announced far enough in
+    advance that resale listings haven't opened yet. Ticketmaster and a
+    Spotify layer are parked for later, added only if a real coverage gap
+    shows up.
+  </p>
+
+  <h2><span class="article__num">08</span>Data & backups</h2>
   <p>
     Every record is backed up automatically. A nightly job commits the whole
     catalog to <code>backups/YYYY-MM-DD.json</code> in the GitHub repo. A
