@@ -409,6 +409,19 @@ choice (2026-08-03) — deliberately not an env var yet, since that decision
 was made for the mock page itself; when the real matching function is
 built, `HOME_LOCATION` should move there, not stay in a static page.
 
+**v2 same day**: added an Artist/City filter panel (top third of the
+page, modeled on Travel Intelligence's Origin/Destination field pair)
+and a Watching panel modeled on that same site's "Watched Trips" box —
+add an artist + optional city, see a per-row status against the sample
+shows ("Match in sample data" / "No matches yet"), remove with a ×. Also
+added per-show delete (persisted via `localStorage`, with a "Restore
+deleted sample shows" link once anything's been removed) and a price
+range line per card (e.g. "$95 – $310" — standard Ticketmaster/SeatGeek
+listing convention), and removed the "~N mi away" distance line per
+Susan's request. All of this is still client-side only against the same
+static `SHOWS` array from v1 — no new endpoint, no schema change, same
+`localStorage`-for-UI-state pattern wishlist.html already established.
+
 What's still needed to turn this into the real Phase 11 (see
 `concert-radar.html`'s own "What turns this into the real feature"
 section for the same list): Susan gets free self-serve keys from

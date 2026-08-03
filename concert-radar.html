@@ -19,23 +19,77 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 1 (2026-08-03). PREVIEW MOCK ONLY.
-       Phase 11, pulled forward per Susan's request. This page is a static
-       sample-data preview built before any API keys exist — every show
-       below is fictional (real venues, invented dates/lineups) so Susan can
-       react to the layout and information design without needing to sign up
-       for Ticketmaster/SeatGeek first. No Netlify function, no env vars, no
-       live matching yet. See CLAUDE.md 2026-08-03 entry and PROJECT.md
-       roadmap.html Phase 11 for what "real" looks like. HOME_LOCATION is
-       hardcoded per Susan's explicit choice (2026-08-03: Berkeley, CA) —
-       when this goes live, that constant moves into the matching function,
-       not a page like this one. */
+    /* Concert Radar — version: 2 (2026-08-03). Still PREVIEW MOCK ONLY —
+       see the v1 note below, nothing here calls a real API.
+       v2 changes, all client-side/localStorage, no schema or endpoint:
+       - Artist/City filter panel (top third of the page), live-filters the
+         list below as you type. Modeled on Travel Intelligence's
+         Origin/Destination field pair (travelintelligence.org) for a
+         familiar 2-field layout rather than one ambiguous combined box.
+       - Watching panel, styled after Travel Intelligence's "Watched Trips"
+         box (label, a row per watched thing, a delete × per row, an add
+         form below). Here it's an artist + optional city instead of a
+         route; status per row checks against the sample shows below
+         ("Match in sample data" / "No matches yet") purely so the concept
+         is visible now — nothing is actually monitored yet. Persisted in
+         localStorage (key cr_watching_v1), the same pattern wishlist.html
+         already uses for its own UI-only state (sort mode + weight choice).
+       - Per-show delete (×): removes a card from view, persisted via
+         localStorage (key cr_deleted_ids_v1) so it stays gone on reload.
+         A "Restore deleted sample shows" link appears once anything's been
+         removed, since every deletion here is against fake data anyway —
+         no reason to make that irreversible during review.
+       - Removed the "~N mi away" distance line per Susan's request.
+       - Added a price range line per card (e.g. "$95 – $310") — standard
+         Ticketmaster/SeatGeek listing convention, easier to fabricate
+         consistently than a single "average" figure and matches what both
+         real APIs actually return.
+       - Cards are now rendered from a small JS data array instead of
+         static HTML, so filtering/deleting has something to operate on.
+       v1 (2026-08-03): initial static mock, no controls — plain list of
+       6 fictional shows, real venues, invented dates/lineups, "~mi away"
+       distance line (now removed, see above). See CLAUDE.md's 2026-08-03
+       entry and roadmap.html's Phase 11 for what "real" looks like.
+       HOME_LOCATION hardcoded to Berkeley, CA per Susan's explicit choice
+       — moves into the matching function, not a page, once this is real. */
     .cr-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
     .cr-banner { border: 1px solid var(--gold); background: var(--surface); border-radius: 3px; padding: 14px 16px; margin: 0 0 22px; font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
     .cr-banner strong { color: var(--gold); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+
+    .cr-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 0 24px; }
+    .cr-panel { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; }
+    .cr-panel__label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
+
+    .cr-input { width: 100%; font-family: var(--mono); font-size: 16px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--bg); color: var(--ink); min-height: 44px; box-sizing: border-box; }
+    .cr-input:focus { outline: none; border-color: var(--accent); }
+    .cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cr-field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 5px; }
+    .cr-search-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+    .cr-clear { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
+    .cr-clear:hover { color: var(--accent); }
+    .cr-clear[hidden] { display: none; }
+
+    .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
+    .cr-watch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
+    .cr-watch-row:last-child { border-bottom: 0; }
+    .cr-watch-who { min-width: 0; flex: 1 1 auto; }
+    .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); }
+    .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
+    .cr-watch-status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
+    .cr-watch-status.is-match { color: var(--good); border-color: var(--good); }
+    .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+    .cr-watch-del:hover { color: var(--accent); }
+    .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
+    .cr-watch-add { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .cr-watch-add-row2 { display: flex; gap: 8px; }
+    .cr-watch-add-row2 .cr-input { flex: 1 1 auto; min-width: 0; }
+    .cr-watch-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ink); color: var(--bg); border: 0; border-radius: 2px; padding: 0 16px; min-height: 44px; cursor: pointer; flex: 0 0 auto; }
+    .cr-watch-btn:hover { background: var(--accent); }
+    .cr-watch-note { font-family: var(--sans); font-size: 11px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
+
     .cr-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .cr-intro .cr-loc { color: var(--ink); font-weight: 600; }
-    .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 34px; }
+    .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
     .cr-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
     .cr-who { flex: 1 1 220px; min-width: 0; }
     .cr-artist { font-weight: 600; font-size: 16px; color: var(--ink); }
@@ -45,14 +99,24 @@
     .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
     .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
     .cr-date { font-size: 13px; color: var(--ink); white-space: nowrap; }
-    .cr-dist { font-size: 11px; color: var(--ink-faint); white-space: nowrap; margin-top: 2px; }
+    .cr-price { font-size: 12px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
     .cr-cta { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 6px 10px; cursor: default; user-select: none; }
+    .cr-item-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 18px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+    .cr-item-del:hover { color: var(--accent); }
+    .cr-empty { font-family: var(--sans); font-size: 14px; color: var(--ink-faint); padding: 24px; text-align: center; border: 1px dashed var(--rule); border-radius: 3px; }
+    .cr-reset { margin: 0 0 30px; font-family: var(--mono); font-size: 11px; }
+    .cr-reset[hidden] { display: none; }
+    .cr-reset button { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
+    .cr-reset button:hover { color: var(--accent); }
+
     .cr-plan { border-top: 1px solid var(--rule); padding-top: 22px; margin-top: 6px; }
     .cr-plan h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
     .cr-plan ol { font-family: var(--sans); font-size: 14px; line-height: 1.7; color: var(--ink-soft); margin: 0 0 18px; padding-left: 20px; }
     .cr-plan p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink-faint); margin: 0 0 12px; }
     @media (max-width: 640px) {
       .cr-wrap { padding: 0 18px 64px; }
+      .cr-hero { grid-template-columns: 1fr; }
+      .cr-fields { grid-template-columns: 1fr; }
       .cr-item { flex-direction: column; align-items: flex-start; }
       .cr-meta { text-align: left; }
     }
@@ -85,90 +149,47 @@
     Every show below is invented (real venues, made-up dates and lineups) so the layout can be reviewed before any API keys exist. Nothing here reflects an actual scheduled concert.
   </div>
 
+  <div class="cr-hero">
+    <div class="cr-panel">
+      <h3 class="cr-panel__label">Search</h3>
+      <div class="cr-fields">
+        <div class="cr-field">
+          <label for="cr-f-artist">Artist</label>
+          <input type="text" id="cr-f-artist" class="cr-input" placeholder="e.g. Kraftwerk" autocomplete="off" />
+        </div>
+        <div class="cr-field">
+          <label for="cr-f-city">City</label>
+          <input type="text" id="cr-f-city" class="cr-input" placeholder="e.g. Oakland" autocomplete="off" />
+        </div>
+      </div>
+      <div class="cr-search-meta">
+        <span id="cr-count">&nbsp;</span>
+        <button type="button" id="cr-clear" class="cr-clear" hidden>Clear</button>
+      </div>
+    </div>
+
+    <div class="cr-panel">
+      <h3 class="cr-panel__label">Watching</h3>
+      <div id="cr-watch-list" class="cr-watch-list"></div>
+      <div class="cr-watch-add">
+        <input type="text" id="cr-watch-artist" class="cr-input" placeholder="Artist to watch" autocomplete="off" />
+        <div class="cr-watch-add-row2">
+          <input type="text" id="cr-watch-city" class="cr-input" placeholder="City (optional)" autocomplete="off" />
+          <button type="button" id="cr-watch-add-btn" class="cr-watch-btn">Watch</button>
+        </div>
+      </div>
+      <p class="cr-watch-note">Once the real matching function exists, artists watched here will alert you the moment a tour date is announced. For now this just checks against the sample shows below.</p>
+    </div>
+  </div>
+
   <p class="cr-intro">
     Matching artists from your collection and wishlist against upcoming tour dates near <span class="cr-loc">Berkeley, CA</span> &mdash; hardcoded for now; move it into the matching function once this goes live.
   </p>
 
-  <div class="cr-list">
+  <div id="cr-list" class="cr-list"></div>
 
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">Sade</div>
-        <div class="cr-venue">Greek Theatre &mdash; Berkeley, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Sun, Oct 18, 2026</div>
-        <div class="cr-dist">~1 mi away</div>
-      </div>
-    </div>
-
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">Grace Jones</div>
-        <div class="cr-venue">The UC Theatre &mdash; Berkeley, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Fri, Dec 4, 2026</div>
-        <div class="cr-dist">~2 mi away</div>
-      </div>
-    </div>
-
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">Kraftwerk</div>
-        <div class="cr-venue">Fox Theater &mdash; Oakland, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Thu, Nov 5, 2026</div>
-        <div class="cr-dist">~6 mi away</div>
-      </div>
-    </div>
-
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">Fleetwood Mac</div>
-        <div class="cr-venue">Chase Center &mdash; San Francisco, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Fri, Oct 2, 2026</div>
-        <div class="cr-dist">~11 mi away</div>
-      </div>
-    </div>
-
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">Steely Dan</div>
-        <div class="cr-venue">Bill Graham Civic Auditorium &mdash; San Francisco, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Sat, Nov 21, 2026</div>
-        <div class="cr-dist">~12 mi away</div>
-      </div>
-    </div>
-
-    <div class="cr-item">
-      <div class="cr-who">
-        <div class="cr-artist">The Rolling Stones</div>
-        <div class="cr-venue">Levi's Stadium &mdash; Santa Clara, CA</div>
-        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
-        <span class="cr-cta">Get tickets</span>
-      </div>
-      <div class="cr-meta">
-        <div class="cr-date">Sat, Sep 12, 2026</div>
-        <div class="cr-dist">~42 mi away</div>
-      </div>
-    </div>
-
+  <div id="cr-reset" class="cr-reset" hidden>
+    <button type="button" id="cr-reset-btn">Restore deleted sample shows</button>
   </div>
 
   <section class="cr-plan">
@@ -179,11 +200,193 @@
       <li>Two new Netlify env vars: <code>TICKETMASTER_API_KEY</code> and <code>SEATGEEK_CLIENT_ID</code>, set the same way <code>DISCOGS_TOKEN</code> already is.</li>
       <li>A new ungated, read-only function (e.g. <code>netlify/functions/tour-dates.mjs</code>, same pattern as <code>discogs-lookup.mjs</code>/<code>audio-preview.mjs</code>) that takes the distinct artist names already in the catalog + wishlist, queries both APIs for upcoming events, and filters to a radius around a home location.</li>
       <li>This page's static cards get replaced with a real fetch against that endpoint, with the same graceful-degradation pattern as audio preview: if an artist has no match, it's silently omitted, never an error state.</li>
+      <li>Artists saved in the Watching panel above carry over as-is &mdash; they're already just an artist name plus an optional city, stored the same simple way real matching would read them.</li>
       <li>Bandsintown and a Spotify layer stay parked per the roadmap &mdash; added later only if real coverage gaps show up.</li>
     </ol>
   </section>
 
 </main>
+
+<script>
+(function(){
+  var LS_DELETED = 'cr_deleted_ids_v1';
+  var LS_WATCH = 'cr_watching_v1';
+
+  var SHOWS = [
+    { id: 'sade-greek-20261018', artist: 'Sade', venue: 'Greek Theatre', city: 'Berkeley, CA', date: '2026-10-18', dateLabel: 'Sun, Oct 18, 2026', source: 'Ticketmaster', priceLow: 95, priceHigh: 310 },
+    { id: 'gracejones-uct-20261204', artist: 'Grace Jones', venue: 'The UC Theatre', city: 'Berkeley, CA', date: '2026-12-04', dateLabel: 'Fri, Dec 4, 2026', source: 'SeatGeek', priceLow: 65, priceHigh: 180 },
+    { id: 'kraftwerk-fox-20261105', artist: 'Kraftwerk', venue: 'Fox Theater', city: 'Oakland, CA', date: '2026-11-05', dateLabel: 'Thu, Nov 5, 2026', source: 'SeatGeek', priceLow: 75, priceHigh: 220 },
+    { id: 'fleetwoodmac-chase-20261002', artist: 'Fleetwood Mac', venue: 'Chase Center', city: 'San Francisco, CA', date: '2026-10-02', dateLabel: 'Fri, Oct 2, 2026', source: 'SeatGeek', priceLow: 120, priceHigh: 450 },
+    { id: 'steelydan-bgca-20261121', artist: 'Steely Dan', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-11-21', dateLabel: 'Sat, Nov 21, 2026', source: 'Ticketmaster', priceLow: 85, priceHigh: 275 },
+    { id: 'stones-levis-20260912', artist: 'The Rolling Stones', venue: "Levi's Stadium", city: 'Santa Clara, CA', date: '2026-09-12', dateLabel: 'Sat, Sep 12, 2026', source: 'Ticketmaster', priceLow: 150, priceHigh: 650 }
+  ];
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function loadJSON(key) {
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveJSON(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); }
+    catch (e) { /* storage unavailable — deletes/watches just won't persist this session */ }
+  }
+
+  var deleted = loadJSON(LS_DELETED);
+  var watching = loadJSON(LS_WATCH);
+
+  var els = {
+    artistInput: document.getElementById('cr-f-artist'),
+    cityInput: document.getElementById('cr-f-city'),
+    clearBtn: document.getElementById('cr-clear'),
+    countLine: document.getElementById('cr-count'),
+    list: document.getElementById('cr-list'),
+    resetWrap: document.getElementById('cr-reset'),
+    resetBtn: document.getElementById('cr-reset-btn'),
+    watchList: document.getElementById('cr-watch-list'),
+    watchArtistInput: document.getElementById('cr-watch-artist'),
+    watchCityInput: document.getElementById('cr-watch-city'),
+    watchAddBtn: document.getElementById('cr-watch-add-btn')
+  };
+
+  function fmtPrice(low, high) {
+    return '$' + low.toLocaleString() + ' – $' + high.toLocaleString();
+  }
+
+  function visibleShows() {
+    var artistQ = els.artistInput.value.trim().toLowerCase();
+    var cityQ = els.cityInput.value.trim().toLowerCase();
+    return SHOWS.filter(function (s) {
+      if (deleted.indexOf(s.id) !== -1) return false;
+      if (artistQ && s.artist.toLowerCase().indexOf(artistQ) === -1) return false;
+      if (cityQ && s.city.toLowerCase().indexOf(cityQ) === -1 && s.venue.toLowerCase().indexOf(cityQ) === -1) return false;
+      return true;
+    }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  }
+
+  function renderList() {
+    var shows = visibleShows();
+    var totalRemaining = SHOWS.length - deleted.length;
+
+    els.countLine.textContent = shows.length + ' of ' + totalRemaining + ' shows';
+    var hasFilter = els.artistInput.value.trim() || els.cityInput.value.trim();
+    els.clearBtn.hidden = !hasFilter;
+
+    if (!shows.length) {
+      els.list.innerHTML = '<div class="cr-empty">' +
+        (totalRemaining ? 'No shows match those filters.' : 'No sample shows left — use Restore below to bring them back.') +
+        '</div>';
+    } else {
+      els.list.innerHTML = shows.map(function (s) {
+        return '<div class="cr-item" data-id="' + esc(s.id) + '">' +
+          '<div class="cr-who">' +
+            '<div class="cr-artist">' + esc(s.artist) + '</div>' +
+            '<div class="cr-venue">' + esc(s.venue) + ' — ' + esc(s.city) + '</div>' +
+            '<div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via ' + esc(s.source) + '</span></div>' +
+            '<span class="cr-cta">Get tickets</span>' +
+          '</div>' +
+          '<div class="cr-meta">' +
+            '<div class="cr-date">' + esc(s.dateLabel) + '</div>' +
+            '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' +
+          '</div>' +
+          '<button type="button" class="cr-item-del" aria-label="Remove ' + esc(s.artist) + ' from the list" data-del="' + esc(s.id) + '">&times;</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    els.resetWrap.hidden = deleted.length === 0;
+    renderWatchList();
+  }
+
+  function watchIsMatch(name) {
+    var q = name.trim().toLowerCase();
+    if (!q) return false;
+    return SHOWS.some(function (s) {
+      if (deleted.indexOf(s.id) !== -1) return false;
+      var a = s.artist.toLowerCase();
+      return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
+    });
+  }
+
+  function renderWatchList() {
+    if (!watching.length) {
+      els.watchList.innerHTML = '<p class="cr-watch-empty">Not watching any artists yet.</p>';
+      return;
+    }
+    els.watchList.innerHTML = watching.map(function (w, i) {
+      var isMatch = watchIsMatch(w.artist);
+      return '<div class="cr-watch-row">' +
+        '<div class="cr-watch-who">' +
+          '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
+          (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
+        '</div>' +
+        '<span class="cr-watch-status' + (isMatch ? ' is-match' : '') + '">' + (isMatch ? 'Match in sample data' : 'No matches yet') + '</span>' +
+        '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + i + '">&times;</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  els.artistInput.addEventListener('input', renderList);
+  els.cityInput.addEventListener('input', renderList);
+  els.clearBtn.addEventListener('click', function () {
+    els.artistInput.value = '';
+    els.cityInput.value = '';
+    renderList();
+    els.artistInput.focus();
+  });
+
+  els.list.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-del');
+    if (deleted.indexOf(id) === -1) {
+      deleted.push(id);
+      saveJSON(LS_DELETED, deleted);
+      renderList();
+    }
+  });
+
+  els.resetBtn.addEventListener('click', function () {
+    deleted = [];
+    saveJSON(LS_DELETED, deleted);
+    renderList();
+  });
+
+  function addWatch() {
+    var artist = els.watchArtistInput.value.trim();
+    if (!artist) { els.watchArtistInput.focus(); return; }
+    var city = els.watchCityInput.value.trim();
+    var exists = watching.some(function (w) { return w.artist.toLowerCase() === artist.toLowerCase(); });
+    if (!exists) {
+      watching.push({ artist: artist, city: city });
+      saveJSON(LS_WATCH, watching);
+      renderWatchList();
+    }
+    els.watchArtistInput.value = '';
+    els.watchCityInput.value = '';
+    els.watchArtistInput.focus();
+  }
+
+  els.watchAddBtn.addEventListener('click', addWatch);
+  els.watchArtistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addWatch(); });
+  els.watchCityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addWatch(); });
+
+  els.watchList.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-watch-del]');
+    if (!btn) return;
+    var idx = parseInt(btn.getAttribute('data-watch-del'), 10);
+    watching.splice(idx, 1);
+    saveJSON(LS_WATCH, watching);
+    renderWatchList();
+  });
+
+  renderList();
+})();
+</script>
 
 </body>
 </html>
