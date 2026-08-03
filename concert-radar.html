@@ -19,7 +19,22 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 10 (2026-08-03).
+    /* Concert Radar — version: 11 (2026-08-03).
+       v11: two fixes to the Watching panel, live-review pass after v10
+       shipped. (1) A long entry (Buena Vista Social Club's "Feb 6–20,
+       2027 · 7 dates") was pushing the row's × onto its own orphaned line
+       — the row used to be one flex line with the delete button as just
+       another flex-wrap item, so once the date text got long enough it
+       wrapped and stranded the × below with nothing next to it. Fixed by
+       restructuring each row into two stacked pieces: a top line with
+       artist+city on the left and × pinned top-right (always together,
+       never wraps away from each other), and a full-width second line
+       below for date/price/ticket-link, free to wrap on its own without
+       threatening the delete button's position. (2) Watching rows now also
+       show a price range and a real "Get tickets ↗" link (pointing at the
+       earliest matched date's SeatGeek URL) — previously only the date was
+       surfaced, even though the underlying show data already carried
+       price/url the whole time.
        v10: Susan's rule — "if i'm watching an artist/concert, remove the
        instance from coming soon. its either or." A watched artist's shows
        no longer render as their own Coming Soon card(s) at all; the date/
@@ -247,18 +262,21 @@
     .cr-soon-status { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; min-height: 16px; }
 
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
-    .cr-watch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
+    .cr-watch-row { padding: 10px 0; border-bottom: 1px solid var(--rule-soft); }
     .cr-watch-row:last-child { border-bottom: 0; }
+    .cr-watch-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .cr-watch-who { min-width: 0; flex: 1 1 auto; }
     .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); }
     .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
-    .cr-watch-info { text-align: right; flex: 0 0 auto; }
-    .cr-watch-date { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
-    .cr-watch-price { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
-    .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; flex: 0 0 auto; cursor: pointer; }
-    .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
-    .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+    .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin: -4px -6px 0 0; }
     .cr-watch-del:hover { color: var(--accent); }
+    .cr-watch-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+    .cr-watch-date { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+    .cr-watch-price { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+    .cr-watch-cta { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 4px 10px; text-decoration: none; white-space: nowrap; }
+    .cr-watch-cta:hover { background: var(--ink); color: var(--bg); }
+    .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; cursor: pointer; margin-top: 6px; }
+    .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
     .cr-watch-add { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
     .cr-watch-add-row2 { display: flex; gap: 8px; }
@@ -602,20 +620,33 @@
         var lows = matches.map(function (m) { return m.priceLow; }).filter(function (n) { return typeof n === 'number'; });
         var highs = matches.map(function (m) { return m.priceHigh; }).filter(function (n) { return typeof n === 'number'; });
         var hasPrice = lows.length && highs.length;
+        // Ticket link points at the earliest matched date (matches is
+        // already sorted ascending), same convention as a grouped Coming
+        // Soon card's own ticket link.
+        var ticketUrl = matches.map(function (m) { return m.url; }).filter(Boolean)[0];
         statusHtml = '<div class="cr-watch-info">' +
           '<div class="cr-watch-date">' + esc(fmtDateRange(matches)) + '</div>' +
           (hasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs))) + '</div>' : '') +
+          (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
         '</div>';
       } else {
         statusHtml = '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>';
       }
+      // Artist name + delete button share a top row (delete always stays
+      // put, never pushed onto its own orphaned line); date/price/ticket
+      // link flow on their own full-width row below, so a long date range
+      // (e.g. "Feb 6–20, 2027 · 7 dates") has room to wrap without
+      // widowing the × — the bug a 7-night Buena Vista Social Club
+      // residency exposed.
       return '<div class="cr-watch-row">' +
-        '<div class="cr-watch-who">' +
-          '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
-          (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
+        '<div class="cr-watch-top">' +
+          '<div class="cr-watch-who">' +
+            '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
+            (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
+          '</div>' +
+          '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + i + '">&times;</button>' +
         '</div>' +
         statusHtml +
-        '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + i + '">&times;</button>' +
       '</div>';
     }).join('');
   }
