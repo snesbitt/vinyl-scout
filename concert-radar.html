@@ -19,7 +19,52 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 8 (2026-08-03).
+    /* Concert Radar — version: 10 (2026-08-03).
+       v10: Susan's rule — "if i'm watching an artist/concert, remove the
+       instance from coming soon. its either or." A watched artist's shows
+       no longer render as their own Coming Soon card(s) at all; the date/
+       price the v9 Watching-panel change already surfaces inline is now the
+       ONLY place they show up, instead of appearing in both places. Match
+       logic for "is this show already covered by a watch" reuses the same
+       loose substring comparison findWatchMatches() already used (handles
+       minor name-formatting drift between a typed watch entry and a show's
+       artist field), so the hidden set and the Watching-panel date/price
+       are always the same set of shows. Clicking "+ Watch" on a Coming Soon
+       card (or on a Live Results card, if that artist already has real
+       Coming Soon cards showing) now re-renders the whole list immediately,
+       since watching an artist can remove card(s) that were on screen a
+       moment ago — previously that click only toggled the button's own
+       text/disabled state in place, which no longer reflects reality once
+       watching can hide cards.
+       v9: Susan flagged Buena Vista Social Club appearing as 7 near-
+       identical cards (one per night of a residency at the same venue).
+       Coming Soon now groups same-artist + same-venue shows into a single
+       card showing a date range ("Feb 6 – 20, 2027 · 7 dates") instead of
+       one row per date — ticket link points at the earliest date, price
+       shows the min/max across all dates in the group, and deleting the
+       card hides every underlying show, not just the first. Only groups
+       catalog-swept shows; a manually pinned ("+ Add to Coming Soon") show
+       from an ad-hoc search still gets its own card, since that was a
+       deliberate one-at-a-time pick. The Coming Soon count badge now counts
+       visible cards, not raw per-date shows, so it can't read as a mismatch
+       against what's actually on screen. Live Results (the ad-hoc Search
+       panel) is NOT grouped yet — same idea would apply there for an artist
+       with several dates, just scoped out of this pass since Susan's report
+       was specifically about Coming Soon.
+       Same pass, three more direct requests:
+       - Removed the "Restore hidden shows" link entirely, per Susan's
+         request — hiding a real show is just final now, no undo UI. The
+         underlying cr_hidden_ids_v1 mechanism is unchanged (a hidden show
+         still won't reappear after a re-sweep), only the restore button
+         and its wrapper are gone.
+       - Added the standard site footer (`&copy; 2026`, same markup every
+         other page uses) — this page never had one.
+       - Watching rows now show the actual date (or date range, reusing the
+         same grouping/range logic Coming Soon cards use) and price right
+         in the row once a match exists, instead of a static "In Coming
+         Soon" badge that told you a match existed but not what it was —
+         Susan's point being she shouldn't have to scroll down and hunt for
+         it herself.
        v8, two fixes from the same live-review pass:
        - Coming Soon cards gained a "+ Watch" button (parity with the one
          Live Results already had) — there was previously no way to start
@@ -207,7 +252,9 @@
     .cr-watch-who { min-width: 0; flex: 1 1 auto; }
     .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); }
     .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
-    .cr-watch-status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--good); border: 1px solid var(--good); border-radius: 2px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
+    .cr-watch-info { text-align: right; flex: 0 0 auto; }
+    .cr-watch-date { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+    .cr-watch-price { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
     .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; flex: 0 0 auto; cursor: pointer; }
     .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
@@ -233,10 +280,6 @@
     .cr-item-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 18px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
     .cr-item-del:hover { color: var(--accent); }
     .cr-empty { font-family: var(--sans); font-size: 14px; color: var(--ink-faint); padding: 24px; text-align: center; border: 1px dashed var(--rule); border-radius: 3px; }
-    .cr-reset { margin: 0 0 30px; font-family: var(--mono); font-size: 11px; }
-    .cr-reset[hidden] { display: none; }
-    .cr-reset button { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
-    .cr-reset button:hover { color: var(--accent); }
 
     @media (max-width: 640px) {
       .cr-wrap { padding: 0 18px 64px; }
@@ -314,11 +357,12 @@
   </div>
   <p id="cr-soon-status" class="cr-soon-status"></p>
   <div id="cr-list" class="cr-list"></div>
-  <div id="cr-reset" class="cr-reset" hidden>
-    <button type="button" id="cr-reset-btn">Restore hidden shows</button>
-  </div>
 
 </main>
+
+<footer class="site-footer">
+  <div class="wrap">&copy; 2026</div>
+</footer>
 
 <script>
 (function(){
@@ -363,8 +407,6 @@
     cityInput: document.getElementById('cr-f-city'),
     clearBtn: document.getElementById('cr-clear'),
     list: document.getElementById('cr-list'),
-    resetWrap: document.getElementById('cr-reset'),
-    resetBtn: document.getElementById('cr-reset-btn'),
     watchList: document.getElementById('cr-watch-list'),
     watchArtistInput: document.getElementById('cr-watch-artist'),
     watchCityInput: document.getElementById('cr-watch-city'),
@@ -410,51 +452,137 @@
     }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
   }
 
+  // Groups same artist + same venue into one card with a date range instead
+  // of a repeated row per date (e.g. a 7-night Buena Vista Social Club
+  // residency was rendering as 7 near-identical cards). Only groups
+  // catalog-sourced shows — manually pinned ("added") shows stay one-per-
+  // card since they were each deliberately picked individually.
+  function groupCatalogShows(items) {
+    var order = [];
+    var byKey = {};
+    items.forEach(function (s) {
+      var key = (s.artist || '').toLowerCase() + '|' + (s.venue || '').toLowerCase();
+      if (!byKey[key]) { byKey[key] = []; order.push(key); }
+      byKey[key].push(s);
+    });
+    return order.map(function (key) {
+      var list = byKey[key].slice().sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+      var seenDates = {};
+      return list.filter(function (s) {
+        if (seenDates[s.date]) return false;
+        seenDates[s.date] = true;
+        return true;
+      });
+    });
+  }
+
+  // Parses a YYYY-MM-DD string into a LOCAL Date built from its literal
+  // Y/M/D components — NOT `new Date(iso)`, which parses as UTC midnight
+  // and can land on the previous calendar day once converted to Pacific
+  // time (exactly the kind of off-by-one this project's history warns
+  // about — see CLAUDE.md's audio-preview matching saga for the general
+  // "verify, don't assume" lesson this rhymes with).
+  function parseISODateLocal(iso) {
+    var p = (iso || '').split('-');
+    if (p.length !== 3) return null;
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, d = parseInt(p[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    return new Date(y, m, d);
+  }
+
+  function fmtDateRange(items) {
+    if (items.length === 1) return items[0].dateLabel || items[0].date || '';
+    var first = items[0], last = items[items.length - 1];
+    var fd = parseISODateLocal(first.date), ld = parseISODateLocal(last.date);
+    if (!fd || !ld) return (first.dateLabel || first.date || '') + ' – ' + (last.dateLabel || last.date || '');
+    var sameMonthYear = fd.getFullYear() === ld.getFullYear() && fd.getMonth() === ld.getMonth();
+    var range = sameMonthYear
+      ? fd.toLocaleDateString('en-US', { month: 'short' }) + ' ' + fd.getDate() + '–' + ld.getDate() + ', ' + fd.getFullYear()
+      : fd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' – ' + ld.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return range + ' · ' + items.length + ' dates';
+  }
+
+  function renderCard(items) {
+    var s = items[0];
+    var ids = items.map(function (it) { return it.id; });
+    var cta = s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '';
+    var already = isWatching(s.artist);
+    var watchBtn = '<button type="button" class="cr-watch-inline-btn" data-watch-artist="' + esc(s.artist) + '" data-watch-city="' + esc(s.city || '') + '"' +
+      (already ? ' disabled' : '') + '>' + (already ? 'Watching ✓' : '+ Watch') + '</button>';
+    var lows = items.map(function (it) { return it.priceLow; }).filter(function (n) { return typeof n === 'number'; });
+    var highs = items.map(function (it) { return it.priceHigh; }).filter(function (n) { return typeof n === 'number'; });
+    var hasPrice = lows.length && highs.length;
+    return '<div class="cr-item" data-id="' + esc(ids.join(',')) + '" data-kind="' + esc(s._kind) + '">' +
+      '<div class="cr-who">' +
+        '<div class="cr-artist">' + esc(s.artist) + '</div>' +
+        '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+        '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+        '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
+      '</div>' +
+      '<div class="cr-meta">' +
+        '<div class="cr-date">' + esc(fmtDateRange(items)) + '</div>' +
+        (hasPrice ? '<div class="cr-price">' + fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs)) + '</div>' : '') +
+      '</div>' +
+      '<button type="button" class="cr-item-del" aria-label="Remove ' + esc(s.artist) + ' from the list" data-del="' + esc(ids.join(',')) + '" data-kind="' + esc(s._kind) + '">&times;</button>' +
+    '</div>';
+  }
+
   function renderList() {
-    var shows = comingSoonShows();
-    els.soonCount.textContent = '(' + shows.length + ')';
+    // Watched artists are excluded here — their date/price already shows
+    // inline in the Watching panel (findWatchMatches still reads the full,
+    // unfiltered comingSoonShows() below), so showing the same show again
+    // as a Coming Soon card too would just be a duplicate.
+    var shows = comingSoonShows().filter(function (s) { return !isShowWatched(s.artist); });
 
     if (!shows.length) {
-      els.list.innerHTML = '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>';
+      els.soonCount.textContent = '(0)';
+      var allShows = comingSoonShows();
+      els.list.innerHTML = allShows.length
+        ? '<div class="cr-empty">Every upcoming show found is for an artist you\'re already watching — see the Watching panel above.</div>'
+        : '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>';
     } else {
-      els.list.innerHTML = shows.map(function (s) {
-        var cta = s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '';
-        var already = isWatching(s.artist);
-        var watchBtn = '<button type="button" class="cr-watch-inline-btn" data-watch-artist="' + esc(s.artist) + '" data-watch-city="' + esc(s.city || '') + '"' +
-          (already ? ' disabled' : '') + '>' + (already ? 'Watching ✓' : '+ Watch') + '</button>';
-        var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
-        return '<div class="cr-item" data-id="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">' +
-          '<div class="cr-who">' +
-            '<div class="cr-artist">' + esc(s.artist) + '</div>' +
-            '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-            '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
-            '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
-          '</div>' +
-          '<div class="cr-meta">' +
-            '<div class="cr-date">' + esc(s.dateLabel || s.date || '') + '</div>' +
-            (hasPrice ? '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' : '') +
-          '</div>' +
-          '<button type="button" class="cr-item-del" aria-label="Remove ' + esc(s.artist) + ' from the list" data-del="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">&times;</button>' +
-        '</div>';
-      }).join('');
+      var catalogGroups = groupCatalogShows(shows.filter(function (s) { return s._kind === 'catalog'; }));
+      var addedSingles = shows.filter(function (s) { return s._kind === 'added'; }).map(function (s) { return [s]; });
+      var units = catalogGroups.concat(addedSingles).sort(function (a, b) {
+        return (a[0].date || '').localeCompare(b[0].date || '');
+      });
+      // Count reflects what's actually on screen (cards, i.e. distinct
+      // artist+venue bookings) rather than the raw per-date show total —
+      // otherwise "(19)" next to 13 visible cards reads as a bug.
+      els.soonCount.textContent = '(' + units.length + ')';
+      els.list.innerHTML = units.map(renderCard).join('');
     }
 
-    els.resetWrap.hidden = hidden.length === 0;
     renderWatchList();
   }
 
-  function watchIsMatch(name) {
+  function findWatchMatches(name) {
     var q = name.trim().toLowerCase();
-    if (!q) return false;
-    return comingSoonShows().some(function (s) {
+    if (!q) return [];
+    return comingSoonShows().filter(function (s) {
       var a = s.artist.toLowerCase();
       return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
-    });
+    }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
   }
 
   function isWatching(artist) {
     var q = artist.trim().toLowerCase();
     return watching.some(function (w) { return w.artist.toLowerCase() === q; });
+  }
+
+  // Either/or rule: a show whose artist is already being watched doesn't
+  // get its own Coming Soon card — the Watching panel's inline date/price
+  // is the one place it shows up. Same loose substring match as
+  // findWatchMatches() (not the stricter exact match isWatching() uses for
+  // button state) so the hidden set and what the Watching panel displays
+  // never disagree.
+  function isShowWatched(artist) {
+    var a = (artist || '').trim().toLowerCase();
+    if (!a) return false;
+    return watching.some(function (w) {
+      var q = w.artist.trim().toLowerCase();
+      return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
+    });
   }
 
   function renderWatchList() {
@@ -463,14 +591,24 @@
       return;
     }
     els.watchList.innerHTML = watching.map(function (w, i) {
-      var isMatch = watchIsMatch(w.artist);
-      // A watched artist either already has a confirmed show in Coming Soon
-      // (a truthful "In Coming Soon" badge) or it doesn't — in which case
-      // the honest answer is "we don't know yet," so offer a real live
-      // check instead of a static, easily-stale-looking guess.
-      var statusHtml = isMatch
-        ? '<span class="cr-watch-status">In Coming Soon</span>'
-        : '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>';
+      var matches = findWatchMatches(w.artist);
+      // A watched artist either already has confirmed show(s) in Coming
+      // Soon — in which case show the actual date(s) and price right here,
+      // not just a badge that makes you go scroll and find it yourself —
+      // or it doesn't, in which case the honest answer is "we don't know
+      // yet," so offer a real live check instead of a static guess.
+      var statusHtml;
+      if (matches.length) {
+        var lows = matches.map(function (m) { return m.priceLow; }).filter(function (n) { return typeof n === 'number'; });
+        var highs = matches.map(function (m) { return m.priceHigh; }).filter(function (n) { return typeof n === 'number'; });
+        var hasPrice = lows.length && highs.length;
+        statusHtml = '<div class="cr-watch-info">' +
+          '<div class="cr-watch-date">' + esc(fmtDateRange(matches)) + '</div>' +
+          (hasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs))) + '</div>' : '') +
+        '</div>';
+      } else {
+        statusHtml = '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>';
+      }
       return '<div class="cr-watch-row">' +
         '<div class="cr-watch-who">' +
           '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
@@ -494,28 +632,27 @@
   els.list.addEventListener('click', function (e) {
     var watchBtn = e.target.closest('[data-watch-artist]');
     if (watchBtn) {
+      // addWatch() re-renders the whole list itself — the either/or rule
+      // means this card (and any sibling dates in its group) may need to
+      // disappear from Coming Soon now that its artist is watched, so a
+      // simple button-state toggle here isn't enough.
       addWatch(watchBtn.getAttribute('data-watch-artist'), watchBtn.getAttribute('data-watch-city'));
-      watchBtn.textContent = 'Watching ✓';
-      watchBtn.disabled = true;
       return;
     }
     var btn = e.target.closest('[data-del]');
     if (!btn) return;
-    var id = btn.getAttribute('data-del');
+    // A grouped card (e.g. a multi-night residency) carries every
+    // underlying show id comma-joined — removing the card removes all of
+    // them, not just the first.
+    var ids = btn.getAttribute('data-del').split(',');
     var kind = btn.getAttribute('data-kind');
     if (kind === 'added') {
-      addedShows = addedShows.filter(function (s) { return s.id !== id; });
+      addedShows = addedShows.filter(function (s) { return ids.indexOf(s.id) === -1; });
       saveJSON(LS_ADDED, addedShows);
-    } else if (hidden.indexOf(id) === -1) {
-      hidden.push(id);
+    } else {
+      ids.forEach(function (id) { if (hidden.indexOf(id) === -1) hidden.push(id); });
       saveJSON(LS_HIDDEN, hidden);
     }
-    renderList();
-  });
-
-  els.resetBtn.addEventListener('click', function () {
-    hidden = [];
-    saveJSON(LS_HIDDEN, hidden);
     renderList();
   });
 
@@ -528,7 +665,9 @@
     if (isWatching(artist)) return false;
     watching.push({ artist: artist, city: city });
     saveJSON(LS_WATCH, watching);
-    renderWatchList();
+    // Full re-render (not just the Watching panel) — watching an artist can
+    // remove Coming Soon card(s) it already had, under the either/or rule.
+    renderList();
     return true;
   }
 
@@ -551,7 +690,9 @@
       var idx = parseInt(delBtn.getAttribute('data-watch-del'), 10);
       watching.splice(idx, 1);
       saveJSON(LS_WATCH, watching);
-      renderWatchList();
+      // Full re-render, not just the Watching panel — un-watching an artist
+      // can bring its card(s) back into Coming Soon under the either/or rule.
+      renderList();
       return;
     }
     var checkBtn = e.target.closest('[data-watch-check]');
@@ -648,6 +789,10 @@
   els.liveBody.addEventListener('click', function (e) {
     var watchBtn = e.target.closest('[data-watch-artist]');
     if (watchBtn) {
+      // Live Results has its own DOM, untouched by renderList() — flip this
+      // button's own state manually. addWatch() itself re-renders Coming
+      // Soon + the Watching panel (either/or rule may hide card(s) this
+      // artist already had showing in Coming Soon).
       addWatch(watchBtn.getAttribute('data-watch-artist'), watchBtn.getAttribute('data-watch-city'));
       watchBtn.textContent = 'Watching ✓';
       watchBtn.disabled = true;
