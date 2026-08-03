@@ -19,8 +19,20 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 2 (2026-08-03). Still PREVIEW MOCK ONLY —
+    /* Concert Radar — version: 3 (2026-08-03). Still PREVIEW MOCK ONLY —
        see the v1 note below, nothing here calls a real API.
+       v3 changes, all per Susan's request, same session as v2:
+       - Removed the "Preview — sample data, not real listings" banner and
+         the "Matching artists from your collection..." intro line. The
+         per-card "Sample" tag is now the only in-page signal this is mock
+         data — the fuller explanation (why, what's fake, what's still
+         needed) lives in CLAUDE.md's 2026-08-03 entry instead, not on a
+         page meant for browsing.
+       - Removed the "What turns this into the real feature" section
+         (the numbered build-out plan) for the same reason — read as
+         internal build notes on a page meant for browsing. Kept verbatim
+         in CLAUDE.md so nothing about the plan is lost.
+       - Added a "Coming Soon" label above the show list.
        v2 changes, all client-side/localStorage, no schema or endpoint:
        - Artist/City filter panel (top third of the page), live-filters the
          list below as you type. Modeled on Travel Intelligence's
@@ -53,9 +65,6 @@
        HOME_LOCATION hardcoded to Berkeley, CA per Susan's explicit choice
        — moves into the matching function, not a page, once this is real. */
     .cr-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
-    .cr-banner { border: 1px solid var(--gold); background: var(--surface); border-radius: 3px; padding: 14px 16px; margin: 0 0 22px; font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
-    .cr-banner strong { color: var(--gold); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; display: block; margin-bottom: 6px; }
-
     .cr-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 0 24px; }
     .cr-panel { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; }
     .cr-panel__label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
@@ -87,8 +96,7 @@
     .cr-watch-btn:hover { background: var(--accent); }
     .cr-watch-note { font-family: var(--sans); font-size: 11px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
 
-    .cr-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
-    .cr-intro .cr-loc { color: var(--ink); font-weight: 600; }
+    .cr-section-label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
     .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
     .cr-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
     .cr-who { flex: 1 1 220px; min-width: 0; }
@@ -109,10 +117,6 @@
     .cr-reset button { background: transparent; border: 0; color: var(--ink-faint); text-decoration: underline; cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0; }
     .cr-reset button:hover { color: var(--accent); }
 
-    .cr-plan { border-top: 1px solid var(--rule); padding-top: 22px; margin-top: 6px; }
-    .cr-plan h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
-    .cr-plan ol { font-family: var(--sans); font-size: 14px; line-height: 1.7; color: var(--ink-soft); margin: 0 0 18px; padding-left: 20px; }
-    .cr-plan p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink-faint); margin: 0 0 12px; }
     @media (max-width: 640px) {
       .cr-wrap { padding: 0 18px 64px; }
       .cr-hero { grid-template-columns: 1fr; }
@@ -143,11 +147,6 @@
 <h2 class="collection-title">Concert Radar</h2>
 
 <main class="cr-wrap">
-
-  <div class="cr-banner">
-    <strong>Preview &mdash; sample data, not real listings</strong>
-    Every show below is invented (real venues, made-up dates and lineups) so the layout can be reviewed before any API keys exist. Nothing here reflects an actual scheduled concert.
-  </div>
 
   <div class="cr-hero">
     <div class="cr-panel">
@@ -182,28 +181,12 @@
     </div>
   </div>
 
-  <p class="cr-intro">
-    Matching artists from your collection and wishlist against upcoming tour dates near <span class="cr-loc">Berkeley, CA</span> &mdash; hardcoded for now; move it into the matching function once this goes live.
-  </p>
-
+  <h3 class="cr-section-label">Coming Soon</h3>
   <div id="cr-list" class="cr-list"></div>
 
   <div id="cr-reset" class="cr-reset" hidden>
     <button type="button" id="cr-reset-btn">Restore deleted sample shows</button>
   </div>
-
-  <section class="cr-plan">
-    <h3>What turns this into the real feature</h3>
-    <p>Nothing above is wired to anything live. Going from this mock to Phase 11 as scoped means:</p>
-    <ol>
-      <li>Susan signs up for free self-serve API keys at Ticketmaster's Discovery API and SeatGeek's platform (both instant, no manual approval) &mdash; not something this session can do on her behalf.</li>
-      <li>Two new Netlify env vars: <code>TICKETMASTER_API_KEY</code> and <code>SEATGEEK_CLIENT_ID</code>, set the same way <code>DISCOGS_TOKEN</code> already is.</li>
-      <li>A new ungated, read-only function (e.g. <code>netlify/functions/tour-dates.mjs</code>, same pattern as <code>discogs-lookup.mjs</code>/<code>audio-preview.mjs</code>) that takes the distinct artist names already in the catalog + wishlist, queries both APIs for upcoming events, and filters to a radius around a home location.</li>
-      <li>This page's static cards get replaced with a real fetch against that endpoint, with the same graceful-degradation pattern as audio preview: if an artist has no match, it's silently omitted, never an error state.</li>
-      <li>Artists saved in the Watching panel above carry over as-is &mdash; they're already just an artist name plus an optional city, stored the same simple way real matching would read them.</li>
-      <li>Bandsintown and a Spotify layer stay parked per the roadmap &mdash; added later only if real coverage gaps show up.</li>
-    </ol>
-  </section>
 
 </main>
 

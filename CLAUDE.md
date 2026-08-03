@@ -422,18 +422,32 @@ Susan's request. All of this is still client-side only against the same
 static `SHOWS` array from v1 — no new endpoint, no schema change, same
 `localStorage`-for-UI-state pattern wishlist.html already established.
 
-What's still needed to turn this into the real Phase 11 (see
-`concert-radar.html`'s own "What turns this into the real feature"
-section for the same list): Susan gets free self-serve keys from
-Ticketmaster's Discovery API and SeatGeek; `TICKETMASTER_API_KEY` and
-`SEATGEEK_CLIENT_ID` get set in Netlify the same way `DISCOGS_TOKEN` is;
-a new ungated, read-only function (`netlify/functions/tour-dates.mjs`,
-same pattern as `discogs-lookup.mjs`/`audio-preview.mjs`) queries both
-APIs for the catalog+wishlist's distinct artist names and filters by
-distance from home location; the static cards on this page get replaced
-with a real fetch against that endpoint. Bandsintown and a Spotify layer
-stay parked per roadmap.html's Phase 11 text — added later only if real
-coverage gaps show up.
+**What's still needed to turn this into the real Phase 11** (this list
+used to live on the page itself, in a "What turns this into the real
+feature" section — removed from the live page 2026-08-03 per Susan's
+request since it read as internal build notes on a page meant for
+browsing, but kept here so nothing about the plan is lost):
+
+1. Susan signs up for free self-serve API keys at Ticketmaster's
+   Discovery API and SeatGeek's platform (both instant, no manual
+   approval) — not something an agent does on her behalf.
+2. Two new Netlify env vars: `TICKETMASTER_API_KEY` and
+   `SEATGEEK_CLIENT_ID`, set the same way `DISCOGS_TOKEN` already is.
+3. A new ungated, read-only function (e.g. `netlify/functions/tour-
+   dates.mjs`, same pattern as `discogs-lookup.mjs`/`audio-preview.mjs`)
+   that takes the distinct artist names already in the catalog +
+   wishlist, queries both APIs for upcoming events, and filters to a
+   radius around home location (Berkeley, CA).
+4. The page's static/sample cards get replaced with a real fetch against
+   that endpoint, with the same graceful-degradation pattern as audio
+   preview: if an artist has no match, it's silently omitted, never an
+   error state.
+5. Artists saved in the Watching panel carry over as-is — they're
+   already just an artist name plus an optional city, stored the same
+   simple way (`localStorage`, key `cr_watching_v1`) real matching would
+   read them; that data model doesn't need to change.
+6. Bandsintown and a Spotify layer stay parked per roadmap.html's Phase
+   11 text — added later only if real coverage gaps show up.
 
 roadmap.html's Phase 11 card now links to this preview but its status
 badge is deliberately left at "Future," not "Live" — a mock isn't a
