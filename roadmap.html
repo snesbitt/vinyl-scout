@@ -74,21 +74,21 @@
 <h2 class="collection-title">Roadmap</h2>
 
 <p class="roadmap-intro">
-  Vinyl Scout is built in deliberate phases. Phases 1&ndash;5, 9, and 11 are live; Phases 6&ndash;8 and 10 are on the horizon.
+  Vinyl Scout is built in deliberate phases, listed below live-first in the order each one actually shipped, then what's still ahead. Phases 1&ndash;5, 7 (partial), 9, and 11 are live; Phases 6, 8, and 10 are on the horizon.
 </p>
 
-<nav class="roadmap-overview" aria-label="All phases at a glance">
+<nav class="roadmap-overview" aria-label="All phases at a glance, live first in ship order, then future">
   <a href="#phase-1" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>1 cataloguing by photo</a>
   <a href="#phase-2" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>2 market enrichment</a>
   <a href="#phase-3" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>3 wishlist</a>
   <a href="#phase-4" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>4 listen</a>
   <a href="#phase-5" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>5 2026 reliability &amp; polish</a>
-  <a href="#phase-6" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>6 editorial polish pass</a>
-  <a href="#phase-7" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>7 iOS app</a>
-  <a href="#phase-8" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>8 close the wishlist gap</a>
   <a href="#phase-9" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>9 wishlist priority</a>
-  <a href="#phase-10" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>10 travel intelligence hooks</a>
   <a href="#phase-11" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>11 concert radar</a>
+  <a href="#phase-7" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>7 iOS app</a>
+  <a href="#phase-6" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>6 editorial polish pass</a>
+  <a href="#phase-8" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>8 close the wishlist gap</a>
+  <a href="#phase-10" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>10 travel intelligence hooks</a>
 </nav>
 
 <main class="roadmap">
@@ -153,6 +153,42 @@
     </div>
   </section>
 
+  <section class="phase phase--live" id="phase-9">
+    <div class="phase__rail">9</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Wishlist priority</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">Rank the hunt list, not just alphabetize it</p>
+      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist now scores each item on the two signals that already existed: how far the current ask sits below the historical median, and how long the item has sat on the list. There is still no Discogs want/have scarcity data behind it, so v1 works with what actually exists rather than waiting on data that may never arrive. How much a discount should outweigh waiting time stays a taste call, not a data problem, so it is a control on the page itself (Discount first / Balanced / Longest waiting), not a hardcoded constant.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--live" id="phase-11">
+    <div class="phase__rail">11</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Concert radar</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">See who&rsquo;s touring, and who&rsquo;s touring near you</p>
+      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA, backed by SeatGeek. Coming Soon sweeps every artist in your collection and wishlist automatically; same-artist, same-venue shows with several dates group into one card with a date range instead of one row per night. Watch an artist to track it even before a confirmed date exists &mdash; a watched artist&rsquo;s shows show up in the Watching panel with a real date, price, and ticket link, not duplicated in Coming Soon too. Ticketmaster and a Spotify layer are considered and deliberately parked for later, added only if a real coverage gap shows up, the same discipline that added YouTube as a last-resort tier to audio preview. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
+    </div>
+  </section>
+
+  <section class="phase phase--live" id="phase-7">
+    <div class="phase__rail">7</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">iOS app</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">Easy-start mobile cataloguing</p>
+      <p class="phase__covers">Home-screen icons launch Vinyl Scout (and each of the owner&rsquo;s four other Claude-built projects) directly, no browser chrome, no typing a URL &mdash; live today via iOS&rsquo;s own &ldquo;Add to Home Screen.&rdquo; What&rsquo;s still ahead: a native, camera-first record-adding flow that replaces the current Safari-based photo-upload workflow. That part hasn&rsquo;t been built and stays parked until scoped.</p>
+    </div>
+  </section>
+
   <section class="phase phase--future" id="phase-6">
     <div class="phase__rail">6</div>
     <div class="phase__body">
@@ -162,18 +198,6 @@
       </div>
       <p class="phase__focus">Sharpen the voice, not the palette</p>
       <p class="phase__covers">An outside design review confirmed the type, color, and spacing rules are holding, so this pass leaves them alone. It tightens navigation spacing, gives the Audit page darker rules and tighter rows so it reads as a working table rather than a magazine spread, lets wishlist prices stand a little taller than the rest of each row, and settles on one small recurring mark (a catalog stamp or numbering convention) as a signature no other page borrows. The Guide&rsquo;s prose was trimmed as a first step.</p>
-    </div>
-  </section>
-
-  <section class="phase phase--future" id="phase-7">
-    <div class="phase__rail">7</div>
-    <div class="phase__body">
-      <div class="phase__head">
-        <h3 class="phase__name">iOS app</h3>
-        <span class="phase__status phase__status--future">Future</span>
-      </div>
-      <p class="phase__focus">Easy-start mobile cataloguing</p>
-      <p class="phase__covers">A native camera-first app for adding records on the go, replacing the current Safari-based photo-upload workflow with a faster mobile entry point. Not started; parked until scoped.</p>
     </div>
   </section>
 
@@ -189,18 +213,6 @@
     </div>
   </section>
 
-  <section class="phase phase--live" id="phase-9">
-    <div class="phase__rail">9</div>
-    <div class="phase__body">
-      <div class="phase__head">
-        <h3 class="phase__name">Wishlist priority</h3>
-        <span class="phase__status phase__status--live">Live</span>
-      </div>
-      <p class="phase__focus">Rank the hunt list, not just alphabetize it</p>
-      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist now scores each item on the two signals that already existed: how far the current ask sits below the historical median, and how long the item has sat on the list. There is still no Discogs want/have scarcity data behind it, so v1 works with what actually exists rather than waiting on data that may never arrive. How much a discount should outweigh waiting time stays a taste call, not a data problem, so it is a control on the page itself (Discount first / Balanced / Longest waiting), not a hardcoded constant.</p>
-    </div>
-  </section>
-
   <section class="phase phase--future" id="phase-10">
     <div class="phase__rail">10</div>
     <div class="phase__body">
@@ -210,18 +222,6 @@
       </div>
       <p class="phase__focus">Cross-reference your trips with your music</p>
       <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a> (the owner&rsquo;s other project). Travel Intelligence&rsquo;s watched trips &mdash; destination city and date range only, no fares or points data &mdash; get checked against artists you like here, and matches surface on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; on Vinyl Scout, and a note against the relevant watched trip over on Travel Intelligence. Depended on Phase 11 existing first &mdash; now that Concert Radar is live, this phase is technically unblocked, but hasn&rsquo;t been started.</p>
-    </div>
-  </section>
-
-  <section class="phase phase--live" id="phase-11">
-    <div class="phase__rail">11</div>
-    <div class="phase__body">
-      <div class="phase__head">
-        <h3 class="phase__name">Concert radar</h3>
-        <span class="phase__status phase__status--live">Live</span>
-      </div>
-      <p class="phase__focus">See who&rsquo;s touring, and who&rsquo;s touring near you</p>
-      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA, backed by SeatGeek. Coming Soon sweeps every artist in your collection and wishlist automatically; same-artist, same-venue shows with several dates group into one card with a date range instead of one row per night. Watch an artist to track it even before a confirmed date exists &mdash; a watched artist&rsquo;s shows show up in the Watching panel with a real date, price, and ticket link, not duplicated in Coming Soon too. Ticketmaster and a Spotify layer are considered and deliberately parked for later, added only if a real coverage gap shows up, the same discipline that added YouTube as a last-resort tier to audio preview. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
     </div>
   </section>
 
