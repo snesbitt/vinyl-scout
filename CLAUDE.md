@@ -20,6 +20,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
     wishlist.html      Hunt list — add/delete are UNGATED (no edit secret, see below)
     guide.html         User-facing how-to guide
     about/roadmap.html Static info pages
+    concert-radar.html Phase 11 preview mock (sample data only, see 2026-08-03 note below) — "Concerts" in nav
     start.html         "Build Your Own" — copyable starting prompt for replicating this project
     app.js             Frontend (vanilla IIFE). Cache-bust: // version: N
     style.css          Styles. Cache-bust via ?v=N in <link>
@@ -388,3 +389,39 @@ self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
   detour above, same diff as `7ffa854`, fully incorporated) — Susan to
   run `git branch -D safety-backup` locally; the device bridge's lock
   handling can't reliably do ref deletes.
+
+## 2026-08-03 — Concert Radar (Phase 11) static preview mock
+
+`concert-radar.html` is new but is **a static sample-data mock only, not
+the real Phase 11 feature** — flagging this explicitly so a future session
+(or the weekly automation's Job D doc-reconcile pass) doesn't mistake a
+preview page for a shipped one. No Netlify function, no env vars, no live
+API calls: every "show" on the page is invented (real Bay Area venues,
+made-up dates/lineups), clearly labeled with a "Preview — sample data, not
+real listings" banner and a per-card "Sample" tag. Built this way at
+Susan's explicit request ("start with anything that doesn't need my
+involvement, like a mock with sample text") ahead of the real integration,
+which needs her to sign up for Ticketmaster/SeatGeek API keys herself —
+account creation isn't something an agent does on her behalf.
+
+Home location is hardcoded to **Berkeley, CA** per Susan's explicit
+choice (2026-08-03) — deliberately not an env var yet, since that decision
+was made for the mock page itself; when the real matching function is
+built, `HOME_LOCATION` should move there, not stay in a static page.
+
+What's still needed to turn this into the real Phase 11 (see
+`concert-radar.html`'s own "What turns this into the real feature"
+section for the same list): Susan gets free self-serve keys from
+Ticketmaster's Discovery API and SeatGeek; `TICKETMASTER_API_KEY` and
+`SEATGEEK_CLIENT_ID` get set in Netlify the same way `DISCOGS_TOKEN` is;
+a new ungated, read-only function (`netlify/functions/tour-dates.mjs`,
+same pattern as `discogs-lookup.mjs`/`audio-preview.mjs`) queries both
+APIs for the catalog+wishlist's distinct artist names and filters by
+distance from home location; the static cards on this page get replaced
+with a real fetch against that endpoint. Bandsintown and a Spotify layer
+stay parked per roadmap.html's Phase 11 text — added later only if real
+coverage gaps show up.
+
+roadmap.html's Phase 11 card now links to this preview but its status
+badge is deliberately left at "Future," not "Live" — a mock isn't a
+shipped feature.

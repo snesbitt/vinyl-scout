@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f1ebdc" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Concert Radar &middot; Vinyl Scout</title>
+<link rel="preload" href="/fonts/lora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<style>/* Self-hosted fonts (latin) — same set as every other page, see style.css v27 note. */
+@font-face{font-family:"Lora";font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/lora-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Lora";font-style:italic;font-weight:400;font-display:swap;src:url(/fonts/lora-latin-400-italic.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
+</style>
+  <link rel="stylesheet" href="/style.css?v=27" />
+  <style>
+    /* Concert Radar — version: 1 (2026-08-03). PREVIEW MOCK ONLY.
+       Phase 11, pulled forward per Susan's request. This page is a static
+       sample-data preview built before any API keys exist — every show
+       below is fictional (real venues, invented dates/lineups) so Susan can
+       react to the layout and information design without needing to sign up
+       for Ticketmaster/SeatGeek first. No Netlify function, no env vars, no
+       live matching yet. See CLAUDE.md 2026-08-03 entry and PROJECT.md
+       roadmap.html Phase 11 for what "real" looks like. HOME_LOCATION is
+       hardcoded per Susan's explicit choice (2026-08-03: Berkeley, CA) —
+       when this goes live, that constant moves into the matching function,
+       not a page like this one. */
+    .cr-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 90px; }
+    .cr-banner { border: 1px solid var(--gold); background: var(--surface); border-radius: 3px; padding: 14px 16px; margin: 0 0 22px; font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
+    .cr-banner strong { color: var(--gold); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+    .cr-intro { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
+    .cr-intro .cr-loc { color: var(--ink); font-weight: 600; }
+    .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 34px; }
+    .cr-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .cr-who { flex: 1 1 220px; min-width: 0; }
+    .cr-artist { font-weight: 600; font-size: 16px; color: var(--ink); }
+    .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+    .cr-tags { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .cr-sample { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 2px; padding: 2px 6px; }
+    .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
+    .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
+    .cr-date { font-size: 13px; color: var(--ink); white-space: nowrap; }
+    .cr-dist { font-size: 11px; color: var(--ink-faint); white-space: nowrap; margin-top: 2px; }
+    .cr-cta { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 6px 10px; cursor: default; user-select: none; }
+    .cr-plan { border-top: 1px solid var(--rule); padding-top: 22px; margin-top: 6px; }
+    .cr-plan h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
+    .cr-plan ol { font-family: var(--sans); font-size: 14px; line-height: 1.7; color: var(--ink-soft); margin: 0 0 18px; padding-left: 20px; }
+    .cr-plan p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink-faint); margin: 0 0 12px; }
+    @media (max-width: 640px) {
+      .cr-wrap { padding: 0 18px 64px; }
+      .cr-item { flex-direction: column; align-items: flex-start; }
+      .cr-meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="masthead">
+  <a class="brand" href="/" aria-label="Vinyl Scout: home">
+    <span class="brand__mark" aria-hidden="true">⦿</span>
+    <h1>Vinyl Scout</h1>
+  </a>
+  <nav class="masthead__nav" aria-label="Primary">
+    <a href="/seed.html">Add</a>
+    <a href="/audit.html">Audit</a>
+    <a href="/concert-radar.html">Concerts</a>
+    <a href="/wishlist.html">Wishlist</a>
+    <a href="/roadmap.html">Roadmap</a>
+    <a href="/guide.html">Guide</a>
+    <a href="/about.html">About</a>
+  </nav>
+</header>
+
+<h2 class="collection-title">Concert Radar</h2>
+
+<main class="cr-wrap">
+
+  <div class="cr-banner">
+    <strong>Preview &mdash; sample data, not real listings</strong>
+    Every show below is invented (real venues, made-up dates and lineups) so the layout can be reviewed before any API keys exist. Nothing here reflects an actual scheduled concert.
+  </div>
+
+  <p class="cr-intro">
+    Matching artists from your collection and wishlist against upcoming tour dates near <span class="cr-loc">Berkeley, CA</span> &mdash; hardcoded for now; move it into the matching function once this goes live.
+  </p>
+
+  <div class="cr-list">
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">Sade</div>
+        <div class="cr-venue">Greek Theatre &mdash; Berkeley, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Sun, Oct 18, 2026</div>
+        <div class="cr-dist">~1 mi away</div>
+      </div>
+    </div>
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">Grace Jones</div>
+        <div class="cr-venue">The UC Theatre &mdash; Berkeley, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Fri, Dec 4, 2026</div>
+        <div class="cr-dist">~2 mi away</div>
+      </div>
+    </div>
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">Kraftwerk</div>
+        <div class="cr-venue">Fox Theater &mdash; Oakland, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Thu, Nov 5, 2026</div>
+        <div class="cr-dist">~6 mi away</div>
+      </div>
+    </div>
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">Fleetwood Mac</div>
+        <div class="cr-venue">Chase Center &mdash; San Francisco, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via SeatGeek</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Fri, Oct 2, 2026</div>
+        <div class="cr-dist">~11 mi away</div>
+      </div>
+    </div>
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">Steely Dan</div>
+        <div class="cr-venue">Bill Graham Civic Auditorium &mdash; San Francisco, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Sat, Nov 21, 2026</div>
+        <div class="cr-dist">~12 mi away</div>
+      </div>
+    </div>
+
+    <div class="cr-item">
+      <div class="cr-who">
+        <div class="cr-artist">The Rolling Stones</div>
+        <div class="cr-venue">Levi's Stadium &mdash; Santa Clara, CA</div>
+        <div class="cr-tags"><span class="cr-sample">Sample</span><span class="cr-source">via Ticketmaster</span></div>
+        <span class="cr-cta">Get tickets</span>
+      </div>
+      <div class="cr-meta">
+        <div class="cr-date">Sat, Sep 12, 2026</div>
+        <div class="cr-dist">~42 mi away</div>
+      </div>
+    </div>
+
+  </div>
+
+  <section class="cr-plan">
+    <h3>What turns this into the real feature</h3>
+    <p>Nothing above is wired to anything live. Going from this mock to Phase 11 as scoped means:</p>
+    <ol>
+      <li>Susan signs up for free self-serve API keys at Ticketmaster's Discovery API and SeatGeek's platform (both instant, no manual approval) &mdash; not something this session can do on her behalf.</li>
+      <li>Two new Netlify env vars: <code>TICKETMASTER_API_KEY</code> and <code>SEATGEEK_CLIENT_ID</code>, set the same way <code>DISCOGS_TOKEN</code> already is.</li>
+      <li>A new ungated, read-only function (e.g. <code>netlify/functions/tour-dates.mjs</code>, same pattern as <code>discogs-lookup.mjs</code>/<code>audio-preview.mjs</code>) that takes the distinct artist names already in the catalog + wishlist, queries both APIs for upcoming events, and filters to a radius around a home location.</li>
+      <li>This page's static cards get replaced with a real fetch against that endpoint, with the same graceful-degradation pattern as audio preview: if an artist has no match, it's silently omitted, never an error state.</li>
+      <li>Bandsintown and a Spotify layer stay parked per the roadmap &mdash; added later only if real coverage gaps show up.</li>
+    </ol>
+  </section>
+
+</main>
+
+</body>
+</html>
