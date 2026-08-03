@@ -19,7 +19,41 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=27" />
   <style>
-    /* Concert Radar — version: 5 (2026-08-03).
+    /* Concert Radar — version: 7 (2026-08-03).
+       v7: Coming Soon is no longer the static 6-show mock array — it's now
+       real data. On load (and every 12h after, or on demand via the new
+       Refresh link), the page collects every distinct artist name across
+       the catalog (/api/records) and wishlist (/api/wishlist), looks each
+       one up through /api/tour-dates (concurrency-capped at 5 in flight so
+       a ~100-artist collection doesn't fire 100 simultaneous requests), and
+       renders whatever real upcoming shows come back. An artist with no
+       confirmed match is just omitted — never an error — same
+       graceful-degradation rule audio-preview already established. Results
+       + a checked-at timestamp are cached in localStorage
+       (cr_catalog_cache_v1) so a normal page visit is instant; only a stale
+       cache or an explicit Refresh click triggers a real re-sweep. The old
+       "Sample" tag/disabled ticket-link styling is gone along with the mock
+       data it existed for — every Coming Soon card now has a real "via
+       SeatGeek" source and a working ticket link. Also removed the
+       collapse/expand toggle added in v6 — Susan flagged it as unneeded
+       once the section holds real, useful data instead of 6 fixed mock
+       cards; the section is just always visible again, with its count
+       badge kept since that part was genuinely useful. `cr_deleted_ids_v1`
+       is renamed `cr_hidden_ids_v1` since it no longer just hides mock rows
+       — it now needs to survive a live re-sweep too (a hidden real show
+       stays hidden even after Refresh finds it again).
+       v6: the Watching row's status badge was always a placeholder (see the
+       v2 note: "purely so the concept is visible now — nothing is actually
+       monitored yet") — but it read as a real, current answer, and once live
+       search existed that placeholder started actively lying (e.g. showing
+       "No matches yet" for Kruder & Dorfmeister right after a live search on
+       this same page had just confirmed a real Fox Theater Oakland date).
+       Fixed: the badge now only ever claims "In Coming Soon" — something
+       provably true (checked against the real Coming Soon list, sample +
+       any added-live shows) — and otherwise shows a "Check live →" button
+       that runs an actual /api/tour-dates query for that artist/city right
+       from the row (same function the main Search panel uses), instead of
+       a static guess that can't know the real answer without querying.
        v5, all direct UI/UX feedback after the v4 live-search launch:
        - Removed the "N of N shows" line and the old local live-filter
          wiring on the Artist/City fields — those fields now do ONE thing
@@ -149,11 +183,10 @@
     .cr-live-add-btn:hover { background: var(--good); color: var(--bg); }
     .cr-live-add-btn:disabled { color: var(--ink-faint); border-color: var(--rule); cursor: default; background: transparent; }
 
-    .cr-section-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent; border: 0; cursor: pointer; padding: 0; margin: 0 0 12px; text-align: left; }
+    .cr-soon-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 6px; }
+    .cr-soon-head .cr-section-label { margin: 0; }
     .cr-soon-count { color: var(--ink-mute); font-weight: 400; }
-    .cr-toggle-chevron { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); transition: transform 0.15s ease; }
-    .cr-section-toggle[aria-expanded="true"] .cr-toggle-chevron { transform: rotate(180deg); }
-    .cr-soon-body[hidden] { display: none; }
+    .cr-soon-status { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; min-height: 16px; }
 
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
     .cr-watch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
@@ -161,8 +194,9 @@
     .cr-watch-who { min-width: 0; flex: 1 1 auto; }
     .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); }
     .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
-    .cr-watch-status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
-    .cr-watch-status.is-match { color: var(--good); border-color: var(--good); }
+    .cr-watch-status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--good); border: 1px solid var(--good); border-radius: 2px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
+    .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; flex: 0 0 auto; cursor: pointer; }
+    .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
     .cr-watch-del:hover { color: var(--accent); }
     .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
@@ -171,7 +205,6 @@
     .cr-watch-add-row2 .cr-input { flex: 1 1 auto; min-width: 0; }
     .cr-watch-btn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ink); color: var(--bg); border: 0; border-radius: 2px; padding: 0 16px; min-height: 44px; cursor: pointer; flex: 0 0 auto; }
     .cr-watch-btn:hover { background: var(--accent); }
-    .cr-watch-note { font-family: var(--sans); font-size: 11px; color: var(--ink-faint); margin: 10px 0 0; line-height: 1.5; }
 
     .cr-section-label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
     .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
@@ -180,12 +213,10 @@
     .cr-artist { font-weight: 600; font-size: 16px; color: var(--ink); }
     .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
     .cr-tags { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
-    .cr-sample { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 2px; padding: 2px 6px; }
     .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
     .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
     .cr-date { font-size: 13px; color: var(--ink); white-space: nowrap; }
     .cr-price { font-size: 12px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
-    .cr-cta { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 6px 10px; cursor: default; user-select: none; }
     .cr-item-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 18px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
     .cr-item-del:hover { color: var(--accent); }
     .cr-empty { font-family: var(--sans); font-size: 14px; color: var(--ink-faint); padding: 24px; text-align: center; border: 1px dashed var(--rule); border-radius: 3px; }
@@ -264,34 +295,26 @@
     <div id="cr-live-body"></div>
   </section>
 
-  <button type="button" id="cr-soon-toggle" class="cr-section-toggle" aria-expanded="false" aria-controls="cr-soon-body">
-    <span class="cr-section-label">Coming Soon <span id="cr-soon-count" class="cr-soon-count"></span></span>
-    <span class="cr-toggle-chevron" aria-hidden="true">&#9662;</span>
-  </button>
-  <div id="cr-soon-body" class="cr-soon-body" hidden>
-    <div id="cr-list" class="cr-list"></div>
-    <div id="cr-reset" class="cr-reset" hidden>
-      <button type="button" id="cr-reset-btn">Restore deleted sample shows</button>
-    </div>
+  <div class="cr-soon-head">
+    <h3 class="cr-section-label">Coming Soon <span id="cr-soon-count" class="cr-soon-count"></span></h3>
+    <button type="button" id="cr-soon-refresh" class="cr-clear">Refresh</button>
+  </div>
+  <p id="cr-soon-status" class="cr-soon-status"></p>
+  <div id="cr-list" class="cr-list"></div>
+  <div id="cr-reset" class="cr-reset" hidden>
+    <button type="button" id="cr-reset-btn">Restore hidden shows</button>
   </div>
 
 </main>
 
 <script>
 (function(){
-  var LS_DELETED = 'cr_deleted_ids_v1';
+  var LS_HIDDEN = 'cr_hidden_ids_v1';
   var LS_WATCH = 'cr_watching_v1';
   var LS_ADDED = 'cr_added_shows_v1';
-  var LS_SOON_OPEN = 'cr_soon_open_v1';
-
-  var SHOWS = [
-    { id: 'sade-greek-20261018', artist: 'Sade', venue: 'Greek Theatre', city: 'Berkeley, CA', date: '2026-10-18', dateLabel: 'Sun, Oct 18, 2026', source: 'Ticketmaster', priceLow: 95, priceHigh: 310 },
-    { id: 'gracejones-uct-20261204', artist: 'Grace Jones', venue: 'The UC Theatre', city: 'Berkeley, CA', date: '2026-12-04', dateLabel: 'Fri, Dec 4, 2026', source: 'SeatGeek', priceLow: 65, priceHigh: 180 },
-    { id: 'kraftwerk-fox-20261105', artist: 'Kraftwerk', venue: 'Fox Theater', city: 'Oakland, CA', date: '2026-11-05', dateLabel: 'Thu, Nov 5, 2026', source: 'SeatGeek', priceLow: 75, priceHigh: 220 },
-    { id: 'fleetwoodmac-chase-20261002', artist: 'Fleetwood Mac', venue: 'Chase Center', city: 'San Francisco, CA', date: '2026-10-02', dateLabel: 'Fri, Oct 2, 2026', source: 'SeatGeek', priceLow: 120, priceHigh: 450 },
-    { id: 'steelydan-bgca-20261121', artist: 'Steely Dan', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-11-21', dateLabel: 'Sat, Nov 21, 2026', source: 'Ticketmaster', priceLow: 85, priceHigh: 275 },
-    { id: 'stones-levis-20260912', artist: 'The Rolling Stones', venue: "Levi's Stadium", city: 'Santa Clara, CA', date: '2026-09-12', dateLabel: 'Sat, Sep 12, 2026', source: 'Ticketmaster', priceLow: 150, priceHigh: 650 }
-  ];
+  var LS_CACHE = 'cr_catalog_cache_v1';
+  var CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12h — re-sweep automatically once stale
+  var SWEEP_CONCURRENCY = 5; // parallel /api/tour-dates calls during a catalog sweep
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -308,13 +331,19 @@
     catch (e) { /* storage unavailable — deletes/watches just won't persist this session */ }
   }
 
-  var deleted = loadJSON(LS_DELETED);
+  var hidden = loadJSON(LS_HIDDEN);
   var watching = loadJSON(LS_WATCH);
   var addedShows = loadJSON(LS_ADDED);
-  var soonOpen = (function () {
-    try { return localStorage.getItem(LS_SOON_OPEN) === '1'; }
-    catch (e) { return false; }
+
+  // catalogShows = the result of the last full sweep of every distinct
+  // artist in the collection + wishlist through /api/tour-dates. Loaded from
+  // a localStorage cache first (instant) and refreshed in the background if
+  // stale — see sweepCatalog() below.
+  var catalogCache = (function () {
+    try { return JSON.parse(localStorage.getItem(LS_CACHE) || 'null'); }
+    catch (e) { return null; }
   })();
+  var catalogShows = (catalogCache && Array.isArray(catalogCache.shows)) ? catalogCache.shows : [];
 
   var els = {
     artistInput: document.getElementById('cr-f-artist'),
@@ -330,31 +359,42 @@
     searchBtn: document.getElementById('cr-search-btn'),
     live: document.getElementById('cr-live'),
     liveBody: document.getElementById('cr-live-body'),
-    soonToggle: document.getElementById('cr-soon-toggle'),
-    soonBody: document.getElementById('cr-soon-body'),
-    soonCount: document.getElementById('cr-soon-count')
+    soonCount: document.getElementById('cr-soon-count'),
+    soonStatus: document.getElementById('cr-soon-status'),
+    soonRefresh: document.getElementById('cr-soon-refresh')
   };
 
   function fmtPrice(low, high) {
     return '$' + low.toLocaleString() + ' – $' + high.toLocaleString();
   }
 
-  // Coming Soon = the sample SHOWS (minus any deleted) plus any real shows
-  // pinned over from a live search (minus any the user's since removed).
-  // Every item still carries which kind it is (`_kind`) so rendering and
-  // deletion can treat sample vs. real shows differently.
-  function comingSoonShows() {
-    var sample = SHOWS.filter(function (s) { return deleted.indexOf(s.id) === -1; })
-      .map(function (s) { return Object.assign({ _kind: 'sample' }, s); });
-    var live = addedShows.map(function (s) { return Object.assign({ _kind: 'live' }, s); });
-    return sample.concat(live).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+  function fmtAgo(ts) {
+    var mins = Math.round((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+    var days = Math.round(hrs / 24);
+    return days + (days === 1 ? ' day ago' : ' days ago');
   }
 
-  function setSoonOpen(open) {
-    soonOpen = open;
-    els.soonBody.hidden = !open;
-    els.soonToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    try { localStorage.setItem(LS_SOON_OPEN, open ? '1' : '0'); } catch (e) {}
+  // Coming Soon = real shows found by sweeping the collection + wishlist
+  // (minus anything hidden) plus any shows manually pinned from an ad-hoc
+  // live search (minus any the user's since removed). Every item carries
+  // which kind it is (`_kind`) so delete can tell a re-computed catalog
+  // match from a one-off pinned one apart.
+  function comingSoonShows() {
+    var fromCatalog = catalogShows.filter(function (s) { return hidden.indexOf(s.id) === -1; })
+      .map(function (s) { return Object.assign({ _kind: 'catalog' }, s); });
+    var fromAdded = addedShows.map(function (s) { return Object.assign({ _kind: 'added' }, s); });
+    // De-dupe: a manually-added show that the catalog sweep also finds
+    // shouldn't render twice.
+    var seen = {};
+    return fromCatalog.concat(fromAdded).filter(function (s) {
+      if (seen[s.id]) return false;
+      seen[s.id] = true;
+      return true;
+    }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
   }
 
   function renderList() {
@@ -362,22 +402,16 @@
     els.soonCount.textContent = '(' + shows.length + ')';
 
     if (!shows.length) {
-      els.list.innerHTML = '<div class="cr-empty">No shows left — use Restore below to bring the sample ones back.</div>';
+      els.list.innerHTML = '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>';
     } else {
       els.list.innerHTML = shows.map(function (s) {
-        var isSample = s._kind === 'sample';
-        var tag = isSample
-          ? '<span class="cr-sample">Sample</span>'
-          : '<span class="cr-live-tag">Live</span>';
-        var cta = isSample
-          ? '<span class="cr-cta">Get tickets</span>'
-          : (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '');
+        var cta = s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '';
         var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
         return '<div class="cr-item" data-id="' + esc(s.id) + '" data-kind="' + esc(s._kind) + '">' +
           '<div class="cr-who">' +
             '<div class="cr-artist">' + esc(s.artist) + '</div>' +
             '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-            '<div class="cr-tags">' + tag + '<span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+            '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
             cta +
           '</div>' +
           '<div class="cr-meta">' +
@@ -389,7 +423,7 @@
       }).join('');
     }
 
-    els.resetWrap.hidden = deleted.length === 0;
+    els.resetWrap.hidden = hidden.length === 0;
     renderWatchList();
   }
 
@@ -414,18 +448,23 @@
     }
     els.watchList.innerHTML = watching.map(function (w, i) {
       var isMatch = watchIsMatch(w.artist);
+      // A watched artist either already has a confirmed show in Coming Soon
+      // (a truthful "In Coming Soon" badge) or it doesn't — in which case
+      // the honest answer is "we don't know yet," so offer a real live
+      // check instead of a static, easily-stale-looking guess.
+      var statusHtml = isMatch
+        ? '<span class="cr-watch-status">In Coming Soon</span>'
+        : '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>';
       return '<div class="cr-watch-row">' +
         '<div class="cr-watch-who">' +
           '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
           (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
         '</div>' +
-        '<span class="cr-watch-status' + (isMatch ? ' is-match' : '') + '">' + (isMatch ? 'Match in sample data' : 'No matches yet') + '</span>' +
+        statusHtml +
         '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + i + '">&times;</button>' +
       '</div>';
     }).join('');
   }
-
-  els.soonToggle.addEventListener('click', function () { setSoonOpen(!soonOpen); });
 
   els.clearBtn.addEventListener('click', function () {
     els.artistInput.value = '';
@@ -441,19 +480,19 @@
     if (!btn) return;
     var id = btn.getAttribute('data-del');
     var kind = btn.getAttribute('data-kind');
-    if (kind === 'live') {
+    if (kind === 'added') {
       addedShows = addedShows.filter(function (s) { return s.id !== id; });
       saveJSON(LS_ADDED, addedShows);
-    } else if (deleted.indexOf(id) === -1) {
-      deleted.push(id);
-      saveJSON(LS_DELETED, deleted);
+    } else if (hidden.indexOf(id) === -1) {
+      hidden.push(id);
+      saveJSON(LS_HIDDEN, hidden);
     }
     renderList();
   });
 
   els.resetBtn.addEventListener('click', function () {
-    deleted = [];
-    saveJSON(LS_DELETED, deleted);
+    hidden = [];
+    saveJSON(LS_HIDDEN, hidden);
     renderList();
   });
 
@@ -484,12 +523,24 @@
   els.watchCityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitWatchForm(); });
 
   els.watchList.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-watch-del]');
-    if (!btn) return;
-    var idx = parseInt(btn.getAttribute('data-watch-del'), 10);
-    watching.splice(idx, 1);
-    saveJSON(LS_WATCH, watching);
-    renderWatchList();
+    var delBtn = e.target.closest('[data-watch-del]');
+    if (delBtn) {
+      var idx = parseInt(delBtn.getAttribute('data-watch-del'), 10);
+      watching.splice(idx, 1);
+      saveJSON(LS_WATCH, watching);
+      renderWatchList();
+      return;
+    }
+    var checkBtn = e.target.closest('[data-watch-check]');
+    if (checkBtn) {
+      var w = watching[parseInt(checkBtn.getAttribute('data-watch-check'), 10)];
+      if (!w) return;
+      els.artistInput.value = w.artist;
+      els.cityInput.value = w.city || '';
+      runLiveSearch();
+      els.live.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
   });
 
   // --- Live search: real query against /api/tour-dates (SeatGeek-backed). ---
@@ -635,8 +686,131 @@
   els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
   els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
 
-  setSoonOpen(soonOpen);
+  // --- Catalog sweep: real Coming Soon data, sourced from the collection
+  // and wishlist rather than a static mock list. Every distinct artist name
+  // across both gets a real /api/tour-dates lookup (same endpoint the
+  // Search panel uses), run with limited concurrency so a ~100-artist
+  // catalog doesn't fire 100 simultaneous requests. Results are cached in
+  // localStorage with a timestamp so a normal page visit is instant; the
+  // sweep itself only re-runs automatically once the cache goes stale
+  // (12h) or the user clicks Refresh. An artist with no confirmed match is
+  // silently omitted — same graceful-degradation rule as audio-preview's
+  // Deezer/YouTube tiers (see CLAUDE.md): never treat "no match" as an
+  // error, only "the request itself failed" is.
+
+  function saveCache(shows, artistCount) {
+    catalogCache = { at: Date.now(), shows: shows, artistCount: artistCount };
+    try { localStorage.setItem(LS_CACHE, JSON.stringify(catalogCache)); } catch (e) {}
+  }
+
+  // Runs `iterator` over `items` with at most `limit` in flight at once.
+  // Never rejects — a failing item resolves to `fallback` instead, so one
+  // bad artist lookup can't derail the whole sweep.
+  function mapLimit(items, limit, iterator, onItemDone) {
+    return new Promise(function (resolve) {
+      if (!items.length) { resolve([]); return; }
+      var results = new Array(items.length);
+      var nextIndex = 0;
+      var completed = 0;
+      function runNext() {
+        if (nextIndex >= items.length) return;
+        var i = nextIndex++;
+        Promise.resolve(iterator(items[i], i))
+          .then(function (r) { results[i] = r; })
+          .catch(function () { results[i] = null; })
+          .then(function () {
+            completed++;
+            if (onItemDone) onItemDone(completed, items.length);
+            if (completed === items.length) resolve(results);
+            else runNext();
+          });
+      }
+      for (var k = 0; k < Math.min(limit, items.length); k++) runNext();
+    });
+  }
+
+  function fetchDistinctArtists() {
+    return Promise.all([
+      fetch('/api/records').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+      fetch('/api/wishlist').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+    ]).then(function (results) {
+      var records = Array.isArray(results[0]) ? results[0] : [];
+      var wishlist = Array.isArray(results[1]) ? results[1] : [];
+      var seen = {};
+      var names = [];
+      records.concat(wishlist).forEach(function (item) {
+        var name = (item && item.artist ? String(item.artist) : '').trim();
+        if (!name) return;
+        var key = name.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        names.push(name);
+      });
+      return names;
+    });
+  }
+
+  var sweepInFlight = false;
+  function sweepCatalog() {
+    if (sweepInFlight) return;
+    sweepInFlight = true;
+    els.soonRefresh.disabled = true;
+    els.soonStatus.textContent = 'Checking your collection & wishlist for artists…';
+
+    fetchDistinctArtists().then(function (artists) {
+      if (!artists.length) {
+        els.soonStatus.textContent = 'No artists found in your collection or wishlist yet.';
+        catalogShows = [];
+        saveCache(catalogShows, 0);
+        renderList();
+        return;
+      }
+
+      els.soonStatus.textContent = 'Checking 0 of ' + artists.length + ' artists for tour dates…';
+
+      return mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
+        return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+          .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+          .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+          .catch(function () { return []; });
+      }, function (completed, total) {
+        els.soonStatus.textContent = 'Checking ' + completed + ' of ' + total + ' artists for tour dates…';
+      }).then(function (perArtistShows) {
+        var all = [];
+        perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
+        // De-dupe by id in case the same show surfaced under two different
+        // artist queries (e.g. a co-headline bill in both the catalog and
+        // the wishlist).
+        var seenIds = {};
+        catalogShows = all.filter(function (s) {
+          if (!s || !s.id || seenIds[s.id]) return false;
+          seenIds[s.id] = true;
+          return true;
+        });
+        saveCache(catalogShows, artists.length);
+        els.soonStatus.textContent = 'Checked ' + artists.length + ' artists · just now';
+        renderList();
+      });
+    }).catch(function (err) {
+      els.soonStatus.textContent = 'Could not check your collection & wishlist: ' + err.message;
+    }).then(function () {
+      sweepInFlight = false;
+      els.soonRefresh.disabled = false;
+    });
+  }
+
+  els.soonRefresh.addEventListener('click', sweepCatalog);
+
+  // First render: show whatever's cached (instant) — even if empty — then
+  // decide whether a fresh sweep is needed.
   renderList();
+  if (catalogCache && typeof catalogCache.at === 'number') {
+    var age = Date.now() - catalogCache.at;
+    els.soonStatus.textContent = 'Checked ' + (catalogCache.artistCount || 0) + ' artists · ' + fmtAgo(catalogCache.at);
+    if (age > CACHE_MAX_AGE_MS) sweepCatalog();
+  } else {
+    sweepCatalog();
+  }
 })();
 </script>
 
