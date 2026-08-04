@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 30 · **Last revised:** 2026-08-04
+**Version:** 31 · **Last revised:** 2026-08-04
 
 **Changelog**
+- **v31 (2026-08-04)** — Susan asked to expand free concert coverage automatically rather than rely on the v30 manual-add fallback. Researched and ruled out every other free ticketing API (Eventbrite's public search API confirmed still dead since 2020; Dice.fm has no discovery API; PredictHQ has no free tier; Bandsintown refuses hobby access; Songkick's application page is currently closed to new applicants entirely) — Ticketmaster signup is in progress separately, blocked on an account issue now with their support directly (no account creation/login attempted on Susan's behalf, per this project's hard rule). Shipped `netlify/functions/venue-shows.mjs` (v1): a server-side scrape of 7 Bay Area venues' own event pages, no API key needed, one fetch covering 6 Another Planet Entertainment venues at once. Every venue individually verified live before being added; 2 of Susan's requested venues (Ashkenaz, The New Parish) were tested and excluded since both render client-side with no data in the raw HTML a server-side fetch sees. `concert-radar.html` (v15) now merges this with the existing SeatGeek sweep. Concretely validated: this build's own reconnaissance surfaced a real, previously-unknown second Black Uhuru date (Sep 13, 2026, Sweetwater Music Hall) neither SeatGeek nor the manual-add fallback had found. Also created a new weekly scheduled task ("Vinyl Scout — Concert Radar feed health check") since the `weekly-vinyl-median-refresh` task referenced elsewhere in this charter still could not be located among Susan's live scheduled tasks (same gap first flagged in the v29-adjacent Job C bug-fix note) — full trail in CLAUDE.md's 2026-08-04 entry and the Phase 11 section's "Venue scraper" subsection.
 - **v30 (2026-08-04)** — Susan named 3 real shows Coming Soon was missing (Easy Star All-Stars at Cornerstone Berkeley, Black Uhuru, Burning Spear). Investigated each against live data rather than guessing: 2 of the 3 turned out to have no confirmed real Bay Area 2026 date on independent check and were flagged back to Susan rather than added; the third (Black Uhuru, Feb 21 2026, The Freight & Salvage, Berkeley) is real and verified, but exposed a genuine SeatGeek coverage gap (not a matching bug) — the venue's inventory isn't on SeatGeek at all, and the artist wasn't in the catalog/wishlist either, so it was never even swept. Shipped a scoped fix: a "+ Add a show Radar can't find" manual-pin form on Concert Radar (`concert-radar.html` v14), tagged "Manual entry" so it's never confused with real SeatGeek data — full trail in CLAUDE.md's 2026-08-04 entry and the Phase 11 section below. Same pass: mobile masthead nav (7 links wrapping to a cramped second row) switched to a single horizontally-scrollable row (`style.css` v28), and a defensive `overflow-wrap` fix for a reported off-center/cut-off mobile footer on Concert Radar (not independently reproduced — flagged for Susan to confirm).
 - **v29 (2026-08-03)** — Doc-only correction: roadmap.html's Phase 7 (iOS app) said "Not started; parked until scoped," which Susan flagged as wrong — she already has home-screen icons on iOS launching Vinyl Scout and each of her four other Claude-built projects directly (iOS's own "Add to Home Screen," not a native app or a wrapper around all five). Phase 7 status flipped to Live, description corrected to describe exactly what's live (the home-screen launch icon) versus what's still ahead and unbuilt (a native, camera-first record-adding flow replacing the current Safari-based photo-upload workflow) — not overclaiming the whole phase is done.
 - **v28 (2026-08-03)** — Phase 11 (Concert Radar) went from a static sample-data mock to a real, live, SeatGeek-backed feature, all in one day of direct back-and-forth against the deployed site. New endpoint `netlify/functions/tour-dates.mjs` (`GET /api/tour-dates?artist=…&range=…`, ungated pure read) resolves an artist name to a real SeatGeek performer (exact-normalized match first, then a guarded fuzzy fallback requiring every query token present and no tribute/cover keyword), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist regardless of match tier. That last check exists because of a real bug Susan caught live, not a hypothetical: `?artist=Sade` initially returned "Ultimate Sade Tribute Concert" — a tribute act registered on SeatGeek under the bare artist name with no qualifier anywhere except the event's own title, which v3 of the function fetched but never checked. Susan asked directly, "is that Sade listing REAL? is she actually on tour or are u hallucinating?" — verified live via the raw API response rather than reassuring without checking, confirmed it was a real bug (not a hallucination, but wrong), and fixed it generally (event-title filtering, widened blocklist) rather than special-casing Sade. `concert-radar.html` (now v12) rebuilt around this endpoint: Coming Soon sweeps every distinct artist across the catalog and wishlist through the endpoint (concurrency-capped at 5, cached in `localStorage` with a 12h staleness window); same-artist/same-venue multi-date shows group into one card with a date range instead of one row per date (fixing a 7-night Buena Vista Social Club residency that was rendering as 7 near-identical cards); Watching and Coming Soon became mutually exclusive by Susan's explicit "either/or" rule — watching an artist pulls its show(s) out of Coming Soon immediately, since the Watching panel now shows that artist's real date/price/ticket-link inline instead of a static badge; the "Restore hidden shows" undo link was removed (hiding a real show is final now); a site footer was added (the page never had one); and a Watching-row layout bug was fixed where a long date range pushed the row's × delete button onto its own orphaned line. Separately investigated, not fixed: every currently-matched real show returns null price data straight from SeatGeek's own API (live-verified across 10 different shows) — the code already renders price whenever SeatGeek provides it, so this is a data-availability gap upstream, not a bug; left as-is per Susan's "put aside for now." See the new Phase 11 section below for the full narrative, and CLAUDE.md's 2026-08-03 note for the current-state summary.
@@ -273,9 +274,12 @@ even before a confirmed date exists.
 **How it works:**
 - `GET /api/tour-dates?artist=…&range=…` (`netlify/functions/tour-
   dates.mjs`) — pure read, ungated, same reasoning as `discogs-lookup.mjs`
-  and `audio-preview.mjs`. SeatGeek Platform API only for now; Ticketmaster
-  (slower manual-approval signup) and a Spotify layer stay parked per the
-  original roadmap text, added later only if a real coverage gap shows up.
+  and `audio-preview.mjs`. SeatGeek Platform API, by artist. As of
+  2026-08-04, complemented by `GET /api/venue-shows` (`netlify/functions/
+  venue-shows.mjs`) — a direct scrape of 7 hand-picked Bay Area venues, by
+  venue, no API key needed — see the "Venue scraper" subsection below.
+  Ticketmaster signup is in progress separately; a Spotify layer stays
+  parked, added later only if a real coverage gap shows up.
 - **Artist resolution is strict.** The queried name is resolved to a real
   SeatGeek *performer* first — an exact normalized-name match, then a
   guarded fuzzy fallback only if every query token is present in the
@@ -358,8 +362,45 @@ API integration: a "+ Add a show Radar can't find" form under Coming Soon
 (concert-radar.html v14) lets Susan pin a real show with a real ticket URL
 directly — same manual, propose-and-confirm spirit as every other write
 path here, tagged "Manual entry" so it's never confused with SeatGeek
-data. Ticketmaster stays parked per the existing roadmap text; this fallback
-covers the gap it would otherwise justify, without the bigger build.
+data.
+
+**Venue scraper (added 2026-08-04):** Susan asked to expand free coverage
+automatically rather than keep relying on the manual-add fallback above.
+Every other free/self-serve ticketing API was researched and ruled out
+first (Eventbrite's public search API confirmed dead since 2020; Dice.fm
+has no discovery API, only a partner ticket-holder API; PredictHQ has no
+free tier; Bandsintown refuses hobby access; Songkick's own application
+page is currently closed to new applicants entirely) — Ticketmaster
+Discovery API signup is in progress separately (self-serve, but Susan's
+account hit a signup snag now with their support directly; per this
+project's hard rule, no account creation/login was attempted on her
+behalf). With no other ticketing API viable, shipped
+`netlify/functions/venue-shows.mjs` (v1): a pure-read, ungated,
+server-side scrape of 7 hand-picked Bay Area venues' own public event
+pages, no API key required for any of them. Susan named the venue list;
+each candidate was individually verified live before being added — a
+same-origin `fetch()` of the real page checked for a known real show's
+name in the RAW response text, since a Netlify function has no JavaScript
+engine and sees only what a plain HTTP GET returns. Two of Susan's
+requested venues (Ashkenaz, The New Parish) failed that check — both
+render their calendars via client-side JS/AJAX — and are deliberately
+left out rather than silently wired up to return nothing; documented in
+the file itself as a follow-up. Of the 7 that are live, one fetch (Another
+Planet Entertainment's own listing page) covers 6 venues at once (Fox
+Theater, Greek Theatre, Bill Graham Civic Auditorium, The Castro, Bimbo's
+365 Club, The Independent); the rest are Cornerstone, Freight & Salvage,
+Sweetwater Music Hall, Great American Music Hall, The Chapel, and UC
+Theatre. `concert-radar.html` (v15) now runs the existing per-artist
+SeatGeek sweep and one `/api/venue-shows` call in parallel and merges both
+into the same Coming Soon list — no schema change needed, since
+`venue-shows.mjs` returns shows in the identical shape `tour-dates.mjs`
+already used. **Concretely validated, not just theoretical:** this
+build's own reconnaissance found a real, previously-unknown second Black
+Uhuru date — Sep 13, 2026, Sweetwater Music Hall, Mill Valley — distinct
+from the Feb 21 Freight & Salvage date already logged above, that neither
+SeatGeek nor the manual-add fallback had ever surfaced. Full per-venue
+platform/parser breakdown lives in the file's own header comment; full
+narrative in CLAUDE.md's 2026-08-04 entry.
 
 ---
 
@@ -500,6 +541,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `DELETE /api/wishlist/:id` — **ungated as of 2026-07-11** (was edit-secret required); delete one item by `id`
 - `GET  /api/audio/preview?artist=…&title=…` — public; pure read; tries Deezer first (plus a small hand-picked override table for compilation/best-of albums not on Deezer under their own title), then YouTube as a last resort — Spotify and iTunes tiers were removed at v12 (2026-07-13), see the v23 changelog entry; returns whichever provider's most-popular-track preview is playable, or a graceful `available:false` reason. Also serves `wishlist.html`'s per-row preview buttons (shipped 2026-07-14, commit `83b56ec`), same endpoint.
 - `GET  /api/tour-dates?artist=…&range=…` — public; pure read; Phase 11 Concert Radar, SeatGeek-backed. Resolves the artist to a real SeatGeek performer first (exact match, then a guarded fuzzy fallback), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist. Returns upcoming shows near Berkeley, CA (hardcoded) with date, venue, price (when SeatGeek provides it), and a ticket URL. Powers `/concert-radar.html`'s Coming Soon sweep and its ad-hoc Search panel.
+- `GET  /api/venue-shows` — public; pure read; Phase 11 Concert Radar, added 2026-08-04. Server-side scrapes 7 hand-picked Bay Area venues' own public event pages (no API key needed for any of them; one fetch covers 6 Another Planet Entertainment venues at once) and returns shows in the same shape `/api/tour-dates` uses. Two requested venues (Ashkenaz, The New Parish) are deliberately excluded — both render client-side, so a plain server fetch sees no data — see the function's own header comment. Powers `/concert-radar.html`'s Coming Soon sweep alongside `/api/tour-dates`.
 
 ---
 
@@ -515,6 +557,6 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - **Phase 2**: Market enrichment. Discogs IDs + pricing — live.
 - **Phase 3**: Wishlist. Live (2026-07-04). Writes ungated as of 2026-07-11 (see above).
 - **Phase 4**: Audio preview. Live (2026-07-11) — built ahead of the queue at Susan's direct request.
-- **Phase 11**: Concert Radar. Live (2026-08-03) — built ahead of Phase 10 at Susan's direct request, same day as its own mock-to-real evolution. SeatGeek-backed artist/tour-date matching at `/concert-radar.html`.
+- **Phase 11**: Concert Radar. Live (2026-08-03) — built ahead of Phase 10 at Susan's direct request, same day as its own mock-to-real evolution. Artist/tour-date matching (SeatGeek) plus, as of 2026-08-04, a direct 7-venue scrape for box-office-only shows, at `/concert-radar.html`.
 - **Catalog**: Susan's full collection. 94 records (reset empty after May 2026; reseeded June–July 2026).
 —

@@ -19,7 +19,40 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 14 (2026-08-04).
+    /* Concert Radar — version: 15 (2026-08-04).
+       v15: Susan asked to expand free feeds for full automatic coverage
+       rather than rely on manual pinning. Researched every other
+       free/self-serve concert-data API (Eventbrite's public search API has
+       been dead since 2020 — confirmed still 403ing in 2026; Dice.fm only
+       exposes a partner ticket-holder API, not discovery; PredictHQ has no
+       free hobby tier; Bandsintown and Songkick both refuse/gate hobby
+       access — Songkick's API application form is currently closed to new
+       applicants entirely, not just under manual review). Ticketmaster
+       Discovery API signup is in progress separately (self-serve, but
+       Susan's account hit a signup snag being resolved directly with their
+       support). With no other API path available, built a direct
+       "watched venues" scraper instead: netlify/functions/venue-shows.mjs
+       fetches each of 7 hand-picked Bay Area venues' own public event
+       pages server-side and parses whatever the page already returns — no
+       API key needed for any of them. Every venue was individually
+       verified (2026-08-04) to actually serve its show data in the raw
+       HTML response before being added — two venues Susan asked for,
+       Ashkenaz and The New Parish, failed that check (both render via
+       client-side JS/AJAX) and are deliberately left out rather than
+       silently returning nothing; see venue-shows.mjs's own comments for
+       the full per-venue platform breakdown and how to revisit those two.
+       One of the 7 fetches (Another Planet Entertainment's own listing
+       page) covers six venues in a single request — Fox Theater, Greek
+       Theatre, Bill Graham Civic Auditorium, The Castro, Bimbo's 365 Club,
+       and The Independent — since APE promotes all of them. This build's
+       own reconnaissance found a concrete, previously-unknown second
+       Black Uhuru date (Sep 13, 2026, Sweetwater Music Hall, Mill Valley)
+       that neither SeatGeek nor a manual pin had ever surfaced — real
+       proof this approach earns its keep. The sweep below now runs the
+       existing per-artist SeatGeek query and one call to /api/venue-shows
+       in parallel and merges both into the same Coming Soon list; no
+       schema change was needed since venue-shows.mjs deliberately returns
+       shows in the exact shape tour-dates.mjs already uses.
        v14: Susan named 3 real shows Coming Soon didn't have (Easy Star
        All-Stars at Cornerstone Berkeley, Black Uhuru, Burning Spear — all
        Bay Area). Investigated each directly against live data before
@@ -1069,15 +1102,31 @@
 
       els.soonStatus.textContent = 'Checking 0 of ' + artists.length + ' artists for tour dates…';
 
-      return mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
-        return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+      // Two sources run in parallel: the existing per-artist SeatGeek sweep,
+      // plus one call to /api/venue-shows (added 2026-08-04) — a direct
+      // scrape of a hand-picked list of Bay Area venues, since that's what
+      // actually catches box-office-only shows SeatGeek's own index has zero
+      // record of (confirmed for Black Uhuru at both Freight & Salvage and
+      // Sweetwater Music Hall). venue-shows.mjs already returns shows in the
+      // exact same shape tour-dates.mjs does, so no reshaping is needed here
+      // — they just concat into the same list before de-duping.
+      return Promise.all([
+        mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
+          return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+            .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+            .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+            .catch(function () { return []; });
+        }, function (completed, total) {
+          els.soonStatus.textContent = 'Checking ' + completed + ' of ' + total + ' artists for tour dates…';
+        }),
+        fetch('/api/venue-shows')
           .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
           .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
-          .catch(function () { return []; });
-      }, function (completed, total) {
-        els.soonStatus.textContent = 'Checking ' + completed + ' of ' + total + ' artists for tour dates…';
-      }).then(function (perArtistShows) {
-        var all = [];
+          .catch(function () { return []; })
+      ]).then(function (results) {
+        var perArtistShows = results[0];
+        var venueShows = results[1];
+        var all = venueShows.slice();
         perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and

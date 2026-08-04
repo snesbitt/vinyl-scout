@@ -47,6 +47,15 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          queries events scoped to that performer's slug,
                          then filters every event's own title against a
                          tribute/cover-act blocklist — see 2026-08-03 note)
+      venue-shows.mjs    /api/venue-shows    GET ungated · pure read (Phase
+                         12, 2026-08-04 — scrapes 7 hand-picked Bay Area
+                         venues' own public event pages server-side, no API
+                         key needed for any of them; one of the 7 fetches
+                         covers 6 Another Planet Entertainment venues at
+                         once. Catches box-office-only shows SeatGeek's
+                         index doesn't carry — see the file's own header
+                         comment for the full per-venue platform breakdown
+                         and the 2 venues deliberately left out)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -457,9 +466,10 @@ this file up cold.
 - Home location is hardcoded to **Berkeley, CA** (`HOME_LAT`/`HOME_LON` in
   `tour-dates.mjs`) per Susan's explicit 2026-08-03 choice — not an env
   var yet.
-- Only SeatGeek is wired up. Ticketmaster (needs a slower manual-approval
-  signup) and a Spotify layer stay parked, same as roadmap.html's Phase
-  11 text always said — add later only if a real coverage gap shows up.
+- As of 2026-08-04, SeatGeek (`tour-dates.mjs`) and a 7-venue direct scrape
+  (`venue-shows.mjs`, see the 2026-08-04 section below) are both wired up.
+  Ticketmaster signup is in progress separately. A Spotify layer stays
+  parked — add later only if a real coverage gap shows up.
 
 roadmap.html's Phase 11 card status is now **Live**, not Future — see
 that file directly for the current phase description.
@@ -511,3 +521,135 @@ the most likely cause, given html/body's global `overflow-x: hidden`)
 — **not independently reproduced** in this pass (no true narrow-viewport
 render was available), so this is a best-effort fix flagged for Susan to
 confirm after deploy, not a claimed-certain fix.
+
+## 2026-08-04 — Concert Radar Phase 12: venue scraper (`venue-shows.mjs`), Ticketmaster signup in progress, weekly feed health check
+
+Susan pushed back on the 2026-08-04 manual-add fallback above: "that's an
+ok feature but i'd rather expand my free feeds for full coverage so that
+you id it and naturally add all the relevant upcoming shows to my feed" —
+she wants automatic detection, not a manual workaround. Two threads of
+work followed, both same day:
+
+**Ticketmaster Discovery API** — self-serve and instant when it works, but
+Susan's account signup "stalled out" on a prior attempt. Diagnosed by
+walking the live signup/login/password-reset flow directly: the generic
+"if this is a valid account, an email will be sent" message on Ticketmaster's
+own reset page doesn't confirm or deny an account exists, and no reset
+email arrived even after checking spam — consistent with the account never
+having actually finished being created. Susan has since contacted
+Ticketmaster developer support directly; this remains open. Per this
+project's hard rule on account creation, no attempt was made to create,
+log into, or complete a signup for Susan's Ticketmaster account on her
+behalf at any point — only navigation/diagnosis, with every credential/
+form-submission step left for her to do herself.
+
+**Every other free option was researched and ruled out** before landing on
+a scraper: Eventbrite's public event-search API has been dead since Feb
+2020 (confirmed still 403ing on request in 2026, not assumed from stale
+knowledge); Dice.fm only exposes a partner API for ticket-holder
+management, not event discovery; PredictHQ has no free/hobby tier;
+Bandsintown was already known to refuse hobby API access; Songkick's own
+API application page currently reads "we are unable to process new
+applications for API keys" — fully closed, not merely a slow manual
+review as earlier assumed. No viable second ticketing API exists today
+beyond Ticketmaster.
+
+**Shipped: `netlify/functions/venue-shows.mjs` (v1)**, a direct
+server-side scrape of 7 hand-picked Bay Area venues' own public event
+pages — no API key needed for any of them. Susan named the venue list
+(Cornerstone, Fox Theater, Sweetwater Music Hall, "all Another Planet
+venues," UC Theatre, the Greek, etc.); every candidate venue was
+individually verified live before being added, per PROJECT.md's "honesty
+over confidence" rule — a same-origin `fetch()` of each live URL was
+checked for a real, currently-listed show's name in the RAW response text
+(i.e., what a Netlify function actually sees, with no JavaScript
+execution, as opposed to what a browser renders). Two of Susan's requested
+venues failed this check and were deliberately left out rather than
+silently wired up to return nothing:
+- **Ashkenaz** (Berkeley) — calendar renders via client-side JS/AJAX; raw
+  HTML has no show data at all.
+- **The New Parish** (Oakland) — calendar loads through a lazy iframe with
+  an empty `src` in the initial HTML.
+
+Both are documented in `venue-shows.mjs` itself as a follow-up: revisiting
+either means finding the actual JSON/XHR endpoint each site's widget calls
+client-side, not scraping the page shell.
+
+The 7 that ARE live, and how each is parsed (full detail in the file's own
+header comment):
+- **Cornerstone** (Berkeley) — clean schema.org Event JSON-LD.
+- **Another Planet Entertainment**'s own listing page — one fetch covers
+  **six** venues at once (Fox Theater Oakland, Greek Theatre Berkeley,
+  Bill Graham Civic Auditorium SF, The Castro SF, Bimbo's 365 Club SF, The
+  Independent SF), since APE promotes all of them through one site.
+  Non-Bay-Area / merely-co-promoted listings on that same page (Levi's
+  Stadium, Channel 24 Sacramento, The Bellwether LA, Golden Gate Park
+  festivals, Rickshaw Stop) are filtered out by an explicit venue
+  allowlist.
+- **Freight & Salvage** (Berkeley) — WordPress theme markup, no JSON-LD.
+- **Sweetwater Music Hall** (Mill Valley) — the "RHP Events Calendar"
+  WordPress plugin's markup.
+- **Great American Music Hall** and **The Chapel** (both SF) — confirmed
+  to run the identical "See Tickets" embedded calendar widget; one parser
+  covers both.
+- **UC Theatre** (Berkeley) — a Webflow site on the Opendate venue
+  platform; flagged in the code as the most fragile of the seven, since
+  Webflow's auto-generated class names carry no semantic meaning and will
+  break silently if the venue ever redesigns via Webflow's visual editor.
+
+Every parser runs in its own try/catch so one venue's markup changing
+doesn't take the others down — a per-venue failure surfaces in the
+response's `meta.venues[].error` instead of silently vanishing, per this
+project's "no silent failures" rule. Two correctness bugs were caught and
+fixed during this build, both worth remembering for future scraper work:
+(1) parsing a date string that still has a time-of-day attached (e.g.
+"August 5, 2026 7:00pm") and round-tripping it through `Date`/UTC can land
+on the WRONG calendar day for an evening show — fixed by always stripping
+time-of-day before parsing, since only the date is needed; (2) the same
+"See Tickets" widget uses a different wrapping CSS class per venue
+(`event-title seetickets-calendar-event-title` on GAMH vs.
+`title seetickets-calendar-event-title` on The Chapel) even though the
+platform is identical — the shared parser matches on the common
+`seetickets-calendar-event-title` class fragment rather than either
+venue's exact full class string.
+
+**Concrete validation, not just theory**: this build's own reconnaissance
+found a real, previously-unknown second Black Uhuru date — **Sep 13, 2026,
+Sweetwater Music Hall, Mill Valley** — distinct from the Feb 21 Freight &
+Salvage date already logged above. Neither SeatGeek nor a manual pin had
+ever surfaced this one. That's direct proof the venue-scraper approach
+catches real gaps the artist-based SeatGeek sweep structurally cannot.
+
+**`concert-radar.html` bumped to v15.** The Coming Soon sweep now runs the
+existing per-artist `/api/tour-dates` sweep and one call to
+`/api/venue-shows` in parallel (`Promise.all`) and merges both into the
+same list before the existing de-dupe-by-id step — no schema change was
+needed since `venue-shows.mjs` deliberately returns shows in the exact
+shape `tour-dates.mjs` already used. `roadmap.html`'s Phase 11 description
+updated to match (was still saying "backed by SeatGeek" and "Ticketmaster
+...deliberately parked," both stale the moment this shipped).
+
+**New weekly scheduled task**: Susan asked to "schedule a refresh on all
+the inbound feeds weekly." This repo's own automation section above
+documents a `weekly-vinyl-median-refresh` external scheduled task with
+Jobs A-E — but as previously noted in this file's Job C bug-fix entry
+(2026-07-29), a live session could not actually locate a trigger by that
+name among Susan's current scheduled tasks; that gap is still unresolved
+as of this pass (checked again — still not found under that name or
+close to it). Rather than guess and edit the wrong existing trigger (risk:
+"Weekly full-site review — five sites," a broader UI/UX review across all
+five of Susan's projects, is semantically different work and was left
+alone), a **new, separate weekly scheduled task** was created:
+"Vinyl Scout — Concert Radar feed health check," Mondays. Scope is
+deliberately narrow and honest about what's actually achievable
+server-side: it verifies `/api/venue-shows` and `/api/tour-dates` are
+still returning real data (catches a venue silently redesigning its site,
+an expired SeatGeek/Ticketmaster credential, etc.) and reports any broken
+venue or regression against the known Black Uhuru canaries. It does
+**not** and cannot refresh Susan's own browser's `localStorage` cache
+remotely — that stays automatic client-side (12h staleness check, or her
+own Refresh click) since each browser's local storage is private to that
+browser. If the `weekly-vinyl-median-refresh` trigger is ever actually
+located, folding this check into it as a new Job (matching the existing
+A-E lettering) would be tidier than two separate vinyl-related scheduled
+tasks — flagged here for whoever finds it next.
