@@ -839,3 +839,33 @@ should surface automatically now that the cache-poisoning bug above is
 fixed and a fresh sweep can run cleanly — not hand-added, since letting the
 real pipeline surface it (or not) is more honest than pinning it in without
 re-confirming it's still accurate.
+
+## 2026-08-04 — v17: "Check live →" and manual Search only ever checked SeatGeek
+
+Asked directly to "fix the Watching card and all its contexts." The
+Watching panel's card display itself was already correct — `findWatchMatches()`
+reads `comingSoonShows()`, which already includes venue-shows results from
+the last sweep, so a confirmed match from either source renders inline
+date/price/ticket-link the same way. The real gap was the *other* context
+sharing this file's UI: `runLiveSearch()` — which powers both the manual
+Search panel and the Watching row's own "Check live →" button — only ever
+queried `/api/tour-dates` (SeatGeek). That's precisely backwards for Black
+Uhuru, Easy Star All-Stars, and Burning Spear: those are exactly the
+artists SeatGeek returns zero events for, which is the entire reason
+`/api/venue-shows` was built this morning. Clicking "Check live →" for any
+of them always came back "No SeatGeek performer found," even after the
+venue scraper shipped and even once the cache-poisoning bug above was
+fixed — because that code path never looked at venue-shows.mjs at all.
+
+Fixed: `runLiveSearch()` now fires `/api/tour-dates` and `/api/venue-shows`
+in parallel (same pattern the Coming Soon sweep already uses) and filters
+the venue-shows results to whatever substring-matches the searched artist
+— same loose match `findWatchMatches()` uses elsewhere in this file. If
+SeatGeek resolves no performer but a venue show matches, the search still
+renders that result instead of reporting "not found" — the searched name
+becomes the display/watch target rather than requiring a SeatGeek
+performer match first. Verified with a standalone Node reproduction:
+simulated SeatGeek returning zero results for "Black Uhuru" alongside a
+mock venue-shows response containing the real Sweetwater date, confirmed
+the merge surfaces it instead of reporting not-found.
+`concert-radar.html` bumped to v17.

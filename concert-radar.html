@@ -19,7 +19,30 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 16 (2026-08-04).
+    /* Concert Radar — version: 17 (2026-08-04).
+       v17: Two more fixes, same day, right after v16 deployed. Full
+       narrative in CLAUDE.md's "v16.1"/this entry's notes — kept brief
+       here since this comment block is already long.
+       (1) Coming Soon showed cards with the literal artist name "null",
+       some merging dozens of distinct real shows into one mega-date card
+       (The Chapel: 77 "dates"; Cornerstone: 19). Root cause: a sweep that
+       ran between v15 shipping and v16's crash fix landing saved real,
+       un-normalized venue-shows.mjs data to the browser's cache before
+       crashing — normalization only ran inside a live sweep, never on
+       cache load, so the poisoned snapshot kept redisplaying. Fixed at the
+       actual source (venue-shows.mjs v2 now defaults artist to title in
+       its own response) and the cache key bumped (v1 -> v2) so every
+       browser's already-poisoned snapshot is ignored rather than needing
+       individual repair. Also: The Castro's film screenings ("Aliens
+       (Special Edition)") were rendering as Coming Soon cards — new
+       NON_MUSIC_WORDS blocklist in venue-shows.mjs filters those out.
+       (2) The Watching panel's "Check live →" button (and the manual
+       Search panel it shares runLiveSearch() with) only ever queried
+       /api/tour-dates (SeatGeek) — exactly the source that has zero events
+       for Black Uhuru / Easy Star All-Stars / Burning Spear, which is the
+       whole reason /api/venue-shows exists. Now queries both in parallel
+       and folds in any venue-shows result whose artist substring-matches
+       the search, same loose match findWatchMatches() already uses.
        v16: Three changes, same day as v15 shipped, all found/requested in
        one live-review pass right after v15 deployed.
        (1) BUG, live-caught by Susan minutes after v15 deployed ("you broke
@@ -1143,6 +1166,17 @@
   });
 
   var liveSearchInFlight = false;
+  // v16.2: this powers BOTH the manual Search panel AND the Watching
+  // panel's "Check live →" button (watchRowHtml -> runLiveSearch). It only
+  // ever queried /api/tour-dates (SeatGeek) — which is exactly why "Check
+  // live" for Black Uhuru / Easy Star All-Stars / Burning Spear always came
+  // back empty even after the venue scraper shipped: those are precisely
+  // the artists SeatGeek has zero events for, that's the whole reason
+  // /api/venue-shows exists. Now queries both in parallel (same pattern the
+  // Coming Soon sweep already uses) and filters the venue-shows results
+  // client-side to whatever substring-matches the searched artist name,
+  // same loose match findWatchMatches()/isShowWatched() already use
+  // elsewhere in this file.
   function runLiveSearch() {
     if (liveSearchInFlight) return;
     var artist = els.artistInput.value.trim();
@@ -1156,19 +1190,54 @@
     liveSearchInFlight = true;
     els.searchBtn.disabled = true;
     els.searchBtn.textContent = 'Searching…';
-    showLiveStatus('Searching SeatGeek for “' + artist + '” near Berkeley…', false);
+    showLiveStatus('Searching SeatGeek and watched venues for “' + artist + '” near Berkeley…', false);
 
-    fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
-      .then(function (res) {
-        return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
-      })
-      .then(function (r) {
-        if (!r.ok) {
-          showLiveStatus((r.data && r.data.error) ? r.data.error : ('Search failed (HTTP ' + r.status + ').'), true);
-          return;
-        }
-        renderLiveResults(r.data.shows, r.data.meta || {}, artist);
-      })
+    var artistQ = artist.toLowerCase();
+
+    Promise.all([
+      fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+        .then(function (res) {
+          return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+        })
+        .catch(function (err) { return { ok: false, status: 0, data: { error: err.message } }; }),
+      fetchVenueShows()
+    ]).then(function (results) {
+      var tourDatesResult = results[0];
+      var venueShowsAll = results[1];
+      // Same loose substring match as findWatchMatches() — a venue show's
+      // artist (already defaulted to title by normalizeVenueShows() when
+      // the venue's own parser never extracted a distinct artist) either
+      // contains the query or the query contains it.
+      var venueMatches = normalizeVenueShows(venueShowsAll).filter(function (s) {
+        var a = (s.artist || '').toLowerCase();
+        return !!a && (a.indexOf(artistQ) !== -1 || artistQ.indexOf(a) !== -1);
+      });
+
+      var seatgeekOk = tourDatesResult.ok;
+      var seatgeekShows = (seatgeekOk && Array.isArray(tourDatesResult.data.shows)) ? tourDatesResult.data.shows : [];
+      var meta = (seatgeekOk && tourDatesResult.data.meta) ? tourDatesResult.data.meta : {};
+
+      if (!seatgeekOk && !venueMatches.length) {
+        // SeatGeek itself errored (not just "no performer found") and the
+        // venue scrape found nothing either — this is the one case worth
+        // surfacing as a real failure rather than "no results."
+        showLiveStatus((tourDatesResult.data && tourDatesResult.data.error) ? tourDatesResult.data.error : ('Search failed (HTTP ' + tourDatesResult.status + ').'), true);
+        return;
+      }
+
+      if (!meta.matched_performer && !venueMatches.length) {
+        showLiveStatus('No SeatGeek performer or watched-venue show found matching “' + artist + '.” Try the exact act name (as billed, not a nickname).', true);
+        return;
+      }
+
+      var combined = seatgeekShows.concat(venueMatches);
+      combined = dedupeById(combined);
+      // If SeatGeek didn't resolve a performer but a venue show matched,
+      // still render with the typed name as the display/watch target —
+      // "no SeatGeek performer" shouldn't hide a real venue-sourced match.
+      var effectiveMeta = meta.matched_performer ? meta : Object.assign({}, meta, { matched_performer: artist });
+      renderLiveResults(combined, effectiveMeta, artist);
+    })
       .catch(function (err) {
         showLiveStatus('Could not reach the search endpoint: ' + err.message, true);
       })
