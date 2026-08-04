@@ -980,3 +980,60 @@ updated to stop implying no real weekly refresh exists at all — one does
 now, it just isn't this trigger.
 
 `concert-radar.html` bumped to v18.
+
+## 2026-08-04 — v18.1: stale cache + no fallback for genuinely-unmatched watched artists
+
+Live-caught via a screenshot Susan sent hours after v18 deployed: Black
+Uhuru, Easy Star All-Stars, and Burning Spear were all still stuck showing
+"Check live →" in the Watching panel, despite v18's own changelog entry
+above documenting a real, confirmed Black Uhuru match (Sweetwater Music
+Hall, Sep 13, 2026). Asked directly to either fix the 3 artists' missing
+info or give a way to add it manually. Two distinct problems, both
+introduced by v18 itself, not by this build's earlier work:
+
+**(1) Stale cache with no way left to force a refresh.** v18 removed the
+manual Refresh button in the very same pass that shipped the Black Uhuru
+match — a browser whose `cr_catalog_cache_v2` localStorage cache predated
+that match being found had no way left to force a re-sweep short of
+waiting out the 12h staleness window (`CACHE_MAX_AGE_MS`) or clearing site
+data by hand. This is exactly the same failure shape as the v16.1
+poisoned-cache incident, just a different root cause (genuinely-stale data
+this time, not malformed data) — same fix: `LS_CACHE` bumped again,
+`cr_catalog_cache_v2` -> `cr_catalog_cache_v3`, forcing every browser
+(including Susan's) through one fresh sweep on next load.
+
+**(2) No fallback when the automated pipeline is honestly empty.**
+Bumping the cache only helps if a real match actually exists server-side.
+`watching.mjs`'s own seed comment already documents that Easy Star
+All-Stars and Burning Spear have "no confirmed current Bay Area date" —
+for those two, a fresh sweep legitimately finds nothing, same as before.
+Removing the Coming-Soon-wide "+ Add a show Radar can't find" form
+earlier the same day (also part of v18) took away the only way to handle
+that honestly-empty case by hand. Fixed with something narrower than what
+was removed: a scoped "+ Add show details" button now sits next to "Check
+live →" on any Watching row with no automated match. It opens one shared
+form (`#cr-watch-detail-form`, a single instance reused across every row,
+not one form per artist) with the target artist locked in via a
+`watchDetailTarget` variable set on open. On submit it pushes into the
+exact same `addedShows`/`cr_added_shows_v1` mechanism the old Coming-Soon
+form used — deliberately reused rather than reinvented, since
+`findWatchMatches()` already reads `comingSoonShows()`, which already
+folds in `addedShows`. That means a hand-entered show needs no new
+display path at all: it renders in that artist's Watching row immediately
+after save, with the identical venue/date/price/tickets layout an
+automated match gets, tagged `source: 'Manual entry'` same as before.
+
+Verified with a standalone Node reproduction of `renderWatchList()`: (a)
+simulated zero catalog matches for Black Uhuru and confirmed both "Check
+live" and "+ Add show details" render on that row; (b) simulated saving
+Sweetwater Music Hall / Sep 13, 2026 / a real ticket URL for Black Uhuru
+and confirmed the row immediately re-renders with venue "Sweetwater Music
+Hall — Mill Valley, CA" and the ticket link, no stale "Check live" left
+over; (c) confirmed Burning Spear, untouched by the simulated save,
+correctly still shows "Check live" rather than picking up Black Uhuru's
+details or fabricating its own — the either/or substring-match logic in
+`findWatchMatches()` was not touched by this fix, only what feeds it.
+`npm run check` passes clean (no `.mjs` files touched by this fix — it's
+entirely within `concert-radar.html`).
+
+`concert-radar.html` bumped to v18.1.

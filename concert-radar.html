@@ -19,7 +19,38 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 18 (2026-08-04).
+    /* Concert Radar — version: 18.1 (2026-08-04).
+       v18.1: Live-caught by Susan via screenshot, hours after v18 shipped —
+       Black Uhuru, Easy Star All-Stars, and Burning Spear were all still
+       stuck on "Check live" in the Watching panel. Two real problems, both
+       introduced by v18 itself. (1) v18 removed the manual Refresh button
+       in the same pass that shipped a confirmed real Black Uhuru match
+       (Sweetwater Music Hall, Sep 13, 2026) — but a browser whose
+       localStorage cache predated that match had no way left to force a
+       re-sweep short of waiting out the 12h staleness window or clearing
+       site data by hand. Fixed by bumping LS_CACHE again (v2 -> v3,
+       same fix shape as the v16.1 poisoned-cache incident) so every
+       browser gets one forced fresh sweep on next load. (2) Even a fresh
+       sweep can legitimately come up empty for an artist with no current
+       Bay Area date (true for Easy Star All-Stars and Burning Spear as of
+       this build, per watching.mjs's own seed comment) — for that honest
+       case, added a scoped "+ Add show details" action next to "Check
+       live" on any unmatched Watching row. Opens a small shared form
+       (`cr-watch-detail-form`, one instance reused across every row) that
+       saves straight into the same `addedShows`/localStorage mechanism
+       the old Coming-Soon-wide manual form used before it was removed
+       earlier the same day — no new display path: `findWatchMatches()`
+       already reads `comingSoonShows()`, which already includes
+       `addedShows`, so a hand-entered show renders in that artist's row
+       immediately with the same venue/date/tickets layout an automated
+       match gets. Verified with a standalone Node reproduction:
+       simulated the exact bug (Black Uhuru with zero catalog matches),
+       confirmed both "Check live" and "+ Add show details" render;
+       simulated saving Sweetwater Music Hall / Sep 13 2026 details for
+       Black Uhuru and confirmed the row immediately shows venue, city,
+       and ticket link; confirmed Burning Spear (still genuinely
+       unmatched, not touched by the simulated save) correctly keeps
+       showing "Check live" rather than fabricating anything.
        v18: Two changes requested right after v17 deployed.
        (1) Watching panel: matched-show rows showed date/price/"Get
        tickets" but never WHERE — added a venue = "Venue — City, State"
@@ -522,6 +553,8 @@
     .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; cursor: pointer; margin-top: 6px; }
     .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
+    .cr-watch-detail-form { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; margin-top: 14px; }
+    .cr-watch-detail-hint { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
 
     .cr-section-label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
     .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
@@ -593,6 +626,34 @@
     <div class="cr-panel">
       <h3 class="cr-panel__label">Watching</h3>
       <div id="cr-watch-list" class="cr-watch-list"></div>
+      <form id="cr-watch-detail-form" class="cr-watch-detail-form" hidden>
+        <p class="cr-watch-detail-hint">Radar hasn't matched a real show for <strong id="cr-wd-artist-name"></strong> yet — add what you know by hand. Requires a date and a real ticket link; venue/city are optional.</p>
+        <div class="cr-fields">
+          <div class="cr-field">
+            <label for="cr-wd-date">Date</label>
+            <input type="date" id="cr-wd-date" class="cr-input" />
+          </div>
+          <div class="cr-field">
+            <label for="cr-wd-venue">Venue (optional)</label>
+            <input type="text" id="cr-wd-venue" class="cr-input" placeholder="e.g. The Freight & Salvage" autocomplete="off" />
+          </div>
+        </div>
+        <div class="cr-fields">
+          <div class="cr-field">
+            <label for="cr-wd-city">City (optional)</label>
+            <input type="text" id="cr-wd-city" class="cr-input" placeholder="e.g. Berkeley, CA" autocomplete="off" />
+          </div>
+          <div class="cr-field">
+            <label for="cr-wd-url">Ticket link</label>
+            <input type="url" id="cr-wd-url" class="cr-input" placeholder="https://…" autocomplete="off" />
+          </div>
+        </div>
+        <p id="cr-wd-error" class="cr-live-status is-error" hidden></p>
+        <div class="cr-search-actions">
+          <button type="submit" class="cr-search-btn">Save show details</button>
+          <button type="button" id="cr-wd-cancel" class="cr-clear">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -636,7 +697,20 @@
   // fresh sweep that runs through the now-fixed normalization — cheaper and
   // more certain than trying to detect/repair whatever's already sitting in
   // each visitor's localStorage.
-  var LS_CACHE = 'cr_catalog_cache_v2';
+  //
+  // v18.1: bumped v2 -> v3. Live-caught by Susan: Black Uhuru, Easy Star
+  // All-Stars, and Burning Spear were all still showing "Check live" in
+  // the Watching panel hours after v18 shipped a confirmed real Black
+  // Uhuru match. v18 also removed the manual Refresh button in the same
+  // pass, which is exactly what turned this from "annoying, click Refresh"
+  // into "stuck for up to 12h with no way out" — a browser's existing
+  // cache from before that match was ever found just kept being trusted,
+  // since nothing left in the UI could force a re-sweep inside the
+  // staleness window. Bumping the key one more time forces every browser,
+  // including Susan's, through one fresh sweep on next load — same fix
+  // shape as the v16.1 poisoned-cache incident above, different root
+  // cause (this is genuinely-stale data, not malformed data).
+  var LS_CACHE = 'cr_catalog_cache_v3';
   var CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12h — re-sweep automatically once stale
   var SWEEP_CONCURRENCY = 5; // parallel /api/tour-dates calls during a catalog sweep
 
@@ -683,7 +757,15 @@
     searchBtn: document.getElementById('cr-search-btn'),
     live: document.getElementById('cr-live'),
     liveBody: document.getElementById('cr-live-body'),
-    soonCount: document.getElementById('cr-soon-count')
+    soonCount: document.getElementById('cr-soon-count'),
+    watchDetailForm: document.getElementById('cr-watch-detail-form'),
+    watchDetailArtistName: document.getElementById('cr-wd-artist-name'),
+    watchDetailDate: document.getElementById('cr-wd-date'),
+    watchDetailVenue: document.getElementById('cr-wd-venue'),
+    watchDetailCity: document.getElementById('cr-wd-city'),
+    watchDetailUrl: document.getElementById('cr-wd-url'),
+    watchDetailError: document.getElementById('cr-wd-error'),
+    watchDetailCancel: document.getElementById('cr-wd-cancel')
   };
 
   function fmtPrice(low, high) {
@@ -891,7 +973,35 @@
           (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
         '</div>';
       } else {
-        statusHtml = '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>';
+        // v18.1: live-caught by Susan (screenshot, 2:54pm) — Black Uhuru,
+        // Easy Star All-Stars, and Burning Spear were all still stuck on
+        // "Check live" hours after v18 shipped a real Black Uhuru match
+        // (Sweetwater Music Hall, Sep 13, 2026 — see the 2026-08-04 build
+        // note). Root cause: removing the manual Refresh button (same v18
+        // pass) took away the only way to force a re-sweep inside the 12h
+        // staleness window — a browser's existing localStorage cache from
+        // BEFORE that match was ever found just kept being trusted, with
+        // no way left to bust it short of clearing site data by hand.
+        // Fixed two ways: (1) LS_CACHE bumped again below (v2 -> v3) to
+        // force every browser, including this one, through one fresh
+        // sweep on next load, same fix pattern as the v16.1 poisoned-cache
+        // incident. (2) Even with a fresh sweep, the venue-scraper/
+        // SeatGeek pipeline can legitimately come up empty for an artist
+        // with no current Bay Area date (true for Easy Star and Burning
+        // Spear as of this build) — for exactly that honest case, a
+        // scoped "+ Add show details" action now sits next to "Check
+        // live", opening a small form (shared across every Watching row,
+        // see cr-watch-detail-form below) that saves straight into the
+        // same addedShows mechanism the old Coming-Soon-wide manual form
+        // used. findWatchMatches() already reads comingSoonShows(), which
+        // already includes addedShows — so a hand-entered show shows up
+        // in this exact row, with the same venue/date/price/tickets
+        // layout as an automated match, the moment it's saved. No new
+        // display path, no special-casing: same data shape, same render.
+        statusHtml = '<div class="cr-watch-info">' +
+          '<button type="button" class="cr-watch-check" data-watch-check="' + i + '">Check live &#8594;</button>' +
+          '<button type="button" class="cr-watch-check" data-watch-detail="' + i + '">+ Add show details</button>' +
+        '</div>';
       }
       // Artist name + delete button share a top row (delete always stays
       // put, never pushed onto its own orphaned line); date/price/ticket
@@ -1041,6 +1151,90 @@
       els.live.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    var detailBtn = e.target.closest('[data-watch-detail]');
+    if (detailBtn) {
+      var didx = parseInt(detailBtn.getAttribute('data-watch-detail'), 10);
+      var wd = watching[didx];
+      if (!wd) return;
+      openWatchDetailForm(wd);
+      return;
+    }
+  });
+
+  // v18.1: "+ Add show details" — a scoped, per-artist fallback for the
+  // honest case where the automated pipeline (SeatGeek + the venue
+  // scraper) genuinely hasn't found a real show for a watched artist yet
+  // (true for Easy Star All-Stars and Burning Spear as of this build — no
+  // confirmed current Bay Area date for either). One shared form, reused
+  // across every Watching row rather than one form per row; opened with
+  // the target artist name locked in via watchDetailTarget. Saves through
+  // the exact same addedShows/localStorage mechanism the old Coming-Soon-
+  // wide manual form used before it was removed this same day — no new
+  // display path: findWatchMatches() already reads comingSoonShows(),
+  // which already includes addedShows, so a saved entry shows up in this
+  // artist's Watching row immediately, with the same venue/date/price/
+  // tickets layout an automated match gets.
+  var watchDetailTarget = null;
+
+  function openWatchDetailForm(w) {
+    watchDetailTarget = w;
+    els.watchDetailArtistName.textContent = w.artist;
+    els.watchDetailForm.hidden = false;
+    els.watchDetailError.hidden = true;
+    els.watchDetailDate.focus();
+    els.watchDetailForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function closeWatchDetailForm() {
+    watchDetailTarget = null;
+    els.watchDetailForm.reset();
+    els.watchDetailForm.hidden = true;
+    els.watchDetailError.hidden = true;
+  }
+
+  els.watchDetailCancel.addEventListener('click', closeWatchDetailForm);
+
+  els.watchDetailForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!watchDetailTarget) return;
+    var artist = watchDetailTarget.artist;
+    var date = els.watchDetailDate.value; // native <input type=date> gives YYYY-MM-DD directly
+    var venue = els.watchDetailVenue.value.trim();
+    var city = els.watchDetailCity.value.trim();
+    var url = els.watchDetailUrl.value.trim();
+
+    if (!date || !url) {
+      els.watchDetailError.textContent = 'Date and a ticket link are required.';
+      els.watchDetailError.hidden = false;
+      return;
+    }
+    try {
+      var parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+    } catch (err) {
+      els.watchDetailError.textContent = 'Ticket link needs to be a full URL, e.g. https://…';
+      els.watchDetailError.hidden = false;
+      return;
+    }
+
+    var d = parseISODateLocal(date);
+    var dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : date;
+
+    addedShows.push({
+      id: 'manual-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+      artist: artist,
+      venue: venue || null,
+      city: city || (watchDetailTarget.city || null),
+      date: date,
+      dateLabel: dateLabel,
+      source: 'Manual entry',
+      priceLow: null,
+      priceHigh: null,
+      url: url
+    });
+    saveJSON(LS_ADDED, addedShows);
+    closeWatchDetailForm();
+    renderList();
   });
 
   // --- Live search: real query against /api/tour-dates (SeatGeek-backed). ---
