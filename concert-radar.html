@@ -19,7 +19,47 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 17 (2026-08-04).
+    /* Concert Radar — version: 18 (2026-08-04).
+       v18: Two changes requested right after v17 deployed.
+       (1) Watching panel: matched-show rows showed date/price/"Get
+       tickets" but never WHERE — added a venue = "Venue — City, State"
+       line above that row, same format renderCard() already uses on
+       Coming Soon, so a watched artist's card reads consistently with
+       the rest of the page. Uses the earliest match (matches[0], already
+       sorted ascending — same convention the ticket link already used).
+       Verified against Black Uhuru (real Freight & Salvage match, shows
+       venue+city+date+price+tickets) and Burning Spear (no real match
+       yet, honestly still shows "Check live" rather than fabricating a
+       venue) via a standalone Node reproduction of renderWatchList().
+       (2) Decluttered the Coming Soon header per Susan: removed the
+       manual "Refresh" link, the "Checked N artists · N minutes/hours ago"
+       status line, and the "+ Add a show Radar can't find" form entirely
+       (HTML, CSS, and the JS that drove them — els.soonRefresh,
+       els.soonStatus, els.manual* and every listener attached to them).
+       sweepCatalog() still runs exactly the same background sweep it
+       always did (on page load if the local cache is missing/stale) —
+       it just no longer writes to a status element that no longer
+       exists; failures now log to the console instead. Since removing
+       Refresh took away the only way to force fresh data without waiting
+       on a visit, added a REAL replacement: netlify/functions/
+       scheduled-sweep.mjs, a Netlify Scheduled Function (`schedule:
+       '@weekly'`) that runs the same artist/venue sweep server-side once
+       a week regardless of whether anyone visits, and writes the result
+       to a new 'catalog-cache' Blobs store. New netlify/functions/
+       catalog-cache.mjs (`GET /api/catalog-cache`) serves that cache; a
+       browser with no local cache yet (new device, cleared profile) now
+       gets that real data instantly instead of sitting through a live
+       sweep with nothing to look at — the client still kicks off its own
+       live sweepCatalog() right after regardless, so this is a faster
+       first paint, not a replacement for the client sweep. Verified the
+       merge/dedupe logic (identical to the client's own
+       normalizeVenueShows/dedupeById) with a standalone Node
+       reproduction using fake tour-dates + venue-shows data, including a
+       co-headline-bill-style duplicate id across both sources.
+       Previously-added manually-pinned shows (if any exist in a
+       browser's `cr_added_shows_v1`) still display and can still be
+       dismissed — only the ability to add NEW ones via the form is gone,
+       per what was actually asked.
        v17: Two more fixes, same day, right after v16 deployed. Full
        narrative in CLAUDE.md's "v16.1"/this entry's notes — kept brief
        here since this comment block is already long.
@@ -463,13 +503,6 @@
     .cr-soon-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 6px; }
     .cr-soon-head .cr-section-label { margin: 0; }
     .cr-soon-count { color: var(--ink-mute); font-weight: 400; }
-    .cr-soon-status { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; min-height: 16px; }
-
-    .cr-manual { margin: 0 0 16px; }
-    .cr-manual-form { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; margin-top: 10px; }
-    .cr-manual-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .cr-manual-row:last-of-type { margin-bottom: 0; }
-    .cr-manual-hint { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
 
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
     .cr-watch-row { padding: 10px 0; border-bottom: 1px solid var(--rule-soft); }
@@ -480,7 +513,8 @@
     .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); overflow-wrap: anywhere; }
     .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin: -4px -6px 0 0; }
     .cr-watch-del:hover { color: var(--accent); }
-    .cr-watch-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+    .cr-watch-venue { font-family: var(--sans); font-size: 12px; color: var(--ink-soft); margin-top: 6px; overflow-wrap: anywhere; }
+    .cr-watch-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
     .cr-watch-date { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
     .cr-watch-price { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
     .cr-watch-cta { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 4px 10px; text-decoration: none; white-space: nowrap; }
@@ -512,7 +546,6 @@
       .cr-meta { text-align: left; }
       .cr-search-actions { flex-direction: column; align-items: stretch; }
       .cr-search-btn { width: 100%; }
-      .cr-manual-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -570,46 +603,6 @@
 
   <div class="cr-soon-head">
     <h3 class="cr-section-label">Coming Soon <span id="cr-soon-count" class="cr-soon-count"></span></h3>
-    <button type="button" id="cr-soon-refresh" class="cr-clear">Refresh</button>
-  </div>
-  <p id="cr-soon-status" class="cr-soon-status"></p>
-
-  <div class="cr-manual">
-    <button type="button" id="cr-manual-toggle" class="cr-clear">+ Add a show Radar can't find</button>
-    <form id="cr-manual-form" class="cr-manual-form" hidden>
-      <p class="cr-manual-hint">For a real show SeatGeek doesn't have listed — you'll need the venue's own ticket link.</p>
-      <div class="cr-manual-row">
-        <div class="cr-field">
-          <label for="cr-m-artist">Artist</label>
-          <input type="text" id="cr-m-artist" class="cr-input" placeholder="e.g. Black Uhuru" autocomplete="off" />
-        </div>
-        <div class="cr-field">
-          <label for="cr-m-date">Date</label>
-          <input type="date" id="cr-m-date" class="cr-input" />
-        </div>
-      </div>
-      <div class="cr-manual-row">
-        <div class="cr-field">
-          <label for="cr-m-venue">Venue (optional)</label>
-          <input type="text" id="cr-m-venue" class="cr-input" placeholder="e.g. The Freight & Salvage" autocomplete="off" />
-        </div>
-        <div class="cr-field">
-          <label for="cr-m-city">City (optional)</label>
-          <input type="text" id="cr-m-city" class="cr-input" placeholder="e.g. Berkeley, CA" autocomplete="off" />
-        </div>
-      </div>
-      <div class="cr-manual-row" style="grid-template-columns: 1fr;">
-        <div class="cr-field">
-          <label for="cr-m-url">Ticket link</label>
-          <input type="url" id="cr-m-url" class="cr-input" placeholder="https://…" autocomplete="off" />
-        </div>
-      </div>
-      <p id="cr-manual-error" class="cr-live-status is-error" hidden></p>
-      <div class="cr-search-actions">
-        <button type="submit" class="cr-search-btn">Add show</button>
-        <button type="button" id="cr-manual-cancel" class="cr-clear">Cancel</button>
-      </div>
-    </form>
   </div>
 
   <div id="cr-list" class="cr-list"></div>
@@ -690,33 +683,13 @@
     searchBtn: document.getElementById('cr-search-btn'),
     live: document.getElementById('cr-live'),
     liveBody: document.getElementById('cr-live-body'),
-    soonCount: document.getElementById('cr-soon-count'),
-    soonStatus: document.getElementById('cr-soon-status'),
-    soonRefresh: document.getElementById('cr-soon-refresh'),
-    manualToggle: document.getElementById('cr-manual-toggle'),
-    manualForm: document.getElementById('cr-manual-form'),
-    manualCancel: document.getElementById('cr-manual-cancel'),
-    manualError: document.getElementById('cr-manual-error'),
-    manualArtist: document.getElementById('cr-m-artist'),
-    manualDate: document.getElementById('cr-m-date'),
-    manualVenue: document.getElementById('cr-m-venue'),
-    manualCity: document.getElementById('cr-m-city'),
-    manualUrl: document.getElementById('cr-m-url')
+    soonCount: document.getElementById('cr-soon-count')
   };
 
   function fmtPrice(low, high) {
     return '$' + low.toLocaleString() + ' – $' + high.toLocaleString();
   }
 
-  function fmtAgo(ts) {
-    var mins = Math.round((Date.now() - ts) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
-    var hrs = Math.round(mins / 60);
-    if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
-    var days = Math.round(hrs / 24);
-    return days + (days === 1 ? ' day ago' : ' days ago');
-  }
 
   // Coming Soon = real shows found by sweeping the collection + wishlist
   // (minus anything hidden) plus any shows manually pinned from an ad-hoc
@@ -899,9 +872,20 @@
         var hasPrice = lows.length && highs.length;
         // Ticket link points at the earliest matched date (matches is
         // already sorted ascending), same convention as a grouped Coming
-        // Soon card's own ticket link.
+        // Soon card's own ticket link. Venue/city line uses that same
+        // earliest match and the exact same "Venue — City, State" format
+        // renderCard() already uses on Coming Soon, so a watched artist's
+        // row reads consistently with everywhere else on the page — added
+        // 2026-08-04 (v18) per Susan: the matched-show branch here showed
+        // date/price/tickets but never WHERE, which is exactly the detail
+        // that makes "Black Uhuru has a confirmed match" actionable.
+        var venueShow = matches[0];
+        var venueHtml = venueShow && (venueShow.venue || venueShow.city)
+          ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
+          : '';
         var ticketUrl = matches.map(function (m) { return m.url; }).filter(Boolean)[0];
-        statusHtml = '<div class="cr-watch-info">' +
+        statusHtml = venueHtml +
+        '<div class="cr-watch-info">' +
           '<div class="cr-watch-date">' + esc(fmtDateRange(matches)) + '</div>' +
           (hasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs))) + '</div>' : '') +
           (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
@@ -1337,6 +1321,17 @@
       .catch(function () { return []; });
   }
 
+  // v18: reads scheduled-sweep.mjs's weekly, server-side pre-computed
+  // catalog (netlify/functions/scheduled-sweep.mjs + catalog-cache.mjs).
+  // Used only as an instant first paint for a browser with no local
+  // cache yet (new device, cleared profile) — real freshness still comes
+  // from sweepCatalog() below, which always runs after this either way.
+  function fetchServerCatalogCache() {
+    return fetch('/api/catalog-cache')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .catch(function () { return null; });
+  }
+
   function dedupeById(list) {
     var seenIds = {};
     return list.filter(function (s) {
@@ -1346,16 +1341,21 @@
     });
   }
 
+  // v18: no more visible "Checking N of M artists…" status text (Susan
+  // asked for the Refresh link, the "Checked N artists · ago" line, and
+  // the manual "+ Add a show" form all removed from the Coming Soon
+  // header — this now runs fully in the background, same as the weekly
+  // server-side sweep in scheduled-sweep.mjs). Failures are logged to the
+  // console rather than shown, since there's no status element left to
+  // show them in; the page just keeps whatever data it already has.
   function sweepCatalog() {
     if (sweepInFlight) return;
     sweepInFlight = true;
-    els.soonRefresh.disabled = true;
-    els.soonStatus.textContent = 'Checking your collection & wishlist for artists…';
 
     // v16: venue-shows.mjs's 7-venue scrape (added 2026-08-04) is a fixed
     // list of Bay Area venues, not an artist lookup — it has nothing to do
     // with what's in the catalog/wishlist. Kick it off immediately, in
-    // parallel with the artist lookup below, so Refresh always re-scrapes
+    // parallel with the artist lookup below, so a sweep always re-scrapes
     // those venues too (previously this fetch lived inside the
     // artists.length branch below and was skipped entirely on the
     // zero-artists early return — a real gap, not just a hypothetical one,
@@ -1366,15 +1366,10 @@
       if (!artists.length) {
         return venueShowsPromise.then(function (venueShows) {
           catalogShows = dedupeById(normalizeVenueShows(venueShows));
-          els.soonStatus.textContent = catalogShows.length
-            ? 'No artists found in your collection or wishlist — showing venue listings only · just now'
-            : 'No artists found in your collection or wishlist yet.';
           saveCache(catalogShows, 0);
           renderList();
         });
       }
-
-      els.soonStatus.textContent = 'Checking 0 of ' + artists.length + ' artists for tour dates…';
 
       // Two sources run in parallel: the existing per-artist SeatGeek sweep,
       // plus the venue scrape kicked off above. venue-shows.mjs returns
@@ -1387,8 +1382,6 @@
             .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
             .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
             .catch(function () { return []; });
-        }, function (completed, total) {
-          els.soonStatus.textContent = 'Checking ' + completed + ' of ' + total + ' artists for tour dates…';
         }),
         venueShowsPromise
       ]).then(function (results) {
@@ -1401,101 +1394,36 @@
         // the wishlist).
         catalogShows = dedupeById(all);
         saveCache(catalogShows, artists.length);
-        els.soonStatus.textContent = 'Checked ' + artists.length + ' artists · just now';
         renderList();
       });
     }).catch(function (err) {
-      els.soonStatus.textContent = 'Could not check your collection & wishlist: ' + err.message;
+      console.error('sweepCatalog failed:', err.message);
     }).then(function () {
       sweepInFlight = false;
-      els.soonRefresh.disabled = false;
     });
   }
-
-  els.soonRefresh.addEventListener('click', sweepCatalog);
-
-  // --- Manual add: for a real show that exists but SeatGeek's own
-  // inventory doesn't carry (e.g. an indie venue that sells its own
-  // tickets or through a platform SeatGeek doesn't index — confirmed real
-  // for Black Uhuru at The Freight & Salvage, Berkeley, 2026-08-04). Pins
-  // straight into the same addedShows/localStorage mechanism a Live
-  // Results "+ Add to Coming Soon" click already uses, just without
-  // requiring a SeatGeek hit first. Tagged "Manual entry" (never
-  // "SeatGeek") so the source is always honest about where the data came
-  // from — same discipline as the Live/Sample tag distinction elsewhere on
-  // this page. Requires Artist + Date + a real ticket URL; venue/city are
-  // optional since not every show has a fixed venue confirmed yet.
-  function resetManualForm() {
-    els.manualForm.reset();
-    els.manualError.hidden = true;
-  }
-
-  els.manualToggle.addEventListener('click', function () {
-    els.manualForm.hidden = false;
-    els.manualToggle.hidden = true;
-    els.manualArtist.focus();
-  });
-
-  els.manualCancel.addEventListener('click', function () {
-    resetManualForm();
-    els.manualForm.hidden = true;
-    els.manualToggle.hidden = false;
-  });
-
-  els.manualForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var artist = els.manualArtist.value.trim();
-    var date = els.manualDate.value; // native <input type=date> gives YYYY-MM-DD directly
-    var venue = els.manualVenue.value.trim();
-    var city = els.manualCity.value.trim();
-    var url = els.manualUrl.value.trim();
-
-    if (!artist || !date || !url) {
-      els.manualError.textContent = 'Artist, date, and a ticket link are all required.';
-      els.manualError.hidden = false;
-      return;
-    }
-    try {
-      var parsed = new URL(url);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
-    } catch (err) {
-      els.manualError.textContent = 'Ticket link needs to be a full URL, e.g. https://…';
-      els.manualError.hidden = false;
-      return;
-    }
-
-    var d = parseISODateLocal(date);
-    var dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : date;
-
-    addedShows.push({
-      id: 'manual-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
-      artist: artist,
-      venue: venue || null,
-      city: city || null,
-      date: date,
-      dateLabel: dateLabel,
-      source: 'Manual entry',
-      priceLow: null,
-      priceHigh: null,
-      url: url
-    });
-    saveJSON(LS_ADDED, addedShows);
-    renderList();
-
-    resetManualForm();
-    els.manualForm.hidden = true;
-    els.manualToggle.hidden = false;
-  });
 
   // First render: show whatever's cached (instant) — even if empty — then
   // decide whether a fresh sweep is needed.
   renderList();
   if (catalogCache && typeof catalogCache.at === 'number') {
     var age = Date.now() - catalogCache.at;
-    els.soonStatus.textContent = 'Checked ' + (catalogCache.artistCount || 0) + ' artists · ' + fmtAgo(catalogCache.at);
     if (age > CACHE_MAX_AGE_MS) sweepCatalog();
   } else {
-    sweepCatalog();
+    // v18: no local cache at all (new device, cleared profile) — that used
+    // to mean sitting through a full live sweep with nothing to look at but
+    // "Checking 0 of N artists…" text. Now that text is gone entirely, so
+    // grab the weekly server-side cache first (near-instant, real data)
+    // and paint that immediately, then still run a live sweep in the
+    // background regardless so this device's own cache gets populated and
+    // anything newer than the last weekly run shows up too.
+    fetchServerCatalogCache().then(function (serverCache) {
+      if (serverCache && Array.isArray(serverCache.shows) && serverCache.shows.length) {
+        catalogShows = dedupeById(normalizeVenueShows(serverCache.shows));
+        renderList();
+      }
+      sweepCatalog();
+    });
   }
 
   // v16: Watching now loads from /api/watching (server-side, see version

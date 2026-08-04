@@ -56,6 +56,24 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          index doesn't carry — see the file's own header
                          comment for the full per-venue platform breakdown
                          and the 2 venues deliberately left out)
+      watching.mjs       /api/watching/:id?  GET public · POST/DELETE
+                         UNGATED (Phase 11, 2026-08-04, v16 — Watching
+                         panel storage, moved server-side after Susan's
+                         browser lost it from localStorage; separate
+                         `watching` Blobs store; seeds 3 named artists once
+                         via a sentinel record — see 2026-08-04 v16 note)
+      scheduled-sweep.mjs scheduled '@weekly' (not HTTP-reachable — Phase
+                         11, 2026-08-04, v18 — re-sweeps every catalog/
+                         wishlist artist + the venue scrape server-side via
+                         this site's own /api/tour-dates and /api/venue-
+                         shows endpoints, writes merged result to the
+                         `catalog-cache` Blobs store; see 2026-08-04 v18
+                         note)
+      catalog-cache.mjs  /api/catalog-cache  GET ungated · pure read
+                         (serves scheduled-sweep.mjs's weekly output; used
+                         by concert-radar.html only as a first-paint
+                         fallback for a browser with no local cache yet —
+                         see 2026-08-04 v18 note)
     netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
@@ -649,9 +667,15 @@ venue or regression against the known Black Uhuru canaries. It does
 **not** and cannot refresh Susan's own browser's `localStorage` cache
 remotely — that stays automatic client-side (12h staleness check, or her
 own Refresh click) since each browser's local storage is private to that
-browser. If the `weekly-vinyl-median-refresh` trigger is ever actually
-located, folding this check into it as a new Job (matching the existing
-A-E lettering) would be tidier than two separate vinyl-related scheduled
+browser. *(Superseded in part by the 2026-08-04 "v18" entry below: the
+manual Refresh click no longer exists — removed the same day — and a real
+weekly server-side refresh now does exist, via
+`netlify/functions/scheduled-sweep.mjs`. This task still can't reach into
+an already-populated browser's local storage, which is the actual claim
+this note was making; see the v18 entry for what changed.)* If the
+`weekly-vinyl-median-refresh` trigger is ever actually located, folding
+this check into it as a new Job (matching the existing A-E lettering)
+would be tidier than two separate vinyl-related scheduled
 tasks — flagged here for whoever finds it next.
 
 ## 2026-08-04 — v16: live crash, Refresh coverage gap, Watching moved server-side
@@ -869,3 +893,90 @@ simulated SeatGeek returning zero results for "Black Uhuru" alongside a
 mock venue-shows response containing the real Sweetwater date, confirmed
 the merge surfaces it instead of reporting not-found.
 `concert-radar.html` bumped to v17.
+
+## 2026-08-04 — v18: Watching venue detail, Coming Soon decluttered, real weekly server-side refresh
+
+Two requests right after v17 deployed.
+
+**(1) Watching panel missing venue/city.** The matched-show branch in
+`renderWatchList()` already showed date, price, and a "Get tickets" link
+for a confirmed match, but never *where* — asked directly to add "venue =
+city, state" for every listing, explicitly including Black Uhuru, Easy
+Star All-Stars, and Burning Spear. Added a venue line above the existing
+date/price/tickets row, using the earliest match (`matches[0]`, already
+sorted ascending — same convention the ticket link already used) and the
+exact same "Venue — City, State" format `renderCard()` uses on Coming Soon
+(`esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '')`), so a
+watched artist's row reads consistently with the rest of the page. New
+`.cr-watch-venue` CSS rule, sized between the artist name and the existing
+`.cr-watch-info` badge row. Verified with a standalone Node reproduction of
+`renderWatchList()` using a fake `findWatchMatches()`: Black Uhuru (real
+Freight & Salvage match) renders venue+city+date+price+tickets correctly;
+Burning Spear (no real match) still honestly falls back to the "Check
+live →" button rather than fabricating a venue — this project doesn't
+guess at data it doesn't have.
+
+**(2) Coming Soon header decluttered.** Susan asked to remove the manual
+"Refresh" link, the "Checked N artists · N minutes/hours ago" status line,
+and the "+ Add a show Radar can't find" form entirely — HTML, CSS, and
+every bit of JS that drove them (`els.soonRefresh`, `els.soonStatus`,
+`els.manualToggle`/`manualForm`/`manualCancel`/`manualError`/`manualArtist`/
+`manualDate`/`manualVenue`/`manualCity`/`manualUrl`, and every listener
+attached to any of them — `resetManualForm()` and `fmtAgo()` removed
+entirely as now-dead code). `sweepCatalog()` still runs exactly the same
+background sweep it always did (triggered automatically on page load when
+the local cache is missing or older than the existing 12h staleness
+window) — it just no longer writes status text to an element that no
+longer exists; a failed sweep now logs to the console instead of
+displaying an error, since there's nowhere left to show one. Previously
+manually-pinned shows (if any still exist in a browser's
+`cr_added_shows_v1`) still display and can still be dismissed via the
+existing per-card delete button — only the ability to add *new* ones
+through the form is gone, since that's what was actually asked for.
+
+Removing the Refresh button removed the only way to force fresh data
+without waiting for a visit, and Susan asked directly for a weekly
+scheduled refresh to replace it. Rather than lean on the existing
+"Vinyl Scout — Concert Radar feed health check" scheduled task (which
+explicitly documented, when it was created, that it "cannot refresh
+Susan's own browser's localStorage cache remotely" — true, and still true
+today, since a Claude-app scheduled task has no way to write into a
+specific browser's local storage), built the real thing: a genuine
+**Netlify Scheduled Function**.
+
+New `netlify/functions/scheduled-sweep.mjs` (`export const config = {
+schedule: '@weekly' }`) runs weekly on Netlify's own infrastructure,
+independent of any visit or any Claude session. It deliberately does NOT
+reimplement any matching logic — it calls this site's own already-public
+endpoints (`/api/records`, `/api/wishlist`, `/api/tour-dates`,
+`/api/venue-shows`) exactly the way the client's `sweepCatalog()` already
+does, using `process.env.URL` (Netlify's own site-URL env var, with the
+production domain hardcoded as a fallback) to build absolute URLs, so
+`tour-dates.mjs`'s four rounds of hard-won tribute-act/exact-match fixes
+never get a second, drifting copy. Merges and de-dupes the same way the
+client does, and writes `{ shows, artistCount, at }` to a new
+`catalog-cache` Blobs store. New `netlify/functions/catalog-cache.mjs`
+(`GET /api/catalog-cache`, pure read) serves that back out.
+`concert-radar.html` now calls this endpoint, but ONLY as a first-paint
+fallback when a browser has no local cache of its own yet (new device,
+cleared profile) — it renders that instantly, then still kicks off its own
+live `sweepCatalog()` regardless, so the weekly job is a floor, not a
+replacement for live freshness on an actual visit. Verified the
+merge/dedupe logic (identical in shape to the client's own
+`normalizeVenueShows`/`dedupeById`) with a standalone Node reproduction
+using fake tour-dates and venue-shows responses, including a
+co-headline-bill-style duplicate `id` shared across both sources, and
+confirmed `npm run check` (`node --check` on every `.mjs` function,
+including the two new ones) passes clean.
+
+Also updated the existing "Vinyl Scout — Concert Radar feed health check"
+weekly scheduled task (Mondays, unchanged cadence) with a new step 2.5:
+fetch `/api/catalog-cache` and confirm its `at` timestamp is no more than
+~9 days old, as a way of catching scheduled-sweep.mjs silently failing to
+fire or erroring on Netlify's side — that check has no ability to trigger
+or repair Netlify's own scheduler, only to flag it in its weekly report if
+the job looks dead. The task's own "what this does NOT do" note was
+updated to stop implying no real weekly refresh exists at all — one does
+now, it just isn't this trigger.
+
+`concert-radar.html` bumped to v18.
