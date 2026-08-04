@@ -1183,3 +1183,35 @@ sort order puts Black Uhuru (Sep 13) first, then Cornerstone (Oct 22),
 then Guild Theatre (Oct 24). `npm run check` passes clean.
 
 `venue-shows.mjs` bumped to v4.
+
+## 2026-08-04 — concert-radar.html v18.3: same stale-cache bug, third time today, fixed at the root
+
+Susan reported "neither show up" after venue-shows.mjs v4 deployed. Same
+underlying bug as v18.1's entry above, recurring for the third time in one
+day: Susan's browser had already run its one v18.1-forced fresh sweep
+BEFORE venue-shows.mjs's v3 (Black Uhuru, first Easy Star date) and v4
+(second Easy Star date) ever existed server-side. With `CACHE_MAX_AGE_MS`
+still at 12h and no manual Refresh left to force a re-check, that stale
+sweep just kept being trusted — the exact same failure shape as v18.1,
+just triggered by a second and third round of server-side data changes
+instead of the first.
+
+v18.1 treated this as a one-time event (bump the cache key, move on).
+Today made clear it isn't one-time — this is an ordinary side effect of
+actively iterating on `venue-shows.mjs`'s `MANUAL_SHOWS` list the same
+day it shipped, and it will keep happening on any day server-side show
+data changes more than once. Bumping `LS_CACHE` a third time (`v3` ->
+`v4`) clears the immediate problem, same as before. This time also fixed
+the actual cause: `CACHE_MAX_AGE_MS` cut from 12h to 1h, so a same-day
+server-data change reaches an already-cached browser within the hour on
+its own, without needing another manual version bump every time. 1h is a
+deliberate middle ground — short enough to match how often this data is
+realistically changing right now, long enough not to multiply live
+SeatGeek/venue-scrape calls on every ordinary page visit (still bounded
+by `SWEEP_CONCURRENCY` regardless).
+
+No new verification needed beyond what v18.1/v18.2/v3/v4 already covered
+— this is a pure timing-constant change, not new logic. `npm run check`
+and the extracted-script `node --check` both still pass clean.
+
+`concert-radar.html` bumped to v18.3.

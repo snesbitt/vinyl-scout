@@ -19,7 +19,20 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 18.2 (2026-08-04).
+    /* Concert Radar — version: 18.3 (2026-08-04).
+       v18.3: Susan reported "neither show up" after venue-shows.mjs v4
+       added a second real Easy Star All-Stars date — same underlying bug
+       as v18.1, third time today. Her browser had already run its ONE
+       v18.1-forced fresh sweep before venue-shows.mjs's v3 and v4 changes
+       (the Black Uhuru and Easy Star manual entries) ever existed
+       server-side, and with a 12h staleness window and no manual Refresh
+       left, nothing forced a re-check even though the underlying data
+       changed twice more the same day. LS_CACHE bumped once more (v3 ->
+       v4) to force an immediate fresh sweep, but this time also fixed the
+       actual recurring cause: CACHE_MAX_AGE_MS cut from 12h to 1h, so a
+       same-day server-data change reaches an already-cached browser
+       automatically instead of needing another manual version bump every
+       time — see LS_CACHE's own comment for the full reasoning.
        v18.2: Two more things, right after v18.1's cache-bump deployed.
        (1) Susan reported "you also killed all the detail in coming soon"
        — a screenshot showed "Coming Soon (0)" / "No upcoming shows found"
@@ -752,8 +765,24 @@
   // including Susan's, through one fresh sweep on next load — same fix
   // shape as the v16.1 poisoned-cache incident above, different root
   // cause (this is genuinely-stale data, not malformed data).
-  var LS_CACHE = 'cr_catalog_cache_v3';
-  var CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12h — re-sweep automatically once stale
+  //
+  // v18.3: bumped v3 -> v4, and CACHE_MAX_AGE_MS cut from 12h to 1h. Same
+  // bug, third time in one day: venue-shows.mjs's v3 and v4 both added
+  // real MANUAL_SHOWS entries (Black Uhuru, then both Easy Star dates)
+  // AFTER Susan's browser had already run its one v18.1-forced fresh
+  // sweep — that sweep cached whatever venue-shows.mjs returned AT THAT
+  // MOMENT, before those entries existed, and with Refresh gone and a
+  // 12h window, nothing forced a re-check even though the underlying data
+  // changed twice more the same day. Bumping the key clears the
+  // immediate problem; shortening the window is the actual fix for
+  // "server data keeps changing faster than a 12h cache re-checks it" —
+  // a real, ongoing state during active development on this feature, not
+  // a one-off. 1h is a compromise: short enough that a same-day data fix
+  // reaches a browser without another manual bump, long enough not to
+  // multiply live SeatGeek/venue-scrape calls on every normal page visit
+  // (still governed by SWEEP_CONCURRENCY either way).
+  var LS_CACHE = 'cr_catalog_cache_v4';
+  var CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1h — re-sweep automatically once stale (was 12h through v18.2)
   var SWEEP_CONCURRENCY = 5; // parallel /api/tour-dates calls during a catalog sweep
 
   function esc(s) {
