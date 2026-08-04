@@ -1037,3 +1037,103 @@ details or fabricating its own — the either/or substring-match logic in
 entirely within `concert-radar.html`).
 
 `concert-radar.html` bumped to v18.1.
+
+## 2026-08-04 — v18.2: ambiguous loading state + real shows for the 3 gap artists
+
+Two more things, minutes after v18.1's cache-bump fix deployed.
+
+**(1) "You also killed all the detail in coming soon."** Susan sent a
+screenshot showing "Coming Soon (0)" / "No upcoming shows found for your
+collection & wishlist near Berkeley yet." for the ENTIRE panel — not just
+the 3 gap artists, but Kruder & Dorfmeister and Thievery Corporation too,
+both of which had real matches minutes earlier in an earlier screenshot
+the same session. A follow-up screenshot a minute later showed both back
+to normal, which is the tell: this wasn't real data loss, it was a race
+made visible by v18.1's own fix. v18 removed the last visible sign a
+sweep was in progress ("Checking N of M artists…" status text); v18.1
+then made every browser force a fresh sweep on next load (the `LS_CACHE`
+v2 -> v3 bump). Combine those two and a page load with no local cache had
+*zero* signal while `sweepCatalog()` was still in flight — an empty Coming
+Soon rendered identically whether it was "still loading" or "genuinely
+nothing found," and Susan happened to screenshot during the loading
+window.
+
+Fixed properly rather than just reverting the cache bump: `sweepCatalog()`
+now returns its own promise chain (`return fetchDistinctArtists().then(...)`
+instead of firing it and returning nothing), so a caller can tell when the
+sweep has actually settled, not just when it started. A new
+`initialLoadInFlight` flag starts `true`, clears only once the first real
+load has settled (either "already had a cache, no ambiguity" or "the
+no-cache branch's `fetchServerCatalogCache()` → `sweepCatalog()` chain
+resolved"), and `renderList()`'s empty branch checks it: `true` → a plain
+"Loading…", `false` → the real "nothing found" message. No per-artist
+progress spam brought back — just enough signal that "empty" and "still
+working on it" are never visually identical again. Verified with a
+standalone Node reproduction mocking a slow network (artificial delay on
+`/api/tour-dates` and `/api/venue-shows`): confirmed the very first
+`renderList()` call, before anything resolves, lands with the flag still
+`true` and zero data (the loading window), and that a genuinely-empty
+result (mocked zero records, zero wishlist, zero venue shows) still
+resolves the flag to `false` cleanly afterward rather than hanging.
+
+**(2) "Go out and scrape the details for black u, easy star and burning
+spear. add them to coming soon."** Direct instruction after the fresh
+sweep (v18.1) still came up empty for all three in the Watching panel.
+`vinylscout.org`'s own API is off-limits to WebFetch (site-wide
+`Disallow: /` in `robots.txt`, confirmed again by testing it directly —
+not worked around by any other method, per this project's hard rule), so
+this couldn't be diagnosed by asking the live site anything. Researched
+each artist's real touring status against outside sources instead —
+Songkick, Bandsintown, and a general web search first, then each
+*venue's own official site* for anything promising, same verification
+bar this whole project already holds venue-shows.mjs to (never trust an
+aggregator alone):
+
+- **Black Uhuru** — confirmed for real, directly on
+  `sweetwatermusichall.org`'s own events page: Sunday, Sep 13, 2026,
+  Sweetwater Music Hall, Mill Valley, CA, with a working ticket link.
+  Notable: Sweetwater is already one of venue-shows.mjs's 7 scraped
+  venues (`parseSweetwater`) — this show being real, currently listed on
+  the venue's own site, and STILL not surfacing through the scraper
+  points at an actual bug in `parseSweetwater` or a change to
+  Sweetwater's page since it was last verified. Not root-caused today
+  (no raw HTML access from this session — WebFetch summarizes rather
+  than returning raw markup, and this sandbox's `bash`/`curl` has no
+  general outbound network access at all, confirmed by testing) — flagged
+  here and in venue-shows.mjs's own header for whoever picks up
+  `parseSweetwater` next, ideally the weekly "Concert Radar feed health
+  check" scheduled task, which already has real WebFetch access to fetch
+  and compare against the live page.
+- **Easy Star All-Stars** — confirmed for real, directly on
+  `guildtheatre.com`'s own calendar: Saturday, Oct 24, 2026, The Guild
+  Theatre, Menlo Park, CA, with a working ticket link. A second possible
+  date (Oct 22, Cornerstone Berkeley) showed up on Songkick but is **not**
+  listed on Cornerstone's own site (`cornerstoneberkeley.com/events`) as
+  of this check — left out rather than added on an aggregator-only claim.
+- **Burning Spear** — **not added.** Checked Songkick, Bandsintown, and a
+  general web search; no real Bay Area date exists anywhere right now.
+  The closest real shows are a European tour and "Reggae on the River"
+  (Piercy, CA — roughly 200 miles north of the Bay Area, Aug 14-16, 2026),
+  neither of which is honestly "Bay Area." Reported this plainly rather
+  than stretching the definition or fabricating something to have an
+  answer — Burning Spear's Watching row keeps showing "Check live" / "+
+  Add show details" until a real match exists.
+
+Both real shows added as `MANUAL_SHOWS` entries in `venue-shows.mjs`
+(**v3**) — a small hardcoded array, clearly tagged `"Manual entry —
+verified 2026-08-04"` (never `"Venue: ..."`, so they can never be
+confused with the scraper's own live output), merged into the response
+after the normal per-venue scrape and run through the exact same
+`date >= todayIso` filter everything else gets, so an entry here won't
+linger in the response past its own show date. No `concert-radar.html`
+code change was needed for this half of the fix — `findWatchMatches()`
+already reads whatever `venue-shows.mjs` returns, so both shows appear in
+the Watching panel (venue, date, tickets) the moment a browser's next
+sweep picks them up, same as any scraped match. Verified with a
+standalone Node reproduction of the merge/filter/sort logic added to
+`venue-shows.mjs`: confirmed Black Uhuru and Easy Star All-Stars both
+appear with the correct venue/city/date/URL, confirmed Burning Spear is
+correctly absent (not fabricated), and confirmed both entries carry the
+`"Manual entry"` source tag. `npm run check` passes clean.
+
+`concert-radar.html` bumped to v18.2; `venue-shows.mjs` bumped to v3.

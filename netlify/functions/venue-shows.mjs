@@ -1,5 +1,23 @@
 // netlify/functions/venue-shows.mjs
-// version: 2
+// version: 3
+// v3 (2026-08-04, same day as v18.1): Susan asked directly, after the
+// automated pipeline still came up empty for Black Uhuru, Easy Star
+// All-Stars, and Burning Spear even post-fresh-sweep, to "go out and
+// scrape the details" and add real ones. Researched all 3 against each
+// venue's own official site (never an aggregator alone): added
+// MANUAL_SHOWS entries for Black Uhuru (Sweetwater Music Hall, Mill
+// Valley — Sep 13, 2026, confirmed on sweetwatermusichall.org directly;
+// notably Sweetwater is already one of the 7 scraped venues below, so
+// parseSweetwater() missing this real, listed show points at a real
+// scraper bug worth a follow-up look) and Easy Star All-Stars (The Guild
+// Theatre, Menlo Park — Oct 24, 2026, confirmed on guildtheatre.com
+// directly). Burning Spear was NOT added — checked Songkick, Bandsintown,
+// and a general web search, and no real Bay Area date exists anywhere
+// right now; left genuinely unmatched rather than stretching "Bay Area"
+// to include a 200-mile-north festival or a European tour date just to
+// have something to show. Full rationale in MANUAL_SHOWS's own comment
+// below. See CLAUDE.md's 2026-08-04 "v18.2" entry for the complete
+// narrative, including why the automated pipeline missed these.
 // v2 (2026-08-04, same day): two bugs live-caught right after v1 shipped.
 // (1) Every non-APE parser only ever extracted a `title`, so 6 of 7 venues
 // returned `artist: null` — concert-radar.html's Watching code crashed on
@@ -365,6 +383,72 @@ var VENUES = [
   { key: "uctheatre", label: "The UC Theatre", url: "https://www.theuctheatre.org/events", parse: parseUcTheatre },
 ];
 
+// MANUAL_SHOWS — Susan asked directly (2026-08-04, same day as the v18/
+// v18.1 Watching fixes above) to add real, verified shows for 3 gap
+// artists (Black Uhuru, Easy Star All-Stars, Burning Spear) after the
+// automated pipeline (this scraper + tour-dates.mjs's SeatGeek sweep)
+// came up empty for all three in the live Watching panel, even after a
+// forced fresh sweep (concert-radar.html's LS_CACHE v18.1 bump). Every
+// artist below was checked against the actual VENUE'S OWN official site
+// — never an aggregator alone — same verification bar this whole file
+// already holds itself to:
+//   - Black Uhuru: REAL, confirmed directly on sweetwatermusichall.org's
+//     own events page — Sun, Sep 13, 2026, Sweetwater Music Hall, Mill
+//     Valley, CA. Sweetwater is already one of the 7 scraped venues below
+//     (parseSweetwater) — this show SHOULD have been found by the
+//     scraper itself and wasn't, which points at a real bug in
+//     parseSweetwater or a change on Sweetwater's page since it was last
+//     verified (worth a follow-up look, e.g. by the weekly "Concert Radar
+//     feed health check" scheduled task). Added here as a manual entry
+//     so Susan has the real show now rather than waiting on that bug to
+//     be found.
+//   - Easy Star All-Stars: REAL, confirmed directly on guildtheatre.com's
+//     own calendar — Sat, Oct 24, 2026, The Guild Theatre, Menlo Park,
+//     CA. (A second possible date, Oct 22 at Cornerstone Berkeley,
+//     appeared on Songkick but is NOT listed on Cornerstone's own site
+//     — cornerstoneberkeley.com/events — as of this check; left out
+//     rather than added on an aggregator-only claim.)
+//   - Burning Spear: NOT added. Checked Songkick, Bandsintown, and a
+//     general web search — no Bay Area date exists anywhere right now;
+//     the closest real shows are a European tour and "Reggae on the
+//     River" (Piercy, CA, ~200mi north of the Bay Area, Aug 14-16, 2026),
+//     neither of which is honestly "Bay Area." Left genuinely unmatched
+//     rather than stretching the definition to force a result — Susan's
+//     Watching row for Burning Spear will keep showing "Check live" /
+//     "+ Add show details" until a real one exists.
+// Tagged "Manual entry — verified 2026-08-04" (never "Venue: ...") so
+// these can never be confused with this file's own live scrape — same
+// discipline the Coming-Soon manual-add form and the Watching "+ Add
+// show details" form both already use. Still passes through the same
+// date filter as everything below, so an entry here won't linger past
+// its own show date once that date has passed.
+var MANUAL_SHOWS = [
+  {
+    id: "manual-black-uhuru-2026-09-13",
+    artist: "Black Uhuru",
+    title: "Black Uhuru",
+    venue: "Sweetwater Music Hall",
+    city: "Mill Valley, CA",
+    date: "2026-09-13",
+    source: "Manual entry — verified 2026-08-04",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://www.etix.com/ticket/p/93358603/black-uhuru-mill-valley-sweetwater-music-hall?partner_id=100",
+  },
+  {
+    id: "manual-easy-star-all-stars-2026-10-24",
+    artist: "Easy Star All-Stars",
+    title: "Easy Star All-Stars",
+    venue: "The Guild Theatre",
+    city: "Menlo Park, CA",
+    date: "2026-10-24",
+    source: "Manual entry — verified 2026-08-04",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://www.guildtheatre.com/shows/easy-star-all-stars-24-oct",
+  },
+];
+
 // EXCLUDED_VENUES — Susan asked for these too, but as of 2026-08-04 neither
 // can be scraped by a plain server-side fetch: both render their show
 // calendars via client-side JS/AJAX after the initial page load, so the
@@ -429,6 +513,16 @@ export default async (req) => {
       });
     });
   });
+
+  // Manual entries added 2026-08-04 (see MANUAL_SHOWS's own comment above)
+  // — same date filter as every scraped show above, so a manual entry
+  // doesn't linger in the response past its own show date.
+  var todayIsoForManual = new Date().toISOString().slice(0, 10);
+  MANUAL_SHOWS
+    .filter(function (s) { return s.date >= todayIsoForManual; })
+    .forEach(function (s) {
+      allShows.push(Object.assign({}, s, { dateLabel: dateLabelFromIso(s.date) }));
+    });
 
   allShows.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
 

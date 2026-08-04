@@ -19,7 +19,49 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 18.1 (2026-08-04).
+    /* Concert Radar — version: 18.2 (2026-08-04).
+       v18.2: Two more things, right after v18.1's cache-bump deployed.
+       (1) Susan reported "you also killed all the detail in coming soon"
+       — a screenshot showed "Coming Soon (0)" / "No upcoming shows found"
+       for EVERYTHING, including artists (Kruder & Dorfmeister, Thievery
+       Corporation) that had real matches minutes earlier. Root cause: v18
+       removed the last visible sign a sweep was in progress ("Checking N
+       of M artists…"), so a page load with no local cache (which v18.1's
+       own LS_CACHE bump forces on EVERY browser, including this one) had
+       zero signal while sweepCatalog() was still in flight — an empty
+       Coming Soon looked identical whether it was "still loading" or
+       "genuinely nothing found." A follow-up screenshot minutes later
+       showed K&D/Thievery back to normal, consistent with this being
+       exactly that race rather than real data loss. Fixed: sweepCatalog()
+       now returns its own promise chain instead of firing and forgetting,
+       and a new `initialLoadInFlight` flag (cleared only once the first
+       real load has actually settled, not the moment it started) makes
+       renderList()'s empty branch show a plain "Loading…" instead of the
+       "nothing found" message until that's known for sure. Verified with
+       a standalone Node reproduction mocking a slow network: confirmed
+       the very first render (before any fetch resolves) lands in the
+       loading window, and a genuinely-empty result still resolves
+       cleanly afterward rather than getting stuck.
+       (2) Susan asked directly: "go out and scrape the details for black
+       u, easy star and burning spear. add them to coming soon." Real
+       tour dates researched against each VENUE'S OWN official site
+       (never an aggregator alone, same bar this whole project holds
+       itself to): Black Uhuru confirmed at Sweetwater Music Hall, Mill
+       Valley, Sep 13, 2026 (sweetwatermusichall.org directly — notable
+       since Sweetwater is already one of venue-shows.mjs's 7 scraped
+       venues, meaning its own scraper missed a real, currently-listed
+       show — flagged for follow-up); Easy Star All-Stars confirmed at
+       The Guild Theatre, Menlo Park, Oct 24, 2026 (guildtheatre.com
+       directly). Burning Spear: NOT added — checked Songkick, Bandsintown,
+       and a general web search, no real Bay Area date exists anywhere
+       right now, and the closest options (a European tour, a festival
+       ~200mi north) aren't honestly "Bay Area." Both real shows added as
+       `MANUAL_SHOWS` entries in venue-shows.mjs v3 (see that file's own
+       header for the full rationale) — clearly tagged "Manual entry",
+       merged through the same date filter as every scraped show, so
+       they'll disappear on their own once past. No concert-radar.html
+       code change needed for this half — findWatchMatches() already
+       picks up whatever venue-shows.mjs returns.
        v18.1: Live-caught by Susan via screenshot, hours after v18 shipped —
        Black Uhuru, Easy Star All-Stars, and Burning Spear were all still
        stuck on "Check live" in the Watching panel. Two real problems, both
@@ -877,9 +919,13 @@
     if (!shows.length) {
       els.soonCount.textContent = '(0)';
       var allShows = comingSoonShows();
-      els.list.innerHTML = allShows.length
-        ? '<div class="cr-empty">Every upcoming show found is for an artist you\'re already watching — see the Watching panel above.</div>'
-        : '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>';
+      // v18.2: distinguish "still loading" from "genuinely nothing found"
+      // — see initialLoadInFlight's own comment near where it's declared.
+      els.list.innerHTML = (typeof initialLoadInFlight !== 'undefined' && initialLoadInFlight)
+        ? '<div class="cr-empty">Loading…</div>'
+        : (allShows.length
+          ? '<div class="cr-empty">Every upcoming show found is for an artist you\'re already watching — see the Watching panel above.</div>'
+          : '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>');
     } else {
       var catalogGroups = groupCatalogShows(shows.filter(function (s) { return s._kind === 'catalog'; }));
       var addedSingles = shows.filter(function (s) { return s._kind === 'added'; }).map(function (s) { return [s]; });
@@ -1542,8 +1588,13 @@
   // server-side sweep in scheduled-sweep.mjs). Failures are logged to the
   // console rather than shown, since there's no status element left to
   // show them in; the page just keeps whatever data it already has.
+  // v18.2: returns its own promise chain now (was fire-and-forget) so a
+  // caller can know when the sweep has actually SETTLED, not just been
+  // kicked off — the init code below chains onto this to clear
+  // initialLoadInFlight once real data (or a confirmed real "nothing
+  // found") is in, instead of the moment the request merely started.
   function sweepCatalog() {
-    if (sweepInFlight) return;
+    if (sweepInFlight) return Promise.resolve();
     sweepInFlight = true;
 
     // v16: venue-shows.mjs's 7-venue scrape (added 2026-08-04) is a fixed
@@ -1556,7 +1607,7 @@
     // since venue-shows owes the catalog nothing).
     var venueShowsPromise = fetchVenueShows();
 
-    fetchDistinctArtists().then(function (artists) {
+    return fetchDistinctArtists().then(function (artists) {
       if (!artists.length) {
         return venueShowsPromise.then(function (venueShows) {
           catalogShows = dedupeById(normalizeVenueShows(venueShows));
@@ -1597,10 +1648,28 @@
     });
   }
 
+  // v18.2: live-caught by Susan via a screenshot showing "Coming Soon (0)"
+  // / "No upcoming shows found" for EVERYTHING, including artists that had
+  // real matches minutes earlier — most likely a race, not real data loss:
+  // v18 removed the last visible sign that a sweep was even happening
+  // ("Checking N of M artists…"), so a page load with no local cache had
+  // ZERO signal while sweepCatalog() was still in flight, and an empty
+  // Coming Soon looked identical whether it was "still loading" or
+  // "genuinely nothing found." initialLoadInFlight closes that gap without
+  // bringing back the old per-artist progress spam: renderList()'s empty
+  // branch below checks it and shows a plain "Loading…" until the first
+  // real load (cache hit, or a settled sweep) has actually finished.
+  var initialLoadInFlight = true;
+
   // First render: show whatever's cached (instant) — even if empty — then
   // decide whether a fresh sweep is needed.
   renderList();
   if (catalogCache && typeof catalogCache.at === 'number') {
+    // Already have real (if possibly stale) cached data to paint — no
+    // ambiguous "is this really empty" flash possible here, so the
+    // loading flag can clear immediately regardless of whether a
+    // background re-sweep also kicks off below.
+    initialLoadInFlight = false;
     var age = Date.now() - catalogCache.at;
     if (age > CACHE_MAX_AGE_MS) sweepCatalog();
   } else {
@@ -1616,7 +1685,10 @@
         catalogShows = dedupeById(normalizeVenueShows(serverCache.shows));
         renderList();
       }
-      sweepCatalog();
+      return sweepCatalog();
+    }).then(function () {
+      initialLoadInFlight = false;
+      renderList();
     });
   }
 
