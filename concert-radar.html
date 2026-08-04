@@ -17,9 +17,60 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=27" />
+  <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 13 (2026-08-03).
+    /* Concert Radar — version: 14 (2026-08-04).
+       v14: Susan named 3 real shows Coming Soon didn't have (Easy Star
+       All-Stars at Cornerstone Berkeley, Black Uhuru, Burning Spear — all
+       Bay Area). Investigated each directly against live data before
+       changing anything (per PROJECT.md's "honesty over confidence" rule
+       — don't fabricate, verify):
+         - Easy Star All-Stars: IS in the catalog, so it's already being
+           swept. /api/tour-dates?artist=Easy+Star+All-Stars resolves an
+           exact SeatGeek performer match but returns zero events within
+           60mi of Berkeley. Web research turned up no Bay Area/Cornerstone
+           2026 date for this act — Cornerstone Berkeley's own upcoming
+           listings don't include them either. The closest hit was "School
+           of Rock AllStars" (a touring student ensemble, unrelated act)
+           playing Cornerstone — flagged to Susan as a likely mix-up rather
+           than added as if confirmed.
+         - Burning Spear: also already in the catalog and already swept.
+           Same result — exact performer match, zero SeatGeek events in
+           range. Web research found no scheduled 2026 Bay Area date (only
+           Reggae on the River in Piercy, well north of the Bay Area, and
+           European fall dates). Flagged to Susan rather than assumed.
+         - Black Uhuru: confirmed REAL — Feb 21, 2026, The Freight &
+           Salvage, Berkeley (verified independently across Songkick,
+           JamBase, AXS, Vivid Seats, Bandsintown, and the venue's own
+           site). Not in the catalog or wishlist at all, so it was never
+           swept in the first place — separately, SeatGeek's own API
+           returns zero events for this exact performer within range too
+           (Freight & Salvage's inventory doesn't appear to be on SeatGeek),
+           so even watching it wouldn't have surfaced a match. This is the
+           real, verified "SeatGeek coverage gap" CLAUDE.md's Concert Radar
+           note said would justify a second source someday — logged there
+           rather than silently added to, since wiring up a second ticket
+           API (Ticketmaster) is a bigger build Susan hasn't asked for yet.
+       What shipped instead, scoped to what's actually needed: a "+ Add a
+       show Radar can't find" form under Coming Soon, so a real show with
+       no SeatGeek listing can be pinned in directly (artist, date, ticket
+       URL required; venue/city optional) — reuses the existing addedShows/
+       localStorage pin mechanism a Live Results "+ Add to Coming Soon"
+       click already writes to, just without requiring a SeatGeek hit
+       first. Tagged "via Manual entry" (never "via SeatGeek") so sourcing
+       stays honest — same discipline as the Live/Sample tag distinction
+       this page has kept since v3. Also added `overflow-wrap: anywhere` to
+       the venue/artist/watch-row text classes as a defensive fix for a
+       reported "copyright looks off-center/cut off" mobile issue — most
+       likely explained by a long unbroken venue string forcing horizontal
+       overflow that html/body's global `overflow-x: hidden` then clips,
+       shifting the centered footer relative to what's visible. Couldn't
+       reproduce pixel-for-pixel in this pass (no true narrow-viewport
+       render available), so flagged to Susan to confirm after deploy
+       rather than claimed fixed with certainty. Mobile masthead nav (7
+       links wrapping to 2 cramped rows on a phone) changed to a single
+       horizontally-scrollable row instead — see style.css v28 — same
+       pattern this repo already uses for the genre chip row.
        v13: Susan: "remove Watch and the artist/city boxes" — removed the
        manual "Artist to watch" / "City (optional)" / Watch mini-form that
        sat below the Watching list. Watching an artist now only happens via
@@ -285,13 +336,19 @@
     .cr-soon-count { color: var(--ink-mute); font-weight: 400; }
     .cr-soon-status { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; min-height: 16px; }
 
+    .cr-manual { margin: 0 0 16px; }
+    .cr-manual-form { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; margin-top: 10px; }
+    .cr-manual-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .cr-manual-row:last-of-type { margin-bottom: 0; }
+    .cr-manual-hint { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
+
     .cr-watch-list { display: flex; flex-direction: column; margin-bottom: 4px; }
     .cr-watch-row { padding: 10px 0; border-bottom: 1px solid var(--rule-soft); }
     .cr-watch-row:last-child { border-bottom: 0; }
     .cr-watch-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .cr-watch-who { min-width: 0; flex: 1 1 auto; }
-    .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); }
-    .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
+    .cr-watch-artist { font-weight: 600; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+    .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); overflow-wrap: anywhere; }
     .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin: -4px -6px 0 0; }
     .cr-watch-del:hover { color: var(--accent); }
     .cr-watch-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
@@ -307,8 +364,8 @@
     .cr-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
     .cr-item { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
     .cr-who { flex: 1 1 220px; min-width: 0; }
-    .cr-artist { font-weight: 600; font-size: 16px; color: var(--ink); }
-    .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+    .cr-artist { font-weight: 600; font-size: 16px; color: var(--ink); overflow-wrap: anywhere; }
+    .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; overflow-wrap: anywhere; }
     .cr-tags { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
     .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
     .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
@@ -326,6 +383,7 @@
       .cr-meta { text-align: left; }
       .cr-search-actions { flex-direction: column; align-items: stretch; }
       .cr-search-btn { width: 100%; }
+      .cr-manual-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -386,6 +444,45 @@
     <button type="button" id="cr-soon-refresh" class="cr-clear">Refresh</button>
   </div>
   <p id="cr-soon-status" class="cr-soon-status"></p>
+
+  <div class="cr-manual">
+    <button type="button" id="cr-manual-toggle" class="cr-clear">+ Add a show Radar can't find</button>
+    <form id="cr-manual-form" class="cr-manual-form" hidden>
+      <p class="cr-manual-hint">For a real show SeatGeek doesn't have listed — you'll need the venue's own ticket link.</p>
+      <div class="cr-manual-row">
+        <div class="cr-field">
+          <label for="cr-m-artist">Artist</label>
+          <input type="text" id="cr-m-artist" class="cr-input" placeholder="e.g. Black Uhuru" autocomplete="off" />
+        </div>
+        <div class="cr-field">
+          <label for="cr-m-date">Date</label>
+          <input type="date" id="cr-m-date" class="cr-input" />
+        </div>
+      </div>
+      <div class="cr-manual-row">
+        <div class="cr-field">
+          <label for="cr-m-venue">Venue (optional)</label>
+          <input type="text" id="cr-m-venue" class="cr-input" placeholder="e.g. The Freight & Salvage" autocomplete="off" />
+        </div>
+        <div class="cr-field">
+          <label for="cr-m-city">City (optional)</label>
+          <input type="text" id="cr-m-city" class="cr-input" placeholder="e.g. Berkeley, CA" autocomplete="off" />
+        </div>
+      </div>
+      <div class="cr-manual-row" style="grid-template-columns: 1fr;">
+        <div class="cr-field">
+          <label for="cr-m-url">Ticket link</label>
+          <input type="url" id="cr-m-url" class="cr-input" placeholder="https://…" autocomplete="off" />
+        </div>
+      </div>
+      <p id="cr-manual-error" class="cr-live-status is-error" hidden></p>
+      <div class="cr-search-actions">
+        <button type="submit" class="cr-search-btn">Add show</button>
+        <button type="button" id="cr-manual-cancel" class="cr-clear">Cancel</button>
+      </div>
+    </form>
+  </div>
+
   <div id="cr-list" class="cr-list"></div>
 
 </main>
@@ -443,7 +540,16 @@
     liveBody: document.getElementById('cr-live-body'),
     soonCount: document.getElementById('cr-soon-count'),
     soonStatus: document.getElementById('cr-soon-status'),
-    soonRefresh: document.getElementById('cr-soon-refresh')
+    soonRefresh: document.getElementById('cr-soon-refresh'),
+    manualToggle: document.getElementById('cr-manual-toggle'),
+    manualForm: document.getElementById('cr-manual-form'),
+    manualCancel: document.getElementById('cr-manual-cancel'),
+    manualError: document.getElementById('cr-manual-error'),
+    manualArtist: document.getElementById('cr-m-artist'),
+    manualDate: document.getElementById('cr-m-date'),
+    manualVenue: document.getElementById('cr-m-venue'),
+    manualCity: document.getElementById('cr-m-city'),
+    manualUrl: document.getElementById('cr-m-url')
   };
 
   function fmtPrice(low, high) {
@@ -995,6 +1101,79 @@
   }
 
   els.soonRefresh.addEventListener('click', sweepCatalog);
+
+  // --- Manual add: for a real show that exists but SeatGeek's own
+  // inventory doesn't carry (e.g. an indie venue that sells its own
+  // tickets or through a platform SeatGeek doesn't index — confirmed real
+  // for Black Uhuru at The Freight & Salvage, Berkeley, 2026-08-04). Pins
+  // straight into the same addedShows/localStorage mechanism a Live
+  // Results "+ Add to Coming Soon" click already uses, just without
+  // requiring a SeatGeek hit first. Tagged "Manual entry" (never
+  // "SeatGeek") so the source is always honest about where the data came
+  // from — same discipline as the Live/Sample tag distinction elsewhere on
+  // this page. Requires Artist + Date + a real ticket URL; venue/city are
+  // optional since not every show has a fixed venue confirmed yet.
+  function resetManualForm() {
+    els.manualForm.reset();
+    els.manualError.hidden = true;
+  }
+
+  els.manualToggle.addEventListener('click', function () {
+    els.manualForm.hidden = false;
+    els.manualToggle.hidden = true;
+    els.manualArtist.focus();
+  });
+
+  els.manualCancel.addEventListener('click', function () {
+    resetManualForm();
+    els.manualForm.hidden = true;
+    els.manualToggle.hidden = false;
+  });
+
+  els.manualForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var artist = els.manualArtist.value.trim();
+    var date = els.manualDate.value; // native <input type=date> gives YYYY-MM-DD directly
+    var venue = els.manualVenue.value.trim();
+    var city = els.manualCity.value.trim();
+    var url = els.manualUrl.value.trim();
+
+    if (!artist || !date || !url) {
+      els.manualError.textContent = 'Artist, date, and a ticket link are all required.';
+      els.manualError.hidden = false;
+      return;
+    }
+    try {
+      var parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+    } catch (err) {
+      els.manualError.textContent = 'Ticket link needs to be a full URL, e.g. https://…';
+      els.manualError.hidden = false;
+      return;
+    }
+
+    var d = parseISODateLocal(date);
+    var dateLabel = d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : date;
+
+    addedShows.push({
+      id: 'manual-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+      artist: artist,
+      venue: venue || null,
+      city: city || null,
+      date: date,
+      dateLabel: dateLabel,
+      source: 'Manual entry',
+      priceLow: null,
+      priceHigh: null,
+      url: url
+    });
+    saveJSON(LS_ADDED, addedShows);
+    renderList();
+
+    resetManualForm();
+    els.manualForm.hidden = true;
+    els.manualToggle.hidden = false;
+  });
 
   // First render: show whatever's cached (instant) — even if empty — then
   // decide whether a fresh sweep is needed.

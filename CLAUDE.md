@@ -463,3 +463,51 @@ this file up cold.
 
 roadmap.html's Phase 11 card status is now **Live**, not Future — see
 that file directly for the current phase description.
+
+## 2026-08-04 — Concert Radar: manual-add fallback, verified a real SeatGeek gap, mobile nav fix
+
+Susan named 3 real shows missing from Coming Soon: Easy Star All-Stars at
+Cornerstone (Berkeley), Black Uhuru, and Burning Spear (both also Bay
+Area). Investigated each against live data before touching any code —
+PROJECT.md's "honesty over confidence" rule means verify, don't guess:
+
+- **Easy Star All-Stars** and **Burning Spear** are both already in the
+  catalog, so both are already swept by Coming Soon. `/api/tour-dates`
+  resolves an exact SeatGeek performer for each but returns zero events
+  within 60mi of Berkeley — confirmed live, not assumed. Independent web
+  research found no real 2026 Bay Area date for either act (Easy Star's
+  closest hit was "School of Rock AllStars," an unrelated act, also
+  playing Cornerstone — likely what got conflated; Burning Spear's only
+  2026 CA date found was Reggae on the River in Piercy, well north of the
+  Bay Area). Flagged back to Susan rather than added as if confirmed.
+- **Black Uhuru** is real and verified: Feb 21, 2026, The Freight &
+  Salvage, Berkeley (checked across 6 independent sources). Not in the
+  catalog or wishlist, so never swept — and separately, SeatGeek's own API
+  returns zero events for this exact performer in range too, meaning even
+  watching it wouldn't have surfaced the show. This is the real "SeatGeek
+  coverage gap" this file's 2026-08-03 entry said would justify a second
+  ticket source (Ticketmaster) someday. Logging it here rather than
+  quietly wiring up Ticketmaster, since that's a bigger build (slower
+  manual-approval signup, per the 2026-08-03 note) Susan hasn't asked for.
+
+**Shipped instead**, scoped to the actual gap: a "+ Add a show Radar can't
+find" form on `concert-radar.html` (v14) under Coming Soon — Artist, Date,
+and a ticket URL required; venue/city optional. Reuses the existing
+`addedShows`/`cr_added_shows_v1` pin mechanism a Live Results "+ Add to
+Coming Soon" click already writes to, just without requiring a SeatGeek
+hit first. Tagged "Manual entry" (never "SeatGeek") so sourcing stays
+honest — same discipline as the Live/Sample tag distinction this page has
+kept since v3. Nothing was auto-added on Susan's behalf; she enters real
+shows herself, same "propose and confirm, nothing automatic" spirit as
+every other write path in this app.
+
+Also addressed, same pass: mobile masthead nav (7 links wrapping to a
+cramped second row on a phone — reported live via screenshot) switched to
+a single horizontally-scrollable row (`style.css` v28), reusing the
+`.controls__chips` pattern. And a reported "copyright looks off-center/cut
+off" issue on Concert Radar got a defensive `overflow-wrap: anywhere` on
+the venue/artist/watch-row text classes (a long unbroken venue string is
+the most likely cause, given html/body's global `overflow-x: hidden`)
+— **not independently reproduced** in this pass (no true narrow-viewport
+render was available), so this is a best-effort fix flagged for Susan to
+confirm after deploy, not a claimed-certain fix.
