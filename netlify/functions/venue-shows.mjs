@@ -1,5 +1,20 @@
 // netlify/functions/venue-shows.mjs
-// version: 3
+// version: 4
+// v4 (2026-08-04, same day as v3): Susan flagged directly that Easy Star
+// All-Stars also plays Cornerstone Berkeley, Oct 22, 2026 — v3 had checked
+// this specific date/venue combo (it appeared on Songkick's artist
+// calendar) and left it out because Cornerstone's own site didn't confirm
+// it. Re-checked at Susan's prompt: still not on Cornerstone's own site,
+// SeatGeek's venue page, or Songkick's own venue page, but IS on
+// Songkick's specific dated event page for this show
+// (songkick.com/concerts/43348377), which names the exact venue/date and
+// shows tickets on sale via Prekindle. Added as a second MANUAL_SHOWS
+// entry for Easy Star All-Stars (the Guild Theatre / Oct 24 entry from v3
+// stays too — these are two different real shows, not a correction of
+// each other), tagged with a source string that says outright it's
+// Songkick-sourced rather than venue-confirmed, since that distinction
+// didn't survive into the data anywhere else. See MANUAL_SHOWS's own
+// comment below for the full per-artist rationale.
 // v3 (2026-08-04, same day as v18.1): Susan asked directly, after the
 // automated pipeline still came up empty for Black Uhuru, Easy Star
 // All-Stars, and Burning Spear even post-fresh-sweep, to "go out and
@@ -402,12 +417,23 @@ var VENUES = [
 //     feed health check" scheduled task). Added here as a manual entry
 //     so Susan has the real show now rather than waiting on that bug to
 //     be found.
-//   - Easy Star All-Stars: REAL, confirmed directly on guildtheatre.com's
-//     own calendar — Sat, Oct 24, 2026, The Guild Theatre, Menlo Park,
-//     CA. (A second possible date, Oct 22 at Cornerstone Berkeley,
-//     appeared on Songkick but is NOT listed on Cornerstone's own site
-//     — cornerstoneberkeley.com/events — as of this check; left out
-//     rather than added on an aggregator-only claim.)
+//   - Easy Star All-Stars: TWO real shows, five days apart on the same
+//     swing through the Bay Area. (a) Sat, Oct 24, 2026, The Guild
+//     Theatre, Menlo Park, CA — confirmed directly on guildtheatre.com's
+//     own calendar, direct ticket link. (b) Thu, Oct 22, 2026, Cornerstone
+//     Berkeley, CA — Susan flagged this one directly after this file's
+//     first pass left it out; re-checked and it's real, sourced from
+//     Songkick's own dated event page (songkick.com/concerts/43348377),
+//     which names the exact venue and date and shows tickets on sale via
+//     Prekindle. NOT independently confirmable against Cornerstone's own
+//     site (cornerstoneberkeley.com/events) as of this check — checked
+//     three times across this file's edits and it never appeared there,
+//     nor on Cornerstone's SeatGeek or Songkick venue pages, which is odd
+//     for a real on-sale show and possibly means Cornerstone's own site
+//     just hasn't been updated yet. No direct vendor ticket link could be
+//     found either (Prekindle's own listing wasn't reachable from this
+//     session) — `url` below points at the Songkick event page instead of
+//     a vendor deep-link, unlike every other entry in this file.
 //   - Burning Spear: NOT added. Checked Songkick, Bandsintown, and a
 //     general web search — no Bay Area date exists anywhere right now;
 //     the closest real shows are a European tour and "Reggae on the
@@ -446,6 +472,22 @@ var MANUAL_SHOWS = [
     priceLow: null,
     priceHigh: null,
     url: "https://www.guildtheatre.com/shows/easy-star-all-stars-24-oct",
+  },
+  {
+    id: "manual-easy-star-all-stars-2026-10-22",
+    artist: "Easy Star All-Stars",
+    title: "Easy Star All-Stars",
+    venue: "Cornerstone",
+    city: "Berkeley, CA",
+    date: "2026-10-22",
+    // Sourced from Songkick, not the venue's own site — see MANUAL_SHOWS's
+    // own comment above for why. Flagged in the source string itself so
+    // this one entry's slightly weaker verification is visible in the
+    // actual data, not just a comment nobody reading the response sees.
+    source: "Manual entry — verified 2026-08-04 (Songkick, not venue-confirmed)",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://www.songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley",
   },
 ];
 

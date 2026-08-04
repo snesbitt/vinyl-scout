@@ -1137,3 +1137,49 @@ correctly absent (not fabricated), and confirmed both entries carry the
 `"Manual entry"` source tag. `npm run check` passes clean.
 
 `concert-radar.html` bumped to v18.2; `venue-shows.mjs` bumped to v3.
+
+## 2026-08-04 — venue-shows.mjs v4: a second real Easy Star All-Stars show, flagged directly by Susan
+
+Susan pushed back on the v3 entry above: "easy star all stars is at the
+cornerstone." v3 HAD checked this exact date/venue (Oct 22, 2026,
+Cornerstone Berkeley) — it showed up on Songkick's artist-calendar page
+during the original research pass, but got left out because
+Cornerstone's own site (`cornerstoneberkeley.com/events`) didn't confirm
+it, same discipline this whole file already holds itself to. Re-checked
+at Susan's prompt, three more ways: Cornerstone's own site again (full
+listing, July–November 2026, no Easy Star anywhere), Cornerstone's
+SeatGeek venue page (no), Cornerstone's own Songkick venue page (no). But
+Songkick's *specific dated event page* for this show
+(`songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley`)
+does exist, names the exact venue and date, and shows "tickets on sale"
+via Prekindle — asked Susan directly where she was seeing it (in case it
+was showing up somewhere I could verify more directly, like the live
+site's own data), and she confirmed the same Oct 22 Cornerstone date.
+
+Given a live, dated, specific third-party event page plus Susan's own
+direct confirmation, added it as a second `MANUAL_SHOWS` entry for Easy
+Star All-Stars — this is a DIFFERENT real show from the Oct 24 Guild
+Theatre one (a band playing two Bay Area dates five days apart on the
+same tour swing is completely ordinary, not a duplicate or a correction).
+Being straight about what's different here versus every other entry in
+this file: no vendor ticket link could be found (Prekindle's own listing
+wasn't reachable from this session), so `url` points at the Songkick
+event page instead of a direct purchase link, and the `source` field
+itself says `"...(Songkick, not venue-confirmed)"` rather than the plain
+`"Manual entry — verified..."` every other entry uses — visible in the
+actual API response, not just a comment. Also worth another mention: this
+is now the SECOND known real show a venue-shows.mjs parser should have
+caught and didn't (Sweetwater/Black Uhuru was the first, per v3's own
+entry above) — Cornerstone is `VENUES[0]` (`parseCornerstone`), so if this
+show is genuinely live and on-sale, that parser has the same kind of gap.
+Not root-caused today, same reason as the Sweetwater one: no raw HTML
+access from this session to compare against the parser's actual regex.
+
+Verified with a standalone Node reproduction of the merge/filter/sort
+logic: confirmed both Easy Star All-Stars entries (Oct 22 Cornerstone,
+Oct 24 Guild Theatre) survive with distinct ids, confirmed Black Uhuru is
+untouched, confirmed Burning Spear is still correctly absent, confirmed
+sort order puts Black Uhuru (Sep 13) first, then Cornerstone (Oct 22),
+then Guild Theatre (Oct 24). `npm run check` passes clean.
+
+`venue-shows.mjs` bumped to v4.
