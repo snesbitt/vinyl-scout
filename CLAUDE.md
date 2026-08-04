@@ -653,3 +653,110 @@ browser. If the `weekly-vinyl-median-refresh` trigger is ever actually
 located, folding this check into it as a new Job (matching the existing
 A-E lettering) would be tidier than two separate vinyl-related scheduled
 tasks — flagged here for whoever finds it next.
+
+## 2026-08-04 — v16: live crash, Refresh coverage gap, Watching moved server-side
+
+Three issues, all found or requested in one live-review pass right after
+v15 (the venue-shows.mjs build above) deployed — reported directly by
+Susan, investigated and fixed in the same session rather than queued up.
+
+**(1) Crash, reported within minutes: "you broke this... fix it."**
+`concert-radar.html`'s Coming Soon panel was stuck showing a stale cached
+list under the error text `Could not check your collection & wishlist:
+Cannot read properties of null (reading 'trim')`. Root cause, traced
+rather than guessed: `venue-shows.mjs`'s shape normalizer sets
+`artist: s.artist || null` for every scraped show, but only the Another
+Planet Entertainment parser (`parseApe`) ever populates `artist` — the
+other six parsers (Cornerstone, Freight & Salvage, Sweetwater, both See
+Tickets venues, UC Theatre) only ever extract a `title`. So 6 of 7 venues'
+shows reached the client with `artist: null`. v15's new merge step concats
+those directly into the same list `renderCard()` walks, and `renderCard()`
+calls `isWatching(s.artist)` — which did `artist.trim()` with **no null
+guard**, unlike `isShowWatched()` right next to it in the same file, which
+already did `(artist || '').trim()`. First render after the sweep resolved
+threw, the outer `.catch()` on the sweep chain caught it and overwrote the
+status line with the raw error message, and because the throw happened
+inside `renderList()` itself, the list underneath never got the chance to
+update past whatever was cached.
+Fixed at the actual source, not just where it threw: the sweep's merge
+step now maps every venue show through `s.artist = s.artist || s.title`
+before it's concatenated with the SeatGeek results, so a card always has a
+real display name (previously it would've rendered the literal string
+`"null"`, since `esc()` just calls `String()` on whatever it's given).
+`isWatching()` and `findWatchMatches()` also picked up the same
+`(x || '')` defensive guard `isShowWatched()` already had — belt and
+suspenders, not a single-point fix, matching this file's own repeated
+lesson (audio-preview matching saga, the Sade tribute-act bug) that a fix
+should hold generally, not just patch the one call site that happened to
+throw first.
+
+**(2) Refresh gap, reported the same pass:** "the Refresh link should also
+scrape the sites you set up this morning." The `/api/venue-shows` fetch
+lived inside the sweep's `if (!artists.length) return …` early-return
+branch, so a zero-artists edge case would skip the venue scrape entirely —
+and, since the crash above was firing on every sweep including
+Refresh-triggered ones, Refresh looked broken for the venue feeds even
+though the fetch itself was already wired into the same `Promise.all` as
+the SeatGeek sweep. venue-shows.mjs owes the catalog/wishlist nothing
+(fixed venue list, not an artist lookup), so the fetch now kicks off
+immediately in `sweepCatalog()`, in parallel with the artist lookup, and
+merges in on both the empty-artists path and the normal path.
+
+**(3) Data loss, reported by screenshot minutes later:** the Watching
+panel (4 real artists — Thievery Corporation, Kruder & Dorfmeister, Steel
+Pulse, Buena Vista Social Club) had gone completely empty in the same
+Chrome window/profile Susan always uses, confirmed by a live read-only
+screenshot of that exact browser roughly 10 minutes earlier showing all 4
+still there — "the page should retain info between sessions, today it
+seems to remove everything." Checked the code directly rather than
+guessing: no path in `concert-radar.html` ever called
+`localStorage.clear()` or overwrote `cr_watching_v1` with `[]` — every
+write only ever pushes/splices the in-memory array before saving.
+Whatever actually cleared it (a private window, a browser/OS-level storage
+eviction, a tracking-prevention purge) was outside this app's control,
+which is exactly the risk of keeping the only copy of real data in one
+browser's local storage with nothing durable behind it. Susan confirmed
+directly this was her regular browser/profile (not a different one) and
+asked to move Watching server-side, same pattern the wishlist already
+uses.
+New `netlify/functions/watching.mjs` (ungated, same rationale + same
+exception as `wishlist.mjs` v2 — casual state added from mobile, no
+passphrase friction; separate `watching` Blobs store so a bug here can
+never touch the catalog or wishlist stores) now owns Watching. `GET
+/api/watching` returns all watched artists; `POST` upserts one by `id`;
+`DELETE /api/watching/:id` removes one — same shape as `wishlist.mjs`.
+`concert-radar.html` now loads `watching` via `GET /api/watching` on page
+init instead of `loadJSON(LS_WATCH)`, and `addWatch()` / the Watching
+panel's delete button now `POST`/`DELETE` against the endpoint instead of
+writing localStorage — both surface a failure as visible, persistent text
+in the Watching panel itself (a new `watchError` var rendered by
+`renderWatchList()`) rather than failing silently, per this project's "no
+silent failures" rule. The old `cr_watching_v1` localStorage key is left
+alone rather than actively cleared, in case any browser's copy of it
+somehow survived and is worth recovering by hand later.
+
+**Same pass, a separate ask, now durable:** Susan named 3 artists from her
+own list that fell outside every automated match this page runs
+(SeatGeek's per-artist sweep from 2026-08-03, the venue scrape from
+earlier today) — Easy Star All-Stars, Black Uhuru, Burning Spear — and
+asked for them to be remembered as artists to follow. With Watching now
+server-side, `watching.mjs`'s `GET` handler seeds these in itself on the
+very first call ever made against the store: a `_meta_seed_v16_done`
+sentinel record (filtered out of every response, never rendered as a card)
+gates a one-time add of all three, so it fires exactly once regardless of
+which browser or device makes that first request — and, being a
+server-side gate rather than a per-browser localStorage flag, it can't
+re-add one Susan deletes later from a different browser than whichever one
+happened to trigger the seed. Black Uhuru seeds with city "Berkeley, CA"
+(its verified Freight & Salvage date, logged 2026-08-04 above); Easy Star
+All-Stars and Burning Spear seed with no city, since that same
+investigation found no confirmed current Bay Area date for either — a
+city would be a guess this project's "verify, don't assume" rule doesn't
+allow.
+
+`npm run check` passed; the inline `<script>` block in `concert-radar.html`
+was also extracted and `node --check`'d directly as an extra syntax gate
+before pushing, since there's no build step to catch a mistake here
+otherwise. `concert-radar.html` bumped to v16 (in-file version comment;
+one version bump covers all three fixes above, plus the new endpoint, in a
+single deploy).

@@ -402,6 +402,47 @@ SeatGeek nor the manual-add fallback had ever surfaced. Full per-venue
 platform/parser breakdown lives in the file's own header comment; full
 narrative in CLAUDE.md's 2026-08-04 entry.
 
+**v16 (same day, three issues found/reported in one live-review pass right
+after v15 deployed):**
+(1) Most `venue-shows.mjs` parsers only ever capture a `title`, not a
+separate `artist` — so 6 of the 7 venues' shows arrived at the client with
+`artist: null`. `concert-radar.html`'s `isWatching()` called `.trim()` on
+that with no null guard, throwing `Cannot read properties of null
+(reading 'trim')` on the very first render after a sweep, which the outer
+`.catch()` surfaced as the page's status line instead of the (stale)
+Coming Soon list — reported live as "you broke this." Root-cause fixed at
+the merge boundary (`s.artist = s.artist || s.title` for every venue
+show, before anything downstream sees it), plus the same defensive
+`(x || '')` guard `isShowWatched()` already used added to `isWatching()`
+and `findWatchMatches()` too.
+(2) The `/api/venue-shows` fetch lived inside the sweep's zero-artists
+early-return branch, so Refresh could skip the venue scrape entirely in
+that edge case — reported directly ("the Refresh link should also scrape
+the sites you set up this morning"). Moved out so it always runs, in
+parallel with the artist lookup, on every sweep/Refresh.
+(3) The Watching panel (4 real artists) went completely empty in Susan's
+regular browser/profile within about 10 minutes of normal use — confirmed
+against a live read-only screenshot of that exact browser taken minutes
+earlier showing all 4 still present. No code path ever cleared
+`cr_watching_v1`; whatever wiped it was outside the app's control, which
+is the structural risk of keeping the only copy of real data in
+browser-local storage. Susan asked to move Watching server-side, same
+pattern as the wishlist. New `netlify/functions/watching.mjs` (ungated,
+same rationale as `wishlist.mjs`; separate `watching` Blobs store) now
+owns it — `GET/POST/DELETE /api/watching` — and `concert-radar.html` loads
+from and writes through it instead of localStorage, surfacing any
+load/save/delete failure as visible text in the panel itself instead of
+failing silently.
+Same pass, now durable: Susan named 3 artists from her own list that no
+automated match (SeatGeek sweep or venue scrape) ever caught — Easy Star
+All-Stars, Black Uhuru, Burning Spear — and asked for them to be
+remembered as artists to follow. `watching.mjs`'s `GET` handler seeds
+these itself on the very first request ever made against the store,
+gated by a `_meta_seed_v16_done` sentinel record (filtered out of every
+response) so it fires exactly once regardless of which browser/device
+makes that first call, and can't re-add one Susan deletes later from a
+different browser than whichever one happened to trigger the seed.
+
 ---
 
 ## Phase 5+ (excluding 9 and 11) — Future / Parked
@@ -542,6 +583,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `GET  /api/audio/preview?artist=…&title=…` — public; pure read; tries Deezer first (plus a small hand-picked override table for compilation/best-of albums not on Deezer under their own title), then YouTube as a last resort — Spotify and iTunes tiers were removed at v12 (2026-07-13), see the v23 changelog entry; returns whichever provider's most-popular-track preview is playable, or a graceful `available:false` reason. Also serves `wishlist.html`'s per-row preview buttons (shipped 2026-07-14, commit `83b56ec`), same endpoint.
 - `GET  /api/tour-dates?artist=…&range=…` — public; pure read; Phase 11 Concert Radar, SeatGeek-backed. Resolves the artist to a real SeatGeek performer first (exact match, then a guarded fuzzy fallback), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist. Returns upcoming shows near Berkeley, CA (hardcoded) with date, venue, price (when SeatGeek provides it), and a ticket URL. Powers `/concert-radar.html`'s Coming Soon sweep and its ad-hoc Search panel.
 - `GET  /api/venue-shows` — public; pure read; Phase 11 Concert Radar, added 2026-08-04. Server-side scrapes 7 hand-picked Bay Area venues' own public event pages (no API key needed for any of them; one fetch covers 6 Another Planet Entertainment venues at once) and returns shows in the same shape `/api/tour-dates` uses. Two requested venues (Ashkenaz, The New Parish) are deliberately excluded — both render client-side, so a plain server fetch sees no data — see the function's own header comment. Powers `/concert-radar.html`'s Coming Soon sweep alongside `/api/tour-dates`.
+- `GET  /api/watching` — public; returns all watched artists (`{id, artist, city}`) as a JSON array. `POST /api/watching` — **ungated**, same exception as the wishlist; upsert one watched artist by `id`. `DELETE /api/watching/:id` — **ungated**; delete one watched artist by `id`. Added 2026-08-04 (v16) after Watching's previous localStorage-only storage lost real data in Susan's browser; separate `watching` Blobs store, same pattern as `wishlist.mjs`. The very first `GET` ever made against the store seeds 3 artists Susan named directly (Easy Star All-Stars, Black Uhuru, Burning Spear), gated by a sentinel record so it only ever runs once. Powers `/concert-radar.html`'s Watching panel.
 
 ---
 

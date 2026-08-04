@@ -19,7 +19,80 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 15 (2026-08-04).
+    /* Concert Radar — version: 16 (2026-08-04).
+       v16: Three changes, same day as v15 shipped, all found/requested in
+       one live-review pass right after v15 deployed.
+       (1) BUG, live-caught by Susan minutes after v15 deployed ("you broke
+       this"): venue-shows.mjs only sets `artist` for the APE parser — the
+       other six venue parsers (Cornerstone, Freight & Salvage, Sweetwater,
+       the two See Tickets venues, UC Theatre) only ever had a `title`, so
+       venue-shows.mjs's shape-normalizer at the bottom of that file wrote
+       `artist: null` for all of them. The v15 merge in this file concats
+       those straight into the same list `renderCard()`/`isWatching()`
+       consume, and `isWatching()` did `artist.trim()` with no null guard
+       (unlike `isShowWatched()` right next to it, which already does
+       `(artist || '').trim()`) — so the very first render after the sweep
+       resolved threw `Cannot read properties of null (reading 'trim')`,
+       caught by the outer sweep `.catch()`, which replaced the status line
+       with that raw error and left Coming Soon stuck on stale cached data.
+       Fixed at the actual source: the merge step now defaults
+       `s.artist = s.artist || s.title` for every venue-sourced show before
+       it ever reaches render, so a card always has a real display name
+       instead of the literal string "null" (`esc()` stringifies whatever
+       it's given). `isWatching()` and `findWatchMatches()` also got the
+       same defensive `(x || '')` guard `isShowWatched()` already used —
+       belt and suspenders, not just the one fix, same discipline as every
+       other "verify what actually broke, then fix it generally" note in
+       this file's history.
+       (2) BUG: the venue-shows.mjs fetch in the sweep lived inside the
+       `if (!artists.length) return …` early-return branch, so Refresh
+       never actually re-scraped the 7 venues added that same morning when
+       the catalog/wishlist artist list came back empty — reported directly
+       ("the Refresh link should also scrape the sites you set up this
+       morning"). venue-shows.mjs owes the catalog/wishlist nothing (it's a
+       fixed venue list, not an artist lookup), so the fetch is now kicked
+       off immediately in `sweepCatalog()`, in parallel with the artist
+       lookup, and merged in on both the empty-artists path and the normal
+       path.
+       (3) BUG, reported minutes later via screenshot: the Watching panel
+       (4 real artists — Thievery Corporation, Kruder & Dorfmeister, Steel
+       Pulse, Buena Vista Social Club) had gone completely empty in the
+       same browser/profile Susan always uses, within about 10 minutes of
+       normal use — "the page should retain info between sessions, today it
+       seems to remove everything." No code path in this file ever called
+       localStorage.clear() or overwrote cr_watching_v1 with `[]` — the
+       most likely explanation is something outside this app's control
+       (a private window, a browser-level storage eviction) wiping the one
+       and only copy, which is precisely the risk of keeping real user data
+       in nothing but browser-local storage. Susan asked directly to move
+       Watching server-side, same pattern the wishlist already uses. New
+       `netlify/functions/watching.mjs` (ungated, same rationale as
+       wishlist.mjs v2 — casual mobile use, no passphrase friction; separate
+       Blobs store so a bug here can't touch the catalog or wishlist) now
+       owns Watching. `watching` is loaded via `GET /api/watching` on page
+       load instead of localStorage; `addWatch()` and the delete handler now
+       POST/DELETE against it instead of writing localStorage. The old
+       `cr_watching_v1` key is left alone (harmless, unread going forward)
+       rather than actively cleared, in case Susan's data is still sitting
+       there and worth recovering by hand later.
+       Same pass, a separate ask: Susan named 3 artists from her own list
+       that fell outside every automated match (SeatGeek's per-artist sweep
+       AND the new venue scrape) — Easy Star All-Stars, Black Uhuru, and
+       Burning Spear — and asked for them to be remembered as artists to
+       follow, not just logged in a doc. With Watching now server-side,
+       these seed in durably: a one-time server-side check (gated by a
+       `_meta_seed_v16_done` sentinel record in the same `watching` Blobs
+       store — filtered out of every GET response, never rendered as a
+       card) adds any of the three not already present, exactly once,
+       regardless of which browser/device next loads the page — and,
+       because the gate is server-side rather than a per-browser
+       localStorage flag, it won't re-add one Susan deletes later from a
+       different browser than the one that happened to run the seed. Black
+       Uhuru seeds with city "Berkeley, CA" (its verified Freight & Salvage
+       date, see v14 note below); Easy Star All-Stars and Burning Spear seed
+       with no city — v14's research found no confirmed current Bay Area
+       date for either, so a city would be a guess this file's "verify,
+       don't assume" rule doesn't allow.
        v15: Susan asked to expand free feeds for full automatic coverage
        rather than rely on manual pinning. Researched every other
        free/self-serve concert-data API (Eventbrite's public search API has
@@ -527,7 +600,6 @@
 <script>
 (function(){
   var LS_HIDDEN = 'cr_hidden_ids_v1';
-  var LS_WATCH = 'cr_watching_v1';
   var LS_ADDED = 'cr_added_shows_v1';
   var LS_CACHE = 'cr_catalog_cache_v1';
   var CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12h — re-sweep automatically once stale
@@ -549,7 +621,12 @@
   }
 
   var hidden = loadJSON(LS_HIDDEN);
-  var watching = loadJSON(LS_WATCH);
+  // v16: Watching moved server-side (netlify/functions/watching.mjs) after
+  // localStorage silently lost it for Susan — see version comment above.
+  // Starts empty and is populated by loadWatching() on page init; every
+  // mutation (addWatch, the delete handler below) now goes through the
+  // /api/watching endpoint instead of a local save.
+  var watching = [];
   var addedShows = loadJSON(LS_ADDED);
 
   // catalogShows = the result of the last full sweep of every distinct
@@ -723,16 +800,22 @@
   }
 
   function findWatchMatches(name) {
-    var q = name.trim().toLowerCase();
+    var q = (name || '').trim().toLowerCase();
     if (!q) return [];
     return comingSoonShows().filter(function (s) {
-      var a = s.artist.toLowerCase();
+      var a = (s.artist || '').toLowerCase();
       return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
     }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
   }
 
+  // v16: null-guarded (was `artist.trim()` with no fallback) — this is the
+  // exact call that threw "Cannot read properties of null (reading
+  // 'trim')" once venue-shows.mjs entries with `artist: null` reached
+  // renderCard(). The merge step now defaults artist to title before this
+  // is ever called, but guarding here too matches isShowWatched() right
+  // below, which already defended the same way.
   function isWatching(artist) {
-    var q = artist.trim().toLowerCase();
+    var q = (artist || '').trim().toLowerCase();
     return watching.some(function (w) { return w.artist.toLowerCase() === q; });
   }
 
@@ -752,11 +835,15 @@
   }
 
   function renderWatchList() {
+    // v16: visible, persistent error text if a load/save/delete against
+    // /api/watching failed — per this project's "no silent failures" rule,
+    // this must never look identical to "you're not watching anything."
+    var errorHtml = watchError ? '<p class="cr-watch-empty" style="color:#b3261e;">' + esc(watchError) + '</p>' : '';
     if (!watching.length) {
-      els.watchList.innerHTML = '<p class="cr-watch-empty">Not watching any artists yet.</p>';
+      els.watchList.innerHTML = errorHtml + '<p class="cr-watch-empty">Not watching any artists yet.</p>';
       return;
     }
-    els.watchList.innerHTML = watching.map(function (w, i) {
+    els.watchList.innerHTML = errorHtml + watching.map(function (w, i) {
       var matches = findWatchMatches(w.artist);
       // A watched artist either already has confirmed show(s) in Coming
       // Soon — in which case show the actual date(s) and price right here,
@@ -792,7 +879,7 @@
             '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
             (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
           '</div>' +
-          '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + i + '">&times;</button>' +
+          '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + esc(w.id || '') + '">&times;</button>' +
         '</div>' +
         statusHtml +
       '</div>';
@@ -835,38 +922,95 @@
     renderList();
   });
 
+  // v16: Watching is server-backed (netlify/functions/watching.mjs) — see
+  // version comment above for why. watchError surfaces a load/save/delete
+  // failure directly in the Watching panel itself (renderWatchList() below
+  // prepends it when set) rather than failing silently, per this project's
+  // "no silent failures" rule; a network hiccup here should be visible,
+  // not indistinguishable from "nothing is watched."
+  var watchError = null;
+
+  function randomId(prefix) {
+    var hex = '';
+    var bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    for (var i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+    return prefix + '_' + hex;
+  }
+
+  function loadWatching() {
+    return fetch('/api/watching')
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (list) {
+        watching = Array.isArray(list) ? list.filter(function (w) { return w && w.artist; }) : [];
+        watchError = null;
+      })
+      .catch(function (err) {
+        watching = [];
+        watchError = 'Could not load Watching: ' + err.message;
+      });
+  }
+
   // Shared by the Watching panel's own form AND the "+ Watch <artist>"
-  // button on live search results.
+  // button on live search results. Async now — POSTs to /api/watching
+  // before updating local state, so a failed write never looks like it
+  // succeeded.
   function addWatch(artist, city) {
     artist = (artist || '').trim();
-    if (!artist) return false;
+    if (!artist) return Promise.resolve(false);
     city = (city || '').trim();
-    if (isWatching(artist)) return false;
-    watching.push({ artist: artist, city: city });
-    saveJSON(LS_WATCH, watching);
-    // Full re-render (not just the Watching panel) — watching an artist can
-    // remove Coming Soon card(s) it already had, under the either/or rule.
-    renderList();
-    return true;
+    if (isWatching(artist)) return Promise.resolve(false);
+    var item = { id: randomId('watch'), artist: artist, city: city };
+    return fetch('/api/watching', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      watching.push(item);
+      watchError = null;
+      // Full re-render (not just the Watching panel) — watching an artist can
+      // remove Coming Soon card(s) it already had, under the either/or rule.
+      renderList();
+      return true;
+    }).catch(function (err) {
+      watchError = 'Could not save "' + artist + '" to Watching: ' + err.message;
+      renderWatchList();
+      return false;
+    });
   }
 
   els.watchList.addEventListener('click', function (e) {
     var delBtn = e.target.closest('[data-watch-del]');
     if (delBtn) {
-      var idx = parseInt(delBtn.getAttribute('data-watch-del'), 10);
-      watching.splice(idx, 1);
-      saveJSON(LS_WATCH, watching);
-      // Full re-render, not just the Watching panel — un-watching an artist
-      // can bring its card(s) back into Coming Soon under the either/or rule.
-      renderList();
+      var id = delBtn.getAttribute('data-watch-del');
+      var w = watching.filter(function (x) { return x.id === id; })[0];
+      fetch('/api/watching/' + encodeURIComponent(id), { method: 'DELETE' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          watching = watching.filter(function (x) { return x.id !== id; });
+          watchError = null;
+          // Full re-render, not just the Watching panel — un-watching an
+          // artist can bring its card(s) back into Coming Soon under the
+          // either/or rule.
+          renderList();
+        })
+        .catch(function (err) {
+          watchError = 'Could not remove "' + (w ? w.artist : id) + '": ' + err.message;
+          renderWatchList();
+        });
       return;
     }
     var checkBtn = e.target.closest('[data-watch-check]');
     if (checkBtn) {
-      var w = watching[parseInt(checkBtn.getAttribute('data-watch-check'), 10)];
-      if (!w) return;
-      els.artistInput.value = w.artist;
-      els.cityInput.value = w.city || '';
+      var idx = parseInt(checkBtn.getAttribute('data-watch-check'), 10);
+      var wc = watching[idx];
+      if (!wc) return;
+      els.artistInput.value = wc.artist;
+      els.cityInput.value = wc.city || '';
       runLiveSearch();
       els.live.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -1085,31 +1229,70 @@
   }
 
   var sweepInFlight = false;
+  // v16 fix: most venue-shows.mjs parsers only ever have a `title` (no
+  // distinct `artist`), so those entries arrive with `artist: null`.
+  // Default to the title here, wherever venue shows get merged in, so
+  // every downstream consumer (renderCard, isWatching, findWatchMatches,
+  // grouping) always sees a real string — this is what "Cannot read
+  // properties of null (reading 'trim')" traced back to (see v16 note in
+  // the version comment above).
+  function normalizeVenueShows(venueShows) {
+    return venueShows.map(function (s) {
+      return s && !s.artist ? Object.assign({}, s, { artist: s.title || '' }) : s;
+    });
+  }
+
+  function fetchVenueShows() {
+    return fetch('/api/venue-shows')
+      .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+      .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+      .catch(function () { return []; });
+  }
+
+  function dedupeById(list) {
+    var seenIds = {};
+    return list.filter(function (s) {
+      if (!s || !s.id || seenIds[s.id]) return false;
+      seenIds[s.id] = true;
+      return true;
+    });
+  }
+
   function sweepCatalog() {
     if (sweepInFlight) return;
     sweepInFlight = true;
     els.soonRefresh.disabled = true;
     els.soonStatus.textContent = 'Checking your collection & wishlist for artists…';
 
+    // v16: venue-shows.mjs's 7-venue scrape (added 2026-08-04) is a fixed
+    // list of Bay Area venues, not an artist lookup — it has nothing to do
+    // with what's in the catalog/wishlist. Kick it off immediately, in
+    // parallel with the artist lookup below, so Refresh always re-scrapes
+    // those venues too (previously this fetch lived inside the
+    // artists.length branch below and was skipped entirely on the
+    // zero-artists early return — a real gap, not just a hypothetical one,
+    // since venue-shows owes the catalog nothing).
+    var venueShowsPromise = fetchVenueShows();
+
     fetchDistinctArtists().then(function (artists) {
       if (!artists.length) {
-        els.soonStatus.textContent = 'No artists found in your collection or wishlist yet.';
-        catalogShows = [];
-        saveCache(catalogShows, 0);
-        renderList();
-        return;
+        return venueShowsPromise.then(function (venueShows) {
+          catalogShows = dedupeById(normalizeVenueShows(venueShows));
+          els.soonStatus.textContent = catalogShows.length
+            ? 'No artists found in your collection or wishlist — showing venue listings only · just now'
+            : 'No artists found in your collection or wishlist yet.';
+          saveCache(catalogShows, 0);
+          renderList();
+        });
       }
 
       els.soonStatus.textContent = 'Checking 0 of ' + artists.length + ' artists for tour dates…';
 
       // Two sources run in parallel: the existing per-artist SeatGeek sweep,
-      // plus one call to /api/venue-shows (added 2026-08-04) — a direct
-      // scrape of a hand-picked list of Bay Area venues, since that's what
-      // actually catches box-office-only shows SeatGeek's own index has zero
-      // record of (confirmed for Black Uhuru at both Freight & Salvage and
-      // Sweetwater Music Hall). venue-shows.mjs already returns shows in the
-      // exact same shape tour-dates.mjs does, so no reshaping is needed here
-      // — they just concat into the same list before de-duping.
+      // plus the venue scrape kicked off above. venue-shows.mjs returns
+      // shows in the exact same shape tour-dates.mjs does, so no reshaping
+      // is needed here — they just concat into the same list before
+      // de-duping.
       return Promise.all([
         mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
           return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
@@ -1119,24 +1302,16 @@
         }, function (completed, total) {
           els.soonStatus.textContent = 'Checking ' + completed + ' of ' + total + ' artists for tour dates…';
         }),
-        fetch('/api/venue-shows')
-          .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
-          .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
-          .catch(function () { return []; })
+        venueShowsPromise
       ]).then(function (results) {
         var perArtistShows = results[0];
         var venueShows = results[1];
-        var all = venueShows.slice();
+        var all = normalizeVenueShows(venueShows);
         perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and
         // the wishlist).
-        var seenIds = {};
-        catalogShows = all.filter(function (s) {
-          if (!s || !s.id || seenIds[s.id]) return false;
-          seenIds[s.id] = true;
-          return true;
-        });
+        catalogShows = dedupeById(all);
         saveCache(catalogShows, artists.length);
         els.soonStatus.textContent = 'Checked ' + artists.length + ' artists · just now';
         renderList();
@@ -1234,6 +1409,13 @@
   } else {
     sweepCatalog();
   }
+
+  // v16: Watching now loads from /api/watching (server-side, see version
+  // comment above) instead of localStorage, so it's fetched async here and
+  // re-rendered once it resolves — including the one-time seed of 3 artists
+  // Susan named directly (Easy Star All-Stars, Black Uhuru, Burning Spear),
+  // which watching.mjs's GET handler adds server-side on first-ever call.
+  loadWatching().then(renderList);
 })();
 </script>
 
