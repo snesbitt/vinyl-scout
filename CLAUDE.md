@@ -760,3 +760,82 @@ before pushing, since there's no build step to catch a mistake here
 otherwise. `concert-radar.html` bumped to v16 (in-file version comment;
 one version bump covers all three fixes above, plus the new endpoint, in a
 single deploy).
+
+## 2026-08-04 — v16.1: poisoned cache showing "null" cards, movie screenings in Coming Soon
+
+Reported live, minutes after v16 deployed: Coming Soon cards showing the
+literal word "null" as the artist name, several of them grouped into one
+card spanning dozens of "dates" (The Chapel: "Aug 6, 2026 – Jan 23, 2027 ·
+77 dates"; Cornerstone: "19 dates") — "you pushed lots of null and lame
+artists." Diagnosed by reasoning through the caching code rather than by
+inspecting live data (this session's tools can't reach the live site
+directly — robots.txt blocks WebFetch site-wide and the sandboxed shell has
+no outbound network — so this was verified with a standalone Node
+reproduction against the actual `groupCatalogShows()`/`esc()` logic instead,
+included below).
+
+**Root cause:** v1 of `venue-shows.mjs` (this morning's build) returned
+`artist: null` for every show from 6 of its 7 venue parsers (only
+`parseApe()` ever extracts a distinct artist — the rest only ever have a
+`title`). Some browsers ran a sweep in the window between v15/v1 shipping
+and v16's crash fix landing: that sweep successfully *fetched* real venue
+data and called `saveCache()` — which happens **before** `renderList()` in
+`sweepCatalog()` — and only crashed afterward, on render. So the browser's
+`cr_catalog_cache_v1` genuinely held that raw, never-normalized shape.
+`normalizeVenueShows()` (v16's client-side fix) only runs inside a live
+sweep's own merge step, never when a cached snapshot is loaded straight off
+localStorage — so every subsequent page load kept redisplaying the
+poisoned cache, crash and all data quality issues included, until either
+12h passed or Refresh was clicked. `esc(null)` stringifies to the literal
+text `"null"` (confirmed with a one-line Node check), which is exactly what
+rendered. And `groupCatalogShows()` keys each card on
+`(artist||'').toLowerCase() + '|' + venue` — every null-artist show from
+the same venue collapsed onto the identical `''` key, which is why *every
+distinct real show* at a venue merged into one mega-card instead of one
+card each. Reproduced standalone: assembling 5 distinct real Chapel shows
+the way v1 did (`artist: s.artist || null`) produces exactly 1 grouped
+card; assembling them the way v2 now does (`artist: s.artist || s.title`)
+produces 5 separate cards, one per show — confirms the mechanism, not just
+a plausible story.
+
+**Fixed at the actual source this time, not just defensively client-side:**
+`venue-shows.mjs` bumped to v2 — the final response shape now sets
+`artist: s.artist || s.title || null` itself, so the API contract never
+requires a caller to separately guess a display name (v16's client-side
+`normalizeVenueShows()` guard stays in place too, belt and suspenders).
+`concert-radar.html`'s cache key bumped `cr_catalog_cache_v1` ->
+`cr_catalog_cache_v2` — the clean, deterministic fix for "some unknown
+subset of browsers have a poisoned snapshot already sitting in
+localStorage": every browser's stale cache is simply ignored on next load
+instead of trusted, forcing exactly one fresh sweep through the
+now-fully-fixed pipeline. No attempt was made to detect/repair the old
+cache in place — bumping the key is simpler and certain to work regardless
+of what's actually in any given visitor's storage.
+
+**Second bug, same report:** "Aliens (Special Edition)" rendered as a
+Coming Soon card. The Castro — one of the 6 venues `parseApe()` covers
+through Another Planet Entertainment's shared listing page — is primarily
+a repertory movie theater that also hosts concerts; its calendar mixes
+film screenings in with real shows, and nothing filtered by event type,
+only by venue name. New `NON_MUSIC_WORDS` blocklist (`special edition`,
+`anniversary screening`, `screening`, `double feature`, `film festival`,
+`movie night`, `q&a`) — same pattern as the existing `TRIBUTE_WORDS`
+blocklist, kept as a separate list since this isn't a wrong-performer-match
+problem, it's a not-music-at-all problem — filters every venue's results,
+not just The Castro's. Verified against the actual regex: matches "Aliens
+(Special Edition)", doesn't false-positive on a real act name.
+
+Susan also asked to add real Watching detail (venue/date/ticket link) for
+Black Uhuru, Easy Star All-Stars, and Burning Spear rather than leave them
+on "Check live →". Investigated rather than complied blindly: Easy Star
+All-Stars and Burning Spear still have zero confirmed current Bay Area date
+per the 2026-08-04 research logged above — adding one now would be
+fabricating data this project's "verify, don't assume" rule explicitly
+forbids, so that was declined and flagged rather than done. Black Uhuru's
+one *confirmed* date (Feb 21, 2026, Freight & Salvage) is now in the past
+as of today (Aug 4, 2026); the *second*, still-upcoming date this morning's
+venue-shows.mjs build claimed to find (Sep 13, 2026, Sweetwater Music Hall)
+should surface automatically now that the cache-poisoning bug above is
+fixed and a fresh sweep can run cleanly — not hand-added, since letting the
+real pipeline surface it (or not) is more honest than pinning it in without
+re-confirming it's still accurate.

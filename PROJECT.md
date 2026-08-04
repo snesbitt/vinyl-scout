@@ -443,6 +443,34 @@ response) so it fires exactly once regardless of which browser/device
 makes that first call, and can't re-add one Susan deletes later from a
 different browser than whichever one happened to trigger the seed.
 
+**v16.1 (same day, minutes after v16):** reported live — Coming Soon
+showing cards with the literal artist name "null", several merged into one
+card spanning dozens of "dates". Diagnosed without live access to the site
+(robots.txt blocks this session's fetch tools) by reasoning through the
+caching code and confirming with a standalone reproduction: a sweep that
+ran between v1/v15 shipping and v16's crash fix landing saved real,
+un-normalized venue data (`artist: null`) to `cr_catalog_cache_v1` — via
+`saveCache()`, which runs *before* the crash in `renderList()` — so that
+cache stayed poisoned and kept re-displaying on every load regardless of
+the crash fix, since normalization only ever ran inside a live sweep, never
+on cache load. `esc(null)` literally stringifies to `"null"`, and
+`groupCatalogShows()` keys on artist+venue, so every null-artist show from
+one venue collapsed into a single card — confirmed by reproducing both
+behaviors standalone (old assembly: 5 distinct shows -> 1 card; new
+assembly: 5 distinct shows -> 5 cards). Fixed at the actual source this
+time: `venue-shows.mjs` v2 sets `artist: s.artist || s.title || null` in
+its own response shape, and `concert-radar.html`'s cache key bumped to
+`cr_catalog_cache_v2` so every browser's already-poisoned snapshot is
+simply ignored rather than needing individual repair. Also fixed in the
+same pass: The Castro (one of `parseApe()`'s 6 venues) mixes film
+screenings into its listing since it's primarily a movie theater — a new
+`NON_MUSIC_WORDS` blocklist (separate from `TRIBUTE_WORDS`, since this
+isn't a wrong-performer problem) filters those out of every venue's
+results. Declined a related ask to hand-add Watching detail for Easy Star
+All-Stars/Burning Spear (still no confirmed date — would be fabricating
+data); Black Uhuru's second real date (Sep 13, 2026, Sweetwater) is left to
+surface from the now-fixed pipeline rather than pinned in by hand.
+
 ---
 
 ## Phase 5+ (excluding 9 and 11) — Future / Parked

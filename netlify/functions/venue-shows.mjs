@@ -1,5 +1,24 @@
 // netlify/functions/venue-shows.mjs
-// version: 1
+// version: 2
+// v2 (2026-08-04, same day): two bugs live-caught right after v1 shipped.
+// (1) Every non-APE parser only ever extracted a `title`, so 6 of 7 venues
+// returned `artist: null` — concert-radar.html's Watching code crashed on
+// that (see its own v16 note), and a poisoned client-side cache saved
+// during the window between v1 shipping and the crash fix landing kept
+// showing literal "null" as a show's artist name, with every null-artist
+// show from one venue collapsing into a single giant multi-date card
+// (confirmed: The Chapel's "77 dates" and Cornerstone's "19 dates" were
+// each that many DISTINCT real shows merged into one card purely because
+// they shared the same missing-artist key). Fixed at the source: `artist`
+// now defaults to `title` in the final response shape, so this endpoint's
+// contract never requires a caller to separately guess a display name.
+// (2) The Castro (one of APE's 6 venues) is primarily a repertory movie
+// theater — its listing mixes film screenings in with real concerts, and
+// "Aliens (Special Edition)" rendered as a Coming Soon card. New
+// NON_MUSIC_WORDS blocklist (same pattern as TRIBUTE_WORDS, a separate list
+// since this isn't a wrong-performer-match problem) filters screenings,
+// anniversary re-releases, and double features out of every venue's
+// results, not just The Castro's.
 // Phase 12 — Venue-based coverage, added 2026-08-04 alongside Concert Radar's
 // manual-add fallback. tour-dates.mjs sweeps SeatGeek/Ticketmaster by ARTIST
 // name — this function instead scrapes a hand-picked list of Bay Area venues
@@ -83,6 +102,24 @@ var TRIBUTE_WORDS = /\b(tribute|unauthorized|unauthorised|cover band|coverband|s
 
 function isTribute(text) {
   return TRIBUTE_WORDS.test(text || "");
+}
+
+// v16.1: The Castro is one of the 6 venues APE's listing page covers, but
+// The Castro is primarily a repertory movie theater that also hosts
+// concerts — its calendar mixes film screenings in with real shows, and
+// parseApe() has no way to tell them apart from venue name alone. Live-
+// caught 2026-08-04: "Aliens (Special Edition)" rendered as a Coming Soon
+// card next to real concerts. Unlike TRIBUTE_WORDS (a real act vs. a fake
+// version of it), this isn't about a wrong performer match — the "artist"
+// genuinely isn't a musical act at all — so it's a separate blocklist
+// rather than folded into TRIBUTE_WORDS. Scoped to what this project has
+// actually seen (screenings, anniversary re-releases, double features) —
+// expand if a new non-music category turns up rather than guessing at every
+// possible one now.
+var NON_MUSIC_WORDS = /\b(special edition|anniversary screening|screening|double feature|film festival|movie night|q&a|q & a)\b/i;
+
+function isNonMusic(text) {
+  return NON_MUSIC_WORDS.test(text || "");
 }
 
 // Several venues' titles arrive HTML-entity-encoded (WordPress themes are
@@ -356,7 +393,7 @@ export default async (req) => {
         var shows = v.parse(html) || [];
         shows = shows
           .map(function (s) { return Object.assign({}, s, { title: decodeEntities(s.title), artist: s.artist ? decodeEntities(s.artist) : s.artist }); })
-          .filter(function (s) { return s.date && s.date >= todayIso && s.title && !isTribute(s.title) && !isTribute(s.artist || ""); });
+          .filter(function (s) { return s.date && s.date >= todayIso && s.title && !isTribute(s.title) && !isTribute(s.artist || "") && !isNonMusic(s.title) && !isNonMusic(s.artist || ""); });
         shows.forEach(function (s) { s.dateLabel = dateLabelFromIso(s.date); });
         return { key: v.key, label: v.label, sourceUrl: v.url, count: shows.length, error: null, shows: shows };
       } catch (err) {
@@ -370,7 +407,16 @@ export default async (req) => {
     r.shows.forEach(function (s, i) {
       allShows.push({
         id: "venue-" + r.key + "-" + i + "-" + (s.date || "unknown"),
-        artist: s.artist || null,
+        // v16.1: default to title here, at the actual source, rather than
+        // leaving every consumer of this API to guess — only parseApe()
+        // ever sets a distinct artist; the other 6 parsers only ever
+        // extract a title (Cornerstone, Freight & Salvage, Sweetwater,
+        // both See Tickets venues, UC Theatre). Returning artist: null for
+        // those was what let a literal "null" render as a show's headline
+        // artist name client-side (concert-radar.html v16 also defends
+        // against this independently, but the contract this endpoint
+        // returns should never require a caller to know that).
+        artist: s.artist || s.title || null,
         title: s.title,
         venue: s.venue,
         city: s.city,

@@ -601,7 +601,26 @@
 (function(){
   var LS_HIDDEN = 'cr_hidden_ids_v1';
   var LS_ADDED = 'cr_added_shows_v1';
-  var LS_CACHE = 'cr_catalog_cache_v1';
+  // v16.1: bumped v1 -> v2. A sweep run between v15 shipping and v16's crash
+  // fix landing could fetch real venue-shows.mjs data (artist: null for 6 of
+  // the 7 venues), save it to cache via saveCache(), and ONLY THEN crash
+  // during renderList() — so the cache genuinely held that raw,
+  // never-normalized shape. normalizeVenueShows() only runs inside a live
+  // sweep's merge step, never when the cache is loaded straight off
+  // localStorage, so every page load kept redisplaying that poisoned
+  // snapshot: cards showing the literal text "null" (esc(null) stringifies
+  // it), grouped into one giant multi-date card per venue (groupCatalogShows
+  // keys on artist+venue, and every null-artist show from the same venue
+  // collapses to the same '' key — confirmed by the math: The Chapel's
+  // "77 dates" and Cornerstone's "19 dates" are both consistent with every
+  // distinct real show at that venue merging into one card because they all
+  // shared the same missing-artist key, not because 77 real shows actually
+  // share one date range). Bumping the key means every browser's stale
+  // cache is simply ignored on next load instead of trusted, forcing one
+  // fresh sweep that runs through the now-fixed normalization — cheaper and
+  // more certain than trying to detect/repair whatever's already sitting in
+  // each visitor's localStorage.
+  var LS_CACHE = 'cr_catalog_cache_v2';
   var CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12h — re-sweep automatically once stale
   var SWEEP_CONCURRENCY = 5; // parallel /api/tour-dates calls during a catalog sweep
 
