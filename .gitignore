@@ -1,6 +1,12 @@
 # Local Netlify folder
 .netlify
 
+# npm dependencies — devDependencies (e.g. jsdom, added 2026-08-04 for
+# scripts/e2e-concert-radar.mjs) install locally via `npm install`, not
+# committed; Netlify's own build only ever needs @netlify/blobs, which it
+# installs itself from package.json.
+node_modules
+
 # Mac
 .DS_Store
 

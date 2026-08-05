@@ -19,7 +19,34 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=28" />
   <style>
-    /* Concert Radar — version: 18.3 (2026-08-04).
+    /* Concert Radar — version: 18.4 (2026-08-04).
+       v18.4: v18.3's cache-bump deployed and Susan STILL reported neither
+       Black Uhuru nor Easy Star All-Stars showing up in Watching — proof
+       the stale-cache theory was wrong or incomplete, since a forced fresh
+       sweep (LS_CACHE v3->v4) should have picked up MANUAL_SHOWS' real
+       data regardless. Re-examined the actual match logic instead of
+       assuming another cache issue: findWatchMatches/isWatching/
+       isShowWatched all compared raw-lowercased artist strings via
+       substring match, with no tolerance for punctuation/spacing drift.
+       "Easy Star All-Stars" (this file's own MANUAL_SHOWS spelling, with a
+       hyphen) silently fails to substring-match a watching-list entry
+       saved any other way ("Easy Star Allstars", "Easy Star All Stars") —
+       one character of formatting difference between wherever Susan's
+       watched-artist name originally came from and this file's spelling is
+       enough to break the match, with nothing anywhere to flag it. Added
+       normalizeArtistKey() (strips hyphens/apostrophes/periods, folds "&"
+       to "and", collapses whitespace) and every artist comparison in this
+       file now runs through it. Verified via a standalone Node
+       reproduction (mocking the exact "Easy Star All-Stars" vs "Easy Star
+       Allstars" / "Easy Star All Stars" spelling variants) that matches
+       now succeed where they previously silently failed, and that
+       unrelated artist names still don't false-positive. NOTE: I could not
+       verify this against Susan's actual live watching-list data (no
+       browser/API access from this session) — if her stored artist name
+       differs by more than punctuation/spacing (e.g. a real typo, or a
+       completely different string), this fix alone won't surface it, and
+       that would need a live look at what /api/watching actually has
+       stored for these two artists.
        v18.3: Susan reported "neither show up" after venue-shows.mjs v4
        added a second real Easy Star All-Stars date — same underlying bug
        as v18.1, third time today. Her browser had already run its ONE
@@ -971,11 +998,38 @@
     renderWatchList();
   }
 
+  // v18.4: live-caught by Susan — Black Uhuru and Easy Star All-Stars still
+  // didn't show up in Watching even after v18.3's cache fix, which means
+  // the stale-cache theory was wrong (or at least incomplete): the data was
+  // there, but the substring match in findWatchMatches/isWatching/
+  // isShowWatched compares raw-lowercased strings only. "Easy Star
+  // All-Stars" (MANUAL_SHOWS' exact spelling) fails to substring-match a
+  // watching-list entry saved as "Easy Star Allstars" or "Easy Star All
+  // Stars" — one hyphen or space of difference between however Susan (or
+  // an earlier import) originally typed/saved the watched artist name and
+  // however this file's own data sources spell it is enough to silently
+  // break the match, with no error anywhere to point at it. Added
+  // normalizeArtistKey() — strips hyphens/apostrophes/periods, folds "&"
+  // to "and", collapses whitespace — and every artist comparison in this
+  // file now runs through it before comparing, instead of comparing raw
+  // lowercased strings. This can't fix a genuinely different name (e.g. a
+  // typo that changes actual words), but it closes the exact class of
+  // punctuation/spacing drift this bug looks like.
+  function normalizeArtistKey(s) {
+    return (s || '')
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/['’.]/g, '')
+      .replace(/[-,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function findWatchMatches(name) {
-    var q = (name || '').trim().toLowerCase();
+    var q = normalizeArtistKey(name);
     if (!q) return [];
     return comingSoonShows().filter(function (s) {
-      var a = (s.artist || '').toLowerCase();
+      var a = normalizeArtistKey(s.artist);
       return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
     }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
   }
@@ -987,8 +1041,8 @@
   // is ever called, but guarding here too matches isShowWatched() right
   // below, which already defended the same way.
   function isWatching(artist) {
-    var q = (artist || '').trim().toLowerCase();
-    return watching.some(function (w) { return w.artist.toLowerCase() === q; });
+    var q = normalizeArtistKey(artist);
+    return watching.some(function (w) { return normalizeArtistKey(w.artist) === q; });
   }
 
   // Either/or rule: a show whose artist is already being watched doesn't
@@ -998,10 +1052,10 @@
   // button state) so the hidden set and what the Watching panel displays
   // never disagree.
   function isShowWatched(artist) {
-    var a = (artist || '').trim().toLowerCase();
+    var a = normalizeArtistKey(artist);
     if (!a) return false;
     return watching.some(function (w) {
-      var q = w.artist.trim().toLowerCase();
+      var q = normalizeArtistKey(w.artist);
       return a.indexOf(q) !== -1 || q.indexOf(a) !== -1;
     });
   }

@@ -1215,3 +1215,143 @@ No new verification needed beyond what v18.1/v18.2/v3/v4 already covered
 and the extracted-script `node --check` both still pass clean.
 
 `concert-radar.html` bumped to v18.3.
+
+## 2026-08-04 — v18.4: artist-name normalization fix, real E2E harness, feeds roadmap, Phase 10 plan (unattended, Susan headed out)
+
+Susan reported the v18.3 cache fix still didn't surface Black Uhuru or
+Easy Star All-Stars ("pushed but still don't think its working/showing
+up"), then said she needed to head out for the day and listed five more
+things to do while she was away — ticketmaster/other feeds on the
+roadmap, a full E2E test, a documentation pass covering the whole day,
+and a plan for connecting Concert Radar to Travel Intelligence, to be
+added to both roadmaps. Everything below ran unattended per this
+project's standing "make reasonable judgment calls, proceed" rule for
+when Susan isn't available to answer follow-ups.
+
+**Root-cause re-investigation.** Three stale-cache "fixes" in one day
+(v18.1, v18.3) and the bug still not resolved was itself a signal the
+cache theory was wrong or incomplete — v18.3's `LS_CACHE` bump forces a
+guaranteed-fresh sweep on next load, so if the real data was actually
+there and still didn't render, the bug had to be in the match logic, not
+the cache. Re-read `findWatchMatches()`, `isWatching()`, and
+`isShowWatched()` line by line: all three compare raw-lowercased artist
+strings via substring match, with zero tolerance for punctuation or
+spacing drift. `MANUAL_SHOWS`' own spelling is "Easy Star All-Stars"
+(hyphenated) — a watching-list entry saved any other way ("Easy Star
+Allstars", "Easy Star All Stars") would silently fail to substring-match
+it, with nothing anywhere to flag the mismatch. This is a highly
+plausible real bug, not a guess dressed up as one: band names get typed
+inconsistently across sources constantly, and this project's own watched-
+artist list was seeded at different times from different inputs (see the
+v16 entry above — `watching.mjs`'s one-time seed).
+
+**Fix:** added `normalizeArtistKey()` to `concert-radar.html` — folds
+hyphens and commas to spaces, strips apostrophes/periods, expands "&" to
+"and", collapses whitespace, lowercases. Every artist-name comparison in
+the file (`findWatchMatches`, `isWatching`, `isShowWatched`) now runs
+both sides through it before comparing, instead of comparing raw
+lowercased strings. Verified with a standalone Node unit pass (not the
+E2E harness below, a separate quick check first) against 9 cases
+including "Easy Star All-Stars" vs "Easy Star Allstars" (deliberately
+does NOT match — see the code's own comment on why that boundary was
+chosen: collapsing a hyphenated multi-word name into a single fused word
+is a bigger change than punctuation drift, and matching it risked new
+false positives elsewhere) and "Easy Star All-Stars" vs "Easy Star All
+Stars" (matches). `concert-radar.html` bumped to v18.4.
+
+**Honest limit, stated plainly:** this session had no way to see Susan's
+actual stored `/api/watching` data (no browser, no API access from this
+sandbox), so this fix addresses the single most likely bug class given
+everything else already checked out (the data itself is correct per
+`venue-shows.mjs`'s MANUAL_SHOWS, the merge/dedup logic is correct, the
+cache is now fast-expiring) — but it cannot be verified as THE actual fix
+for Susan's specific case without seeing what her watching list actually
+has stored for these two artists.
+
+**Real end-to-end regression harness, not another reimplementation.**
+Every prior verification pass this project has done for Concert Radar
+(v16.1's poisoned-cache reproduction, v18.1's `renderWatchList()`
+reproduction, v18.2's slow-network reproduction) worked by re-implementing
+the relevant logic in a standalone Node script and testing that
+re-implementation — useful, but it can't catch a bug in the ACTUAL shipped
+code if the reproduction quietly diverges from it. `jsdom` was installed
+(`npm install jsdom`, now a devDependency) and `scripts/e2e-concert-radar.mjs`
+loads the real `concert-radar.html` into a real jsdom document, mocks every
+`fetch()` call the page makes (`/api/records`, `/api/wishlist`,
+`/api/watching`, `/api/venue-shows`, `/api/catalog-cache`, `/api/tour-dates`)
+with fixture data, `window.eval()`s the page's actual extracted inline
+`<script>` (not a copy) against that mocked environment, waits for the DOM to
+settle, then reads the real rendered `#cr-watch-list` HTML. Two runs: one
+with watching-list spellings matching `MANUAL_SHOWS` exactly, one with
+realistic drifted spellings ("Easy Star All Stars", lowercase "black
+uhuru"). Both runs: Black Uhuru and Easy Star All-Stars render with venue
+detail (a real match), Burning Spear still honestly renders "Check live"
+(no fabricated match — confirms the fix didn't introduce a false
+positive). `npm run test:concert-radar-e2e` added to `package.json`. This
+is now the standing regression check for this feature's matching logic
+going forward — prefer extending this harness over writing another
+one-off reproduction script for the next Concert Radar matching bug.
+
+**Feeds roadmap.** Susan asked directly to add Ticketmaster and other feeds
+to the roadmap. Added a consolidated subsection to PROJECT.md's Phase 11
+(full detail there, not repeated here) covering Ticketmaster (in progress,
+blocked on an account issue with their support), Bandsintown (re-researched
+this session per Susan's own "bands in town" suggestion — real API needs a
+non-self-serve `app_id`, not available for hobby use; public pages exist but
+most dates are behind client-side pagination a server fetch can't see, so a
+scrape would be incomplete), Songkick (application page currently closed;
+already a de facto source via specific event-page URLs in two `MANUAL_SHOWS`
+entries even without API access), Eventbrite (dead API, confirmed again),
+Dice.fm and PredictHQ (neither viable, no free/self-serve tier), and Spotify
+Concerts (stays parked, same discipline as YouTube's audio-preview
+last-resort tier — only built if a real gap shows up that nothing else
+closes). `roadmap.html`'s Phase 11 description updated to match.
+
+**Phase 10 (Travel Intelligence hooks) — full technical plan drafted.**
+Susan asked to "plan for our big feature tomorrow" — connecting Concert
+Radar to travelintelligence.org bidirectionally, in her own words: "if i'm
+watching a fare like Chicago you check the feeds to see who i am interested
+in that is also playing in town during those dates when i'll be there."
+Full plan written into PROJECT.md's Phase 5+ section (not duplicated here):
+generalizing `tour-dates.mjs` beyond its hardcoded Berkeley lat/lon and
+adding a date-window filter it currently lacks, a new
+`GET /api/artists-playing?lat=..&lon=..&date_start=..&date_end=..` endpoint
+reusing the existing artist-resolution/tribute-filtering pipeline, and a
+note that Travel Intelligence's own side needs a matching
+`GET /api/watched-trips` read endpoint this repo doesn't own. Recommends a
+live-lookup v1 (mirroring how Concert Radar itself started before
+`scheduled-sweep.mjs` was added later purely for fast first-paint, not
+because live sweeping was too slow to be correct) rather than building a
+cross-site caching layer speculatively. Two open questions flagged for
+Susan rather than guessed at: geographic radius for non-Bay-Area cities,
+and whether a match should draw from the full catalog/wishlist or just the
+curated Watching list (this plan defaults to Watching-only as the more
+literal reading of "artists i am interested in," pending confirmation).
+Since this session's sandbox has no write access to the Travel Intelligence
+repo (only `vinyl-scout-repo` is connected via the device bridge this
+session), a standalone copy of the Travel-Intelligence-side half of this
+plan was written to a file and sent directly to Susan via `SendUserFile`
+for her to drop into that project whenever she opens it next, rather than
+silently only half-writing "both roadmaps" as asked.
+
+**Weekly health-check trigger prompt corrected.** Separately, re-read the
+"Vinyl Scout — Concert Radar feed health check" scheduled task's current
+prompt and found it still claimed "robots.txt explicitly allows a
+'Claude-User' agent" — directly contradicted by this session's own repeated
+direct testing (a fresh `WebFetch` attempt against `vinylscout.org/robots.txt`
+this session returned `ROBOTS_DISALLOWED` again). Corrected via
+`update_trigger`: the prompt now states the block is total and site-wide
+with no agent exception, and instructs going straight to Claude-in-Chrome
+browser tools instead of trying WebFetch first.
+
+**What could not be verified this session, stated plainly rather than
+glossed over:** no live browser (Claude-in-Chrome never connected this
+session) or direct API access (WebFetch blocked, no outbound curl from
+either this sandbox or the device bridge) was available at any point.
+Nothing in this entry — the v18.4 matching fix, the E2E harness's
+fixture-based pass, the feeds/Phase-10 planning — was confirmed against
+the actual deployed site or Susan's actual live data. `npm run check`
+and the extracted-script `node --check` both pass; the jsdom E2E harness
+passes against its own fixtures. The next live session (or the weekly
+health-check task once it next fires) should verify directly against
+the deployed site once Susan has pushed and deployed this commit.
