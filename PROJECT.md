@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 37 · **Last revised:** 2026-08-04
+**Version:** 38 · **Last revised:** 2026-08-04
 
 **Changelog**
+- **v38 (2026-08-04)** — Susan, back briefly: "it seems to be putting the entire sweetwater calendar in coming soon / use the logic in place to filter for relevancy." Real bug, and it wasn't new — `venue-shows.mjs` has always returned every show at its 7 scraped venues with no artist filtering server-side (deliberate, documented in that file's own header), but nothing on the client ever filtered it back down before merging into Coming Soon, so every venue's full calendar had been reaching Coming Soon unfiltered since the venue scraper shipped. Susan noticed it via Sweetwater specifically, but it affected all 7 venues equally. Fixed by reusing "the logic in place" she pointed at — `runLiveSearch()` (the ad-hoc Search panel) already filtered venue-shows results down to whatever matched one typed-in artist name; that same filter (now a shared `artistIsRelevant()`, built on v18.4's `normalizeArtistKey()`) now runs in `sweepCatalog()` too, scoped to the full list of artists Susan actually cares about. `fetchDistinctArtists()` was extended to also pull `/api/watching`, not just catalog/wishlist, so a watched-only artist like Black Uhuru counts as relevant (and, as a side benefit, now gets its own direct SeatGeek sweep for the first time). `runLiveSearch()`'s own venue filter was also upgraded from a raw lowercase compare to the same normalized match, closing the same punctuation-drift gap v18.4 fixed for Watching. Verified by extending `scripts/e2e-concert-radar.mjs` with fixture shows for two irrelevant Sweetwater listings (confirmed filtered out of Coming Soon) and one relevant-but-unwatched match (confirmed still shows), alongside re-confirming Watching-panel matches still work — full trail in CLAUDE.md's 2026-08-04 "v18.5" entry. `concert-radar.html` bumped to v18.5. Not verified against the live site (no browser/API access this session, same standing caveat as v18.4).
 - **v37 (2026-08-04)** — Susan reported v36's cache fix still didn't surface Black Uhuru/Easy Star All-Stars, then headed out for the day, so the rest of this entry ran unattended per her standing instructions. (1) Re-examined the match logic instead of assuming another cache issue (three stale-cache "fixes" in one day was itself a signal something else was wrong): `findWatchMatches`/`isWatching`/`isShowWatched` compared raw-lowercased artist strings with no tolerance for punctuation/spacing drift, so "Easy Star All-Stars" (this file's own spelling) could silently fail to match a watching-list entry saved as "Easy Star Allstars" or "Easy Star All Stars." Added `normalizeArtistKey()` (folds hyphens/commas to spaces, strips apostrophes/periods, "&" → "and", collapses whitespace) and every artist comparison now runs through it. `concert-radar.html` bumped to v18.4. Honest caveat, since this session had no way to check Susan's actual stored watching-list data: this closes the punctuation/spacing class of mismatch, not a genuinely different name. (2) Built a real end-to-end regression harness (`scripts/e2e-concert-radar.mjs`, jsdom-based, `npm run test:concert-radar-e2e`) that loads the actual shipped `concert-radar.html` into a real DOM, mocks every API call, and inspects the real rendered Watching panel — the first genuine E2E check for this feature (everything before it was either a live browser check this session didn't have, or a reimplementation-based Node reproduction). Confirmed Black Uhuru and both Easy Star All-Stars spellings now render with venue detail under both exact and drifted spellings, and Burning Spear still honestly shows "Check live" (no fabrication). (3) Added a "Feeds roadmap" subsection consolidating Ticketmaster/Bandsintown/Songkick/Eventbrite/Dice/PredictHQ/Spotify research to date, per Susan's direct request. (4) Wrote a full technical plan for Phase 10 (Travel Intelligence hooks) per Susan's request to plan "our big feature tomorrow" — see the new subsection under Phase 5+ below; a standalone copy for the Travel Intelligence side of the repo was sent to Susan directly since this session's sandbox has no write access to that project. (5) Corrected the "Concert Radar feed health check" scheduled task's prompt, which incorrectly claimed vinylscout.org's robots.txt allows a "Claude-User" exception — confirmed this session (again) that the block is total, site-wide, no exceptions; the task now goes straight to Claude-in-Chrome instead of trying WebFetch first. **What could not be verified this session, flagged honestly:** no live browser or API access was available (Claude-in-Chrome not connected, WebFetch blocked, no outbound curl), so none of today's fixes — v18.3's cache fix or v18.4's matching fix — were confirmed against the actual live site or Susan's actual stored data. The next live session (or the weekly health-check task) should check the deployed site directly once Susan pushes this commit.
 - **v36 (2026-08-04)** — Susan reported "neither show up" — same stale-cache bug as v33, recurring a third time: her browser's one v33-forced fresh sweep predated v35's two rounds of new MANUAL_SHOWS data, and with a 12h staleness window and no manual Refresh, nothing forced a re-check. Bumped `LS_CACHE` again (v3 -> v4) to clear it immediately, and this time fixed the actual recurring cause instead of just patching the symptom again: `CACHE_MAX_AGE_MS` cut from 12h to 1h, so future same-day server-data changes reach an already-cached browser on their own. `concert-radar.html` bumped to v18.3. Full narrative in CLAUDE.md's 2026-08-04 "v18.3" entry.
 - **v35 (2026-08-04)** — Susan flagged directly: "easy star all stars is at the cornerstone." v34's research had actually already found this exact date/venue (Oct 22, 2026, Cornerstone Berkeley) on Songkick's artist calendar, but left it out since Cornerstone's own site didn't confirm it. Re-checked three more ways at Susan's prompt (Cornerstone's own site again, its SeatGeek page, its Songkick venue page) — still not corroborated anywhere except Songkick's own specific dated event page for this show, which does exist and shows tickets on sale. Asked Susan for her source; she confirmed the same date. Added as a second, distinct `MANUAL_SHOWS` entry for Easy Star All-Stars (a real second Bay Area date five days apart from the Guild Theatre one, not a duplicate), tagged transparently in the data itself as Songkick-sourced rather than venue-confirmed since no direct vendor ticket link could be found. Also now the second known real show a venue-shows.mjs parser (this time Cornerstone's) should have caught and didn't — flagged for follow-up alongside the Sweetwater gap from v34. `netlify/functions/venue-shows.mjs` bumped to v4. Full narrative in CLAUDE.md's 2026-08-04 "venue-shows.mjs v4" entry.
@@ -614,6 +615,85 @@ only the Watching list (narrower, deliberately curated, matches what
 plan defaults to Watching-only as the more literal reading of "who i am
 interested in," but that's a judgment call worth confirming before writing
 code.
+
+### Phase 10 — built (2026-08-05), one day after the plan above
+
+Susan answered both open questions: radius = fixed ~25mi (not city-size-
+scaled); scope = **full catalog + wishlists + the venue scrape this repo
+already runs** (broader than the plan's Watching-only default) — watching
+is included too, for consistency with `venue-shows.mjs` v18.5's own
+precedent of treating a watched-only artist the same as a catalog/wishlist
+one. "Document only for now" was the answer that day; this entry is the
+actual build the next day.
+
+**One real design deviation from the plan above, worth being explicit
+about:** step 2's plan said "sweeps the full watched + catalog + wishlist
+artist list... through the now-generalized `tour-dates.mjs` logic" — i.e.
+one SeatGeek performer+event lookup PER ARTIST, the same pattern
+`sweepCatalog()` already uses for Coming Soon. Building it that way turned
+out not to scale to this use case: `sweepCatalog()` gets away with ~170
+per-artist calls (94 catalog + 76 wishlist, concurrency-capped at 5)
+because it's client-side, runs against a FIXED location (home), and
+caches the result for an hour. A cross-site check has none of those
+properties — it needs to answer for an ARBITRARY destination, synchronously,
+inside one Netlify Function call, with no cache on day one (per the plan's
+own "live-lookup v1" recommendation) — and ~170 sequential-ish SeatGeek
+round trips risked the function timeout and a visibly slow homepage on
+Travel Intelligence's side.
+
+**Built instead:** `netlify/functions/artists-playing.mjs` (new) queries
+SeatGeek's `/events` by LOCATION + DATE WINDOW ONLY — no performer filter,
+a natural extension of the same endpoint used the other direction — getting
+back every event near the destination during the trip regardless of
+artist, then cross-references the (small, in-memory) performer list against
+the catalog/wishlist/watching artist set. This is a small, bounded number
+of calls regardless of catalog size, not O(artists). Second source: this
+site's own `/api/venue-shows` (the 7-venue scrape + `MANUAL_SHOWS`), per
+Susan's explicit "venue site scraping u set up" — filtered by a small
+hand-entered `VENUE_COORDS` lookup (public knowledge, not verified against
+a live mapping API; worth a spot-check if a match ever looks geographically
+wrong) and the trip's date window. Both sources de-duped and merged.
+`tour-dates.mjs` was still generalized as planned (v5: optional `lat`/`lon`/
+`date_start`/`date_end`, all backward-compatible, defaulting to the old
+Berkeley/no-window behavior) — that generalization just isn't what
+`artists-playing.mjs` itself calls; it's there because a future per-artist
+use case (e.g. "is this ONE artist playing near my trip") would want it,
+and because it was explicitly asked for.
+
+`GET /api/artists-playing?lat=&lon=&date_start=&date_end=` — fixed 25mi
+range (not user-adjustable), returns `{ matches: [...], meta: {...} }`.
+Pure functions (`buildArtistIndex`, `matchSeatGeekEvents`, `matchVenueShows`,
+`milesBetween`) exported and covered by `scripts/test-artists-playing.mjs`
+(16 assertions, no live network/API key needed — same pattern
+`test-audio-preview.mjs` established), including a tribute-act regression
+case (a "Sade" performer with no tribute qualifier, but a tribute event
+title — same defense `tour-dates.mjs` already has) and a "real Bay Area
+match correctly does NOT surface for a far-away destination" case, proving
+the venue-shows half's honest geographic limitation actually holds.
+
+`concert-radar.html` (v19) now calls this chain from each Watching row:
+this site's own `/api/artists-playing` is queried once per trip
+`travelintelligence.org/api/watched-trips` reports, cross-referenced
+against the artists actually rendered, and a real hit appends a green
+`.travel-match` note below the row's existing date/price/tickets info.
+Best-effort, fire-and-forget, never blocks the row's own real data if
+either site is unreachable. `style.css` bumped to v29 (new `.travel-match`
+rule) and every page's `style.css?v=` reference bumped in the same pass,
+per this repo's own cache-bust discipline.
+
+**Not verified live** — same standing caveat as v18.4/v18.5: no browser or
+outbound API access from this session (WebFetch blocked site-wide by
+robots.txt, no curl). `npm run check` and the extracted-script
+`node --check` both pass; `test-artists-playing.mjs`'s 16 assertions pass
+against fixture data. **Not extended:** `scripts/e2e-concert-radar.mjs`
+(the real jsdom harness) was NOT updated with a `.travel-match` fixture
+case in this pass — `checkTravelMatches()` doesn't touch any of the
+existing matching logic that harness covers (`findWatchMatches`/
+`isWatching`/`isShowWatched`), but its own DOM-append behavior is only
+covered by the fixture-based unit tests above, not a real-DOM E2E pass.
+Worth adding a fixture case there next time this file is touched, and
+worth a real live check against both deployed sites once Susan has pushed
+this commit.
 
 ---
 

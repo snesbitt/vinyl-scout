@@ -1,5 +1,21 @@
 // netlify/functions/tour-dates.mjs
-// version: 4
+// version: 5
+// Phase 10 — Travel Intelligence hooks (2026-08-05). Generalized beyond the
+// hardcoded Berkeley home location, per the plan drafted 2026-08-04 (see
+// PROJECT.md's Phase 10 section) and Susan's answers on radius/scope. Two
+// new, both OPTIONAL query params, fully backward compatible — every
+// existing caller (concert-radar.html's Search panel, Watching "Check
+// live", the Coming Soon catalog sweep) keeps working unchanged since none
+// of them pass these params and both default to the old behavior:
+//   - lat/lon: override HOME_LAT/HOME_LON for this one request. Used by the
+//     new artists-playing.mjs (below) so a per-artist SeatGeek lookup can be
+//     scoped to a travel destination instead of home.
+//   - date_start/date_end (YYYY-MM-DD): when both are present, adds
+//     SeatGeek's own datetime_utc.gte/datetime_utc.lte range params so
+//     results are time-boxed to a trip window instead of "everything
+//     upcoming." Either alone is ignored (SeatGeek needs both ends of a
+//     range to mean anything) — see the 400 check below.
+//
 // Phase 11 — Concert Radar real feed test (SeatGeek first; Ticketmaster later,
 // per Susan's 2026-08-03 call to start with SeatGeek since Ticketmaster's own
 // developer signup was slow).
@@ -119,6 +135,25 @@ export default async (req) => {
     return json({ error: "Provide an artist name, e.g. ?artist=Kraftwerk" }, 400);
   }
 
+  // v5: optional lat/lon override. Both must be present and parse as
+  // finite numbers, or this request falls back to home (Berkeley) exactly
+  // as before — a half-supplied pair is treated as "not supplied" rather
+  // than a 400, since every pre-v5 caller only ever omits both.
+  var latParam = parseFloat(url.searchParams.get("lat"));
+  var lonParam = parseFloat(url.searchParams.get("lon"));
+  var lat = (isFinite(latParam) && isFinite(lonParam)) ? latParam : HOME_LAT;
+  var lon = (isFinite(latParam) && isFinite(lonParam)) ? lonParam : HOME_LON;
+
+  // v5: optional date window. Both ends required together (see header
+  // comment) — a lone date_start or date_end is dropped rather than
+  // producing a one-sided SeatGeek range whose meaning would be ambiguous.
+  var dateStart = (url.searchParams.get("date_start") || "").trim();
+  var dateEnd = (url.searchParams.get("date_end") || "").trim();
+  var hasDateWindow = /^\d{4}-\d{2}-\d{2}$/.test(dateStart) && /^\d{4}-\d{2}-\d{2}$/.test(dateEnd);
+  if (hasDateWindow && dateEnd < dateStart) {
+    return json({ error: "date_end is before date_start" }, 400);
+  }
+
   function authParams() {
     const p = new URLSearchParams();
     p.set("client_id", clientId);
@@ -196,11 +231,15 @@ export default async (req) => {
     if (performer && performer.slug) {
       const evParams = authParams();
       evParams.set("performers.slug", performer.slug);
-      evParams.set("lat", String(HOME_LAT));
-      evParams.set("lon", String(HOME_LON));
+      evParams.set("lat", String(lat));
+      evParams.set("lon", String(lon));
       evParams.set("range", range);
       evParams.set("sort", "datetime_utc.asc");
       evParams.set("per_page", "10");
+      if (hasDateWindow) {
+        evParams.set("datetime_utc.gte", dateStart + "T00:00:00");
+        evParams.set("datetime_utc.lte", dateEnd + "T23:59:59");
+      }
       const evData = await seatGeekGet("events", evParams);
       const rawEvents = Array.isArray(evData.events) ? evData.events : [];
       // Filter on the EVENT's own title, not just the performer name — a
@@ -252,9 +291,11 @@ export default async (req) => {
       matched_performer: performer ? performer.name : null,
       matched_slug: performer ? performer.slug : null,
       match_tier: matchTier,
-      lat: HOME_LAT,
-      lon: HOME_LON,
+      lat,
+      lon,
       range,
+      date_start: hasDateWindow ? dateStart : null,
+      date_end: hasDateWindow ? dateEnd : null,
     },
   }, 200);
 };

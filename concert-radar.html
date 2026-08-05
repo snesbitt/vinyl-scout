@@ -17,9 +17,51 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=28" />
+  <link rel="stylesheet" href="/style.css?v=29" />
   <style>
-    /* Concert Radar — version: 18.4 (2026-08-04).
+    /* Concert Radar — version: 19 (2026-08-05).
+       v19: Phase 10 — Travel Intelligence hooks (the build, not just the
+       plan drafted 2026-08-04). Each Watching row now checks
+       travelintelligence.org's /api/watched-trips for a trip Susan's
+       already watching there, then this site's own new
+       /api/artists-playing (location + date-window matching against the
+       catalog/wishlist/watching artist set, no per-artist SeatGeek
+       fan-out) for whether that artist is playing near the destination
+       during the trip. A real hit appends a green .travel-match note
+       below the row's existing date/price/tickets info — best-effort,
+       fire-and-forget from the end of renderWatchList(), never blocks or
+       replaces the row's own real data if either site is unreachable.
+       See netlify/functions/artists-playing.mjs's own header comment for
+       the full design rationale (why this doesn't just sweep
+       tour-dates.mjs per artist) and PROJECT.md's Phase 10 section for
+       the resolved radius (fixed ~25mi) and scope (catalog + wishlist +
+       venue scrape, watching included for v18.5 consistency) decisions.
+       style.css bumped to v29 for the new .travel-match rule.
+       v18.5: Susan reported Coming Soon showing Sweetwater Music Hall's
+       ENTIRE upcoming calendar, not just shows relevant to her. Root
+       cause: venue-shows.mjs deliberately returns every show at its 7
+       scraped venues with no artist filtering server-side (by design —
+       see that file's own header comment), and the client never filtered
+       it back down before merging into Coming Soon — v16's own comment on
+       this ("has nothing to do with what's in the catalog/wishlist") was
+       describing the fetch, but nothing downstream ever applied the
+       relevancy filter runLiveSearch() already used for a single searched
+       artist. Fixed by reusing that exact same filter (now shared as
+       artistIsRelevant(), built on v18.4's normalizeArtistKey) in
+       sweepCatalog() too, against the full list of artists Susan actually
+       cares about — catalog + wishlist + watching (fetchDistinctArtists()
+       now also pulls /api/watching, so a watched-only artist like Black
+       Uhuru isn't wrongly treated as "not relevant"). Also upgraded
+       runLiveSearch()'s own venue-match filter from a raw lowercase
+       substring compare to the same artistIsRelevant() call, closing the
+       same punctuation/spacing gap v18.4 fixed for Watching in this
+       sibling code path too. Verified via scripts/e2e-concert-radar.mjs
+       (npm run test:concert-radar-e2e): two fixture shows for unrelated
+       artists at Sweetwater no longer reach Coming Soon, while a real
+       relevant-but-unwatched match (Thievery Corporation at a different
+       scraped venue) still does, and Watching-panel matches for Black
+       Uhuru/Easy Star All-Stars still work under both exact and drifted
+       spellings.
        v18.4: v18.3's cache-bump deployed and Susan STILL reported neither
        Black Uhuru nor Easy Star All-Stars showing up in Watching — proof
        the stale-cache theory was wrong or incomplete, since a forced fresh
@@ -635,6 +677,14 @@
     .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; cursor: pointer; margin-top: 6px; }
     .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
+    /* 2026-08-05, Phase 10 — Travel Intelligence match note. Appended (JS,
+       best-effort, never blocks the row's own render) when a cross-site
+       check against travelintelligence.org's /api/watched-trips finds this
+       watched artist playing near a trip Susan's already watching there.
+       Mirrors --good the way Travel Intelligence's own .concert-match uses
+       its --good — same "bonus, not a warning" visual language on both sides. */
+    .travel-match { font-family: var(--sans); font-size: 12px; color: var(--good); background: rgba(74, 107, 59, 0.10); border-radius: 4px; padding: 6px 10px; margin-top: 8px; line-height: 1.4; }
+    .travel-match a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
     .cr-watch-detail-form { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; margin-top: 14px; }
     .cr-watch-detail-hint { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
 
@@ -1149,6 +1199,76 @@
         statusHtml +
       '</div>';
     }).join('');
+    checkTravelMatches();
+  }
+
+  // 2026-08-05, Phase 10 — Travel Intelligence hooks (the mirrored half of
+  // Travel Intelligence's own checkConcertMatches() in its index.html).
+  // Best-effort, fire-and-forget: called from the end of renderWatchList()
+  // so every render path (initial load, a new watch, an unwatch) picks it
+  // up automatically. For each of Susan's watched trips on
+  // travelintelligence.org, asks THIS site's own /api/artists-playing
+  // (already built to answer exactly "which of my catalog/wishlist/
+  // watching artists are playing near this location during this date
+  // window") whether anything matches, then cross-references that against
+  // the watched artists actually rendered on screen. A failure anywhere in
+  // this chain (either site down, CORS, offline) silently leaves the row
+  // exactly as it already rendered — this is a bonus, never a blocker, and
+  // never delays or replaces the Watching panel's own real data.
+  function fmtTripDateRange(dateStart, dateEnd) {
+    var s = fmtWatchDateSingle(dateStart);
+    var e = fmtWatchDateSingle(dateEnd);
+    return (dateStart === dateEnd || !e) ? s : (s + '–' + e);
+  }
+  function fmtWatchDateSingle(iso) {
+    if (!iso) return '';
+    var d = new Date(iso + 'T12:00:00');
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function checkTravelMatches() {
+    if (!watching.length) return;
+    fetch('https://travelintelligence.org/api/watched-trips', { signal: AbortSignal.timeout(6000) })
+      .then(function (r) { return r.ok ? r.json() : { trips: [] }; })
+      .then(function (j) {
+        var trips = (j.trips || []).filter(function (t) { return t.lat != null && t.lon != null && t.dateStart && t.dateEnd; });
+        if (!trips.length) return;
+        return Promise.all(trips.map(function (t) {
+          var u = new URL('/api/artists-playing', location.origin);
+          u.searchParams.set('lat', t.lat);
+          u.searchParams.set('lon', t.lon);
+          u.searchParams.set('date_start', t.dateStart);
+          u.searchParams.set('date_end', t.dateEnd);
+          return fetch(u.toString(), { signal: AbortSignal.timeout(6000) })
+            .then(function (r) { return r.ok ? r.json() : { matches: [] }; })
+            .then(function (data) { return { trip: t, matches: data.matches || [] }; })
+            .catch(function () { return { trip: t, matches: [] }; });
+        })).then(function (perTrip) {
+          var byArtist = {};
+          perTrip.forEach(function (pt) {
+            pt.matches.forEach(function (m) {
+              var key = normalizeArtistKey(m.artist);
+              (byArtist[key] = byArtist[key] || []).push({ trip: pt.trip, match: m });
+            });
+          });
+          var rows = els.watchList.querySelectorAll('.cr-watch-row');
+          watching.forEach(function (w, i) {
+            var hits = byArtist[normalizeArtistKey(w.artist)];
+            if (!hits || !hits.length) return;
+            var row = rows[i];
+            if (!row || row.querySelector('.travel-match')) return; // no row, or a duplicate on a re-render race
+            var hit = hits[0];
+            var note = document.createElement('div');
+            note.className = 'travel-match';
+            note.innerHTML = '✈️ You’re watching a trip to ' + esc(hit.trip.destination || 'that area') +
+              ' (' + esc(fmtTripDateRange(hit.trip.dateStart, hit.trip.dateEnd)) + ') — ' +
+              esc(w.artist) + ' plays ' + esc(hit.match.venue || 'nearby') +
+              (hit.match.dateLabel ? ' ' + esc(hit.match.dateLabel) : '') + '.';
+            row.appendChild(note);
+          });
+        });
+      })
+      .catch(function (e) { /* best-effort — see function comment */ });
   }
 
   els.clearBtn.addEventListener('click', function () {
@@ -1499,8 +1619,6 @@
     els.searchBtn.textContent = 'Searching…';
     showLiveStatus('Searching SeatGeek and watched venues for “' + artist + '” near Berkeley…', false);
 
-    var artistQ = artist.toLowerCase();
-
     Promise.all([
       fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
         .then(function (res) {
@@ -1511,13 +1629,14 @@
     ]).then(function (results) {
       var tourDatesResult = results[0];
       var venueShowsAll = results[1];
-      // Same loose substring match as findWatchMatches() — a venue show's
-      // artist (already defaulted to title by normalizeVenueShows() when
-      // the venue's own parser never extracted a distinct artist) either
-      // contains the query or the query contains it.
+      // v18.5: now goes through artistIsRelevant() (the same normalized
+      // match findWatchMatches()/isShowWatched()/sweepCatalog() all use)
+      // instead of a raw lowercase substring compare, so a search for
+      // "Easy Star All Stars" (no hyphen) finds a venue show filed as
+      // "Easy Star All-Stars" the same way Watching and Coming Soon
+      // already do post-v18.4.
       var venueMatches = normalizeVenueShows(venueShowsAll).filter(function (s) {
-        var a = (s.artist || '').toLowerCase();
-        return !!a && (a.indexOf(artistQ) !== -1 || artistQ.indexOf(a) !== -1);
+        return artistIsRelevant(s.artist, [artist]);
       });
 
       var seatgeekOk = tourDatesResult.ok;
@@ -1602,16 +1721,27 @@
     });
   }
 
+  // v18.5: now also pulls the Watching list, not just catalog/wishlist — a
+  // watched artist with no catalog/wishlist entry (e.g. Black Uhuru, added
+  // via watching.mjs's one-time seed) needs to be in this "relevant
+  // artists" list too, both so it gets its own direct SeatGeek sweep
+  // (previously it never did) and so venue-shows.mjs's results can be
+  // filtered against it below. An extra /api/watching fetch (the Watching
+  // panel already makes its own separate call via loadWatching()) is a
+  // small, cheap redundancy traded for not depending on load ordering
+  // between the two.
   function fetchDistinctArtists() {
     return Promise.all([
       fetch('/api/records').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
-      fetch('/api/wishlist').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+      fetch('/api/wishlist').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+      fetch('/api/watching').then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
     ]).then(function (results) {
       var records = Array.isArray(results[0]) ? results[0] : [];
       var wishlist = Array.isArray(results[1]) ? results[1] : [];
+      var watchingList = Array.isArray(results[2]) ? results[2] : [];
       var seen = {};
       var names = [];
-      records.concat(wishlist).forEach(function (item) {
+      records.concat(wishlist).concat(watchingList).forEach(function (item) {
         var name = (item && item.artist ? String(item.artist) : '').trim();
         if (!name) return;
         var key = name.toLowerCase();
@@ -1620,6 +1750,20 @@
         names.push(name);
       });
       return names;
+    });
+  }
+
+  // v18.5: shared relevancy check — is this show's artist someone Susan
+  // actually cares about (catalog, wishlist, or watching)? Same normalized
+  // substring match findWatchMatches()/isShowWatched() use (see
+  // normalizeArtistKey's v18.4 fix), reused here rather than a third copy
+  // of the same matching logic.
+  function artistIsRelevant(showArtist, relevantNames) {
+    var a = normalizeArtistKey(showArtist);
+    if (!a) return false;
+    return relevantNames.some(function (name) {
+      var q = normalizeArtistKey(name);
+      return !!q && (a.indexOf(q) !== -1 || q.indexOf(a) !== -1);
     });
   }
 
@@ -1676,34 +1820,42 @@
   // kicked off — the init code below chains onto this to clear
   // initialLoadInFlight once real data (or a confirmed real "nothing
   // found") is in, instead of the moment the request merely started.
+  // v18.5: live-caught by Susan — Coming Soon was showing Sweetwater Music
+  // Hall's ENTIRE upcoming calendar, not just shows relevant to her. Root
+  // cause: venue-shows.mjs deliberately returns every show at its 7
+  // scraped venues with no artist filtering server-side (see that file's
+  // own header comment — it's a pure read of public venue data, and
+  // knows nothing about the catalog/wishlist/watching by design). The v16
+  // comment below used to describe that as a feature ("has nothing to do
+  // with what's in the catalog/wishlist") without noticing the client
+  // never filtered it back down before display either — so every one of
+  // the 7 venues' full calendars was reaching Coming Soon unfiltered. Fixed
+  // by reusing the exact relevancy filter runLiveSearch() already applies
+  // to a single searched artist (see that function's own comment), just
+  // against the full list of artists Susan actually cares about instead of
+  // one typed name.
   function sweepCatalog() {
     if (sweepInFlight) return Promise.resolve();
     sweepInFlight = true;
 
-    // v16: venue-shows.mjs's 7-venue scrape (added 2026-08-04) is a fixed
-    // list of Bay Area venues, not an artist lookup — it has nothing to do
-    // with what's in the catalog/wishlist. Kick it off immediately, in
+    // venue-shows.mjs's 7-venue scrape is a fixed list of Bay Area venues,
+    // not an artist lookup — it has nothing to do with what's in the
+    // catalog/wishlist/watching server-side. Kick it off immediately, in
     // parallel with the artist lookup below, so a sweep always re-scrapes
-    // those venues too (previously this fetch lived inside the
-    // artists.length branch below and was skipped entirely on the
-    // zero-artists early return — a real gap, not just a hypothetical one,
-    // since venue-shows owes the catalog nothing).
+    // those venues too. Its results get filtered down to relevant artists
+    // client-side below, once the artist list is in — the fetch itself
+    // stays unfiltered since venue-shows.mjs owes the catalog nothing.
     var venueShowsPromise = fetchVenueShows();
 
     return fetchDistinctArtists().then(function (artists) {
-      if (!artists.length) {
-        return venueShowsPromise.then(function (venueShows) {
-          catalogShows = dedupeById(normalizeVenueShows(venueShows));
-          saveCache(catalogShows, 0);
-          renderList();
-        });
-      }
-
-      // Two sources run in parallel: the existing per-artist SeatGeek sweep,
-      // plus the venue scrape kicked off above. venue-shows.mjs returns
-      // shows in the exact same shape tour-dates.mjs does, so no reshaping
-      // is needed here — they just concat into the same list before
-      // de-duping.
+      // Two sources run in parallel: the existing per-artist SeatGeek
+      // sweep, plus the venue scrape kicked off above. venue-shows.mjs
+      // returns shows in the exact same shape tour-dates.mjs does, so no
+      // reshaping is needed — they just concat into the same list before
+      // de-duping, once the venue side has been filtered to relevance.
+      // mapLimit/artistIsRelevant both handle an empty `artists` list
+      // safely (resolves to [] / matches nothing), so no separate
+      // zero-artists branch is needed here anymore.
       return Promise.all([
         mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
           return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
@@ -1715,7 +1867,10 @@
       ]).then(function (results) {
         var perArtistShows = results[0];
         var venueShows = results[1];
-        var all = normalizeVenueShows(venueShows);
+        var relevantVenueShows = normalizeVenueShows(venueShows).filter(function (s) {
+          return artistIsRelevant(s.artist, artists);
+        });
+        var all = relevantVenueShows;
         perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and

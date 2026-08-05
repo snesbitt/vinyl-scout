@@ -1355,3 +1355,107 @@ and the extracted-script `node --check` both pass; the jsdom E2E harness
 passes against its own fixtures. The next live session (or the weekly
 health-check task once it next fires) should verify directly against
 the deployed site once Susan has pushed and deployed this commit.
+
+## 2026-08-04 — v18.5: venue-scraped calendars were showing unfiltered in Coming Soon
+
+Susan, back at her screen briefly: "it seems to be putting the entire
+sweetwater calendar in coming soon / use the logic in place to filter for
+relevancy."
+
+**Root cause.** `venue-shows.mjs` deliberately returns every show at its 7
+scraped venues with zero artist filtering server-side — that's by design
+(see that file's own header: "pure read of public event data, no
+catalog/wishlist exposure"). The bug was on the client: nothing ever
+filtered that response back down before merging it into Coming Soon.
+`sweepCatalog()`'s own v16 comment ("has nothing to do with what's in the
+catalog/wishlist") was describing the fetch accurately but nobody noticed
+the display side never applied a relevancy filter either — so every one of
+the 7 venues' full calendars was reaching Coming Soon unfiltered the whole
+time this feature has existed. Susan happened to notice it via Sweetwater
+specifically (probably because that's the venue she was already looking at
+for the Black Uhuru show), but this affected all 7 venues equally.
+
+**"The logic in place," as Susan put it, already existed** — `runLiveSearch()`
+(the ad-hoc Search panel) already filtered `venue-shows.mjs`'s results down
+to whatever substring-matched the one artist name Susan typed in. The fix
+is that same filter, applied to `sweepCatalog()` too, scoped to the full
+list of artists Susan actually cares about instead of one typed name.
+
+**What changed:**
+- New shared `artistIsRelevant(showArtist, relevantNames)` — same
+  normalized substring match `findWatchMatches()`/`isWatching()`/
+  `isShowWatched()` already use (v18.4's `normalizeArtistKey()`), reused
+  rather than a fourth copy of the same logic.
+- `fetchDistinctArtists()` now also fetches `/api/watching`, not just
+  `/api/records`/`/api/wishlist` — a watched-only artist with no
+  catalog/wishlist entry (Black Uhuru) needs to count as "relevant" too,
+  both for this filter and so it finally gets its own direct SeatGeek
+  sweep (a real gap that existed before this fix — watched-only artists
+  never got queried against `/api/tour-dates` at all until now).
+- `sweepCatalog()` now filters `venue-shows.mjs`'s response through
+  `artistIsRelevant()` against that full artist list before merging into
+  `catalogShows` — an irrelevant venue show (the vast majority of any real
+  venue's calendar) never reaches Coming Soon anymore. The old
+  zero-artists early-return branch was removed — `artistIsRelevant`/
+  `mapLimit` both handle an empty artist list safely (matches/queries
+  nothing), so it was redundant and asymmetric with the new filtered path.
+- `runLiveSearch()`'s own venue-match filter upgraded from a raw
+  lowercase substring compare to `artistIsRelevant()` too, closing the
+  same punctuation/spacing gap v18.4 fixed for Watching in this sibling
+  code path (a search for "Easy Star All Stars" with no hyphen now finds
+  a venue show filed as "Easy Star All-Stars," same as Watching does).
+
+**Verification.** Extended `scripts/e2e-concert-radar.mjs` (real DOM, real
+shipped code, not a reimplementation — see v18.4's entry above for why this
+harness exists) with three new fixture shows: two irrelevant Sweetwater
+listings (an unrelated jazz quartet, an open mic night) and one relevant-
+but-unwatched match (Thievery Corporation, already in the `records`
+fixture, at a different scraped venue). Confirmed: both irrelevant shows
+no longer reach `#cr-list`, the relevant-but-unwatched match still does,
+and Black Uhuru/Easy Star All-Stars still match correctly in Watching under
+both exact and drifted spellings — the relevancy filter doesn't over-correct
+into hiding real matches. `npm run check` and the extracted-script
+`node --check` both pass. `concert-radar.html` bumped to v18.5.
+
+**Not verified live** — same standing caveat as v18.4: no browser/API
+access this session, so this is confirmed against the E2E harness's
+fixtures, not the actual deployed site or Susan's real venue-shows/watching
+data. Worth a real look at vinylscout.org/concert-radar next live session.
+
+## 2026-08-05 — Phase 10 built: Travel Intelligence hooks (v19)
+
+The day after the technical plan (2026-08-04, PROJECT.md's Phase 10
+section) and Susan's own answers on the two open questions — fixed ~25mi
+radius, and matching scope = full catalog + wishlist + this repo's venue
+scrape (broader than the plan's Watching-only default, watching included
+too for consistency with v18.5's own precedent) — this is the actual
+build. Full design writeup, including one deliberate deviation from the
+drafted plan (a location-first SeatGeek query instead of a per-artist
+sweep — the per-artist approach doesn't scale to a live, uncached,
+arbitrary-destination check the way it does for `sweepCatalog()`'s
+fixed-location, client-cached Coming Soon sweep), lives in PROJECT.md's
+Phase 10 section — not repeated here.
+
+**New:** `netlify/functions/artists-playing.mjs` (`GET
+/api/artists-playing?lat=&lon=&date_start=&date_end=`) — the endpoint
+Travel Intelligence's side calls. `tour-dates.mjs` generalized to v5
+(optional `lat`/`lon`/`date_start`/`date_end`, fully backward-compatible)
+per the plan, though `artists-playing.mjs` itself doesn't call it (see
+above). `scripts/test-artists-playing.mjs` — 16 assertions against the
+four newly-exported pure functions, no live network/API key needed.
+
+**Changed:** `concert-radar.html` (v19) — each Watching row now checks
+Travel Intelligence's watched trips and appends a green `.travel-match`
+note on a real hit; best-effort, never blocks the row's own data.
+`style.css` v29 (new `.travel-match` rule) — every page's `style.css?v=`
+bumped in the same pass per this repo's cache-bust discipline.
+`roadmap.html` — Phase 10 moved from Future to Live.
+
+**Not verified live** — same standing caveat as every Concert Radar entry
+above: no browser/outbound API access this session. `npm run check` and
+the extracted-script `node --check` pass on both `concert-radar.html` and
+every `.mjs` function; `test-artists-playing.mjs`'s 16 assertions pass.
+**`scripts/e2e-concert-radar.mjs` was NOT extended** with a
+`.travel-match` fixture case this pass — flagged as a real gap in
+PROJECT.md's Phase 10 build entry, worth closing next time this file is
+touched.

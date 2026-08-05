@@ -16,7 +16,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=28" />
+  <link rel="stylesheet" href="/style.css?v=29" />
   <style>
     .roadmap-intro { max-width: 860px; margin: 30px auto 0; padding: 0 32px; font-family: var(--sans); font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
     .roadmap { max-width: 860px; margin: 8px auto 0; padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 26px; }
@@ -85,10 +85,10 @@
   <a href="#phase-5" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>5 2026 reliability &amp; polish</a>
   <a href="#phase-9" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>9 wishlist priority</a>
   <a href="#phase-11" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>11 concert radar</a>
+  <a href="#phase-10" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>10 travel intelligence hooks</a>
   <a href="#phase-7" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>7 iOS app</a>
   <a href="#phase-6" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>6 editorial polish pass</a>
   <a href="#phase-8" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>8 close the wishlist gap</a>
-  <a href="#phase-10" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>10 travel intelligence hooks</a>
 </nav>
 
 <main class="roadmap">
@@ -213,15 +213,15 @@
     </div>
   </section>
 
-  <section class="phase phase--future" id="phase-10">
+  <section class="phase phase--live" id="phase-10">
     <div class="phase__rail">10</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">Travel Intelligence hooks</h3>
-        <span class="phase__status phase__status--future">Future</span>
+        <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Cross-reference your trips with your music</p>
-      <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a> (the owner&rsquo;s other project). Travel Intelligence&rsquo;s watched trips &mdash; destination city and date range only, no fares or points data &mdash; get checked against artists you like here, and matches surface on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; on Vinyl Scout, and a note against the relevant watched trip over on Travel Intelligence. Depended on Phase 11 existing first &mdash; now that Concert Radar is live, this phase is technically unblocked. A full technical plan was drafted 2026-08-04 (see PROJECT.md) &mdash; still nothing built yet.</p>
+      <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a> (the owner&rsquo;s other project). Travel Intelligence&rsquo;s watched trips &mdash; destination city and date range only, no fares or points data &mdash; get checked against artists you like here (your collection, your wishlist, and everyone you&rsquo;re watching), within about 25 miles of the destination. A real match surfaces on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; here on the Watching panel, and a note against the relevant watched trip over on Travel Intelligence. Built 2026-08-05, the day after the technical plan (see PROJECT.md for the full design, including one deliberate deviation from that plan for scalability). Best-effort on both ends &mdash; if either site is briefly unreachable, the rest of the page still works exactly as it always did.</p>
     </div>
   </section>
 
