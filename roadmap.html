@@ -30,13 +30,6 @@
     .phase__status--future { color: var(--ink-faint); border: 1px solid var(--rule); }
     .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin: 10px 0 0; }
     .phase__covers { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 8px 0 0; }
-    .roadmap-overview { max-width: 860px; margin: 18px auto 0; padding: 0 32px; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
-    .ro-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 2px; text-decoration: none; border: 1px solid var(--rule); color: var(--ink-soft); background: var(--surface); }
-    .ro-chip:hover { border-color: var(--accent); color: var(--accent); }
-    .ro-chip.ro-live { color: var(--good); border-color: var(--good); }
-    .ro-chip.ro-future { color: var(--ink-faint); border-color: var(--rule); }
-    .ro-dot { font-size: 8px; line-height: 1; }
-    @media (max-width: 640px) { .roadmap-overview { padding: 0 18px; margin-top: 14px; } }
 
     .roadmap-note { max-width: 860px; margin: 26px auto 0; padding: 0 32px 90px; font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.03em; color: var(--ink-faint); }
     @media (max-width: 640px) {
@@ -71,20 +64,6 @@
   </header>
 
 <h2 class="collection-title">Roadmap</h2>
-
-<nav class="roadmap-overview" aria-label="All phases at a glance, live first in ship order, then future">
-  <a href="#phase-1" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>1 cataloguing by photo</a>
-  <a href="#phase-2" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>2 market enrichment</a>
-  <a href="#phase-3" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>3 wishlist</a>
-  <a href="#phase-4" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>4 listen</a>
-  <a href="#phase-5" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>5 2026 reliability &amp; polish</a>
-  <a href="#phase-9" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>9 wishlist priority</a>
-  <a href="#phase-11" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>11 concert radar</a>
-  <a href="#phase-10" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>10 travel intelligence hooks</a>
-  <a href="#phase-7" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>7 iOS app</a>
-  <a href="#phase-6" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>6 editorial polish pass</a>
-  <a href="#phase-8" class="ro-chip ro-future"><span class="ro-dot" aria-hidden="true">&#9675;</span>8 close the wishlist gap</a>
-</nav>
 
 <main class="roadmap">
 
