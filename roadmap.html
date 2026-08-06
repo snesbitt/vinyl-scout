@@ -18,7 +18,6 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=31" />
   <style>
-    .roadmap-intro { max-width: 860px; margin: 30px auto 0; padding: 0 32px; font-family: var(--sans); font-size: 16px; line-height: 1.6; color: var(--ink-soft); }
     .roadmap { max-width: 860px; margin: 8px auto 0; padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 26px; }
     .phase { display: grid; grid-template-columns: 64px 1fr; border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; overflow: hidden; }
     .phase__rail { background: var(--bg-soft); border-right: 1px solid var(--rule); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 32px; font-weight: 600; color: var(--accent); }
@@ -41,7 +40,7 @@
 
     .roadmap-note { max-width: 860px; margin: 26px auto 0; padding: 0 32px 90px; font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.03em; color: var(--ink-faint); }
     @media (max-width: 640px) {
-      .roadmap-intro, .roadmap-note { padding-left: 18px; padding-right: 18px; }
+      .roadmap-note { padding-left: 18px; padding-right: 18px; }
       .roadmap { padding: 12px 18px 24px; }
       .phase { grid-template-columns: 48px 1fr; }
       .phase__rail { font-size: 18px; }
@@ -72,10 +71,6 @@
   </header>
 
 <h2 class="collection-title">Roadmap</h2>
-
-<p class="roadmap-intro">
-  Vinyl Scout is built in deliberate phases, listed below live-first in the order each one actually shipped, then what's still ahead. Phases 1&ndash;5, 7 (partial), 9, and 11 are live; Phases 6, 8, and 10 are on the horizon.
-</p>
 
 <nav class="roadmap-overview" aria-label="All phases at a glance, live first in ship order, then future">
   <a href="#phase-1" class="ro-chip ro-live"><span class="ro-dot" aria-hidden="true">&#9679;</span>1 cataloguing by photo</a>
