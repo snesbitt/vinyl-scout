@@ -19,7 +19,29 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=31" />
   <style>
-    /* Concert Radar — version: 19 (2026-08-05).
+    /* Concert Radar — version: 20 (2026-08-06).
+       v20: two fixes, same session. (1) Susan: "fix this search issue
+       regarding Santigold" — a Santigold+Chicago search on the manual
+       Search panel came back "No upcoming Santigold shows found within
+       60mi of Berkeley matching \u201cChicago\u201d". Root cause: the City
+       field never actually scoped the SeatGeek query — /api/tour-dates
+       was always called artist-only (Berkeley-radius by server default)
+       and City only text-filtered those Bay Area results afterward. Fixed
+       for the one case where a real destination is actually known: the
+       Travel Intelligence deep link (initDeepLink(), below) now carries
+       the trip's real lat/lon and geo-scopes the search server-side via
+       tour-dates.mjs's existing v5 lat/lon override, instead of relying
+       on a client-side text filter that could also wrongly exclude a real
+       match (a venue.city string that doesn't literally contain the
+       searched destination name — see runLiveSearch()'s own note).
+       Manual free-text city search with no coordinates behind it keeps
+       the prior Berkeley-radius + text-filter behavior; a real geocoder
+       is a separate, undone piece of work. (2) Susan: "the green travel
+       intel takes for ever to show up and isn't persistent" — added an
+       instant-paint localStorage cache + loading placeholder to
+       checkTravelMatches(), mirroring the identical pattern Travel
+       Intelligence's own checkConcertMatches() already shipped earlier
+       today. See that function's own header comment for the full design.
        v19: Phase 10 — Travel Intelligence hooks (the build, not just the
        plan drafted 2026-08-04). Each Watching row now checks
        travelintelligence.org's /api/watched-trips for a trip Susan's
@@ -685,6 +707,7 @@
        its --good — same "bonus, not a warning" visual language on both sides. */
     .travel-match { font-family: var(--sans); font-size: 12px; color: var(--good); background: rgba(74, 107, 59, 0.10); border-radius: 4px; padding: 6px 10px; margin-top: 8px; line-height: 1.4; }
     .travel-match a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+    .travel-match-loading { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); font-style: italic; margin-top: 8px; line-height: 1.4; }
     .cr-watch-detail-form { border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; padding: 16px; margin-top: 14px; }
     .cr-watch-detail-hint { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); margin: 0 0 12px; }
 
@@ -708,6 +731,7 @@
       .cr-hero { grid-template-columns: 1fr; }
       .cr-fields { grid-template-columns: 1fr; }
       .cr-item, .cr-live-item { flex-direction: column; align-items: flex-start; }
+      .cr-who { flex: 0 0 auto; }
       .cr-meta { text-align: left; }
       .cr-search-actions { flex-direction: column; align-items: stretch; }
       .cr-search-btn { width: 100%; }
@@ -1226,13 +1250,77 @@
     if (isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
+  // 2026-08-06, later — instant-paint cache + loading state (Susan: "the
+  // green travel intel takes for ever to show up and isn't persistent").
+  // Mirrors the identical pattern already shipped on Travel Intelligence's
+  // own checkConcertMatches() in its index.html, same day, same rationale:
+  // this is a stale-while-revalidate cache, not a substitute for the live
+  // check below — the live two-hop fetch (travelintelligence.org's own
+  // /api/watched-trips, then this site's own /api/artists-playing per
+  // trip) always still runs and is still the source of truth; the cache
+  // only closes the visual gap before it resolves. Device-local only
+  // (localStorage), no cross-device sync needed for a single-user site.
+  // Fails open: a live check that never completes (network/CORS/offline)
+  // leaves whatever was already painted — a cached note stays showing (a
+  // check that couldn't run isn't evidence the show got cancelled); a
+  // loading placeholder with nothing cached behind it is the one case that
+  // can be left stuck, same tradeoff Travel Intelligence's own version
+  // accepts. A live check that DOES complete is always the final word —
+  // it repaints every row, clearing any that no longer have a real hit.
+  var TRAVEL_MATCH_CACHE_KEY = 'vs-travel-match-cache-v1';
+  function loadTravelMatchCache() {
+    try { return JSON.parse(localStorage.getItem(TRAVEL_MATCH_CACHE_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveTravelMatchCache(cache) {
+    try { localStorage.setItem(TRAVEL_MATCH_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+  }
+  function buildTravelMatchHTML(artist, hit) {
+    return '✈️ You’re watching a trip to ' + esc(hit.trip.destination || 'that area') +
+      ' (' + esc(fmtTripDateRange(hit.trip.dateStart, hit.trip.dateEnd)) + ') — ' +
+      esc(artist) + ' plays ' + esc(hit.match.venue || 'nearby') +
+      (hit.match.dateLabel ? ' ' + esc(hit.match.dateLabel) : '') + '.';
+  }
+  function clearTravelMatchNote(row) {
+    var existing = row.querySelector('.travel-match, .travel-match-loading');
+    if (existing) existing.remove();
+  }
+  function paintTravelMatchNote(row, artist, hit) {
+    clearTravelMatchNote(row);
+    if (!hit) return;
+    var note = document.createElement('div');
+    note.className = 'travel-match';
+    note.innerHTML = buildTravelMatchHTML(artist, hit);
+    row.appendChild(note);
+  }
+  function paintTravelMatchLoading(row) {
+    clearTravelMatchNote(row);
+    var note = document.createElement('div');
+    note.className = 'travel-match-loading';
+    note.textContent = '✈️ Checking travel matches…';
+    row.appendChild(note);
+  }
   function checkTravelMatches() {
     if (!watching.length) return;
+    var rows = els.watchList.querySelectorAll('.cr-watch-row');
+    var cache = loadTravelMatchCache();
+
+    // Instant-paint pass: any cached hit shows immediately; otherwise a
+    // loading placeholder, so the gap before the live check resolves reads
+    // as loading rather than absent/broken.
+    watching.forEach(function (w, i) {
+      var row = rows[i];
+      if (!row) return;
+      var cached = cache[normalizeArtistKey(w.artist)];
+      if (cached && cached.hit) paintTravelMatchNote(row, w.artist, cached.hit);
+      else paintTravelMatchLoading(row);
+    });
+
     fetch('https://travelintelligence.org/api/watched-trips', { signal: AbortSignal.timeout(6000) })
-      .then(function (r) { return r.ok ? r.json() : { trips: [] }; })
+      .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
+        if (!j) return; // bad status — leave rows exactly as already painted
         var trips = (j.trips || []).filter(function (t) { return t.lat != null && t.lon != null && t.dateStart && t.dateEnd; });
-        if (!trips.length) return;
         return Promise.all(trips.map(function (t) {
           var u = new URL('/api/artists-playing', location.origin);
           u.searchParams.set('lat', t.lat);
@@ -1248,27 +1336,22 @@
           perTrip.forEach(function (pt) {
             pt.matches.forEach(function (m) {
               var key = normalizeArtistKey(m.artist);
-              (byArtist[key] = byArtist[key] || []).push({ trip: pt.trip, match: m });
+              if (!byArtist[key]) byArtist[key] = { trip: pt.trip, match: m };
             });
           });
-          var rows = els.watchList.querySelectorAll('.cr-watch-row');
+          var newCache = {};
           watching.forEach(function (w, i) {
-            var hits = byArtist[normalizeArtistKey(w.artist)];
-            if (!hits || !hits.length) return;
             var row = rows[i];
-            if (!row || row.querySelector('.travel-match')) return; // no row, or a duplicate on a re-render race
-            var hit = hits[0];
-            var note = document.createElement('div');
-            note.className = 'travel-match';
-            note.innerHTML = '✈️ You’re watching a trip to ' + esc(hit.trip.destination || 'that area') +
-              ' (' + esc(fmtTripDateRange(hit.trip.dateStart, hit.trip.dateEnd)) + ') — ' +
-              esc(w.artist) + ' plays ' + esc(hit.match.venue || 'nearby') +
-              (hit.match.dateLabel ? ' ' + esc(hit.match.dateLabel) : '') + '.';
-            row.appendChild(note);
+            if (!row) return;
+            var key = normalizeArtistKey(w.artist);
+            var hit = byArtist[key];
+            paintTravelMatchNote(row, w.artist, hit);
+            if (hit) newCache[key] = { hit: hit, at: Date.now() };
           });
+          saveTravelMatchCache(newCache);
         });
       })
-      .catch(function (e) { /* best-effort — see function comment */ });
+      .catch(function (e) { /* live check failed entirely — leave rows exactly as already painted (cache or loading) */ });
   }
 
   els.clearBtn.addEventListener('click', function () {
@@ -1508,8 +1591,19 @@
     '</div>';
   }
 
-  function renderLiveResults(shows, meta, queriedArtist) {
-    var cityQ = els.cityInput.value.trim().toLowerCase();
+  // 2026-08-06 (Susan: Santigold+Chicago search came back empty — see
+  // runLiveSearch()'s own note for the root cause). locationLabel is set
+  // only when this render follows a geo-scoped search (a real lat/lon was
+  // sent to /api/tour-dates, per a Travel Intelligence deep link) — in
+  // that case results are already correctly scoped server-side, so the
+  // client-side city-substring filter below is skipped entirely rather
+  // than applied on top. It was never safe to apply on top: a real match
+  // can have a venue.city that doesn't literally contain the searched
+  // destination text (Ziggy Marley's real Chicago-trip match plays
+  // "Highland Park, IL" — a plain substring check against "Chicago" would
+  // have dropped it even with the location correctly geo-scoped).
+  function renderLiveResults(shows, meta, queriedArtist, locationLabel) {
+    var cityQ = locationLabel ? '' : els.cityInput.value.trim().toLowerCase();
     var filtered = (shows || []).filter(function (s) {
       if (!cityQ) return true;
       return (s.city || '').toLowerCase().indexOf(cityQ) !== -1 ||
@@ -1530,11 +1624,12 @@
     }
 
     var watchRow = watchRowHtml(meta.matched_performer, els.cityInput.value.trim());
+    var nearLabel = locationLabel || 'Berkeley';
 
     if (!filtered.length) {
       els.liveBody.innerHTML = matchedLine + watchRow +
         '<div class="cr-live-status">No upcoming ' + esc(meta.matched_performer) + ' shows found within ' +
-        esc(meta.range || 'range') + ' of Berkeley' +
+        esc(meta.range || 'range') + ' of ' + esc(nearLabel) +
         (cityQ ? ' matching “' + esc(els.cityInput.value.trim()) + '”' : '') + '.</div>';
       return;
     }
@@ -1604,7 +1699,29 @@
   // client-side to whatever substring-matches the searched artist name,
   // same loose match findWatchMatches()/isShowWatched() already use
   // elsewhere in this file.
-  function runLiveSearch() {
+  // 2026-08-06 (Susan: "fix this search issue regarding Santigold" — a
+  // Santigold+Chicago search came back "No upcoming Santigold shows found
+  // within 60mi of Berkeley matching \u201cChicago\u201d"). Root cause: this
+  // panel's City field was NEVER a real location for the SeatGeek query —
+  // /api/tour-dates was always called artist-only, which server-side
+  // (tour-dates.mjs) defaults to a fixed 60mi-of-Berkeley radius, and City
+  // only ever text-filtered THOSE Bay Area results afterward. A city with
+  // no Bay Area date for that artist was always going to come back empty,
+  // regardless of what real shows exist elsewhere. tour-dates.mjs has
+  // supported an optional lat/lon override since v5 (built for Phase 10's
+  // Travel Intelligence cross-check) — this was simply never wired up to
+  // this page's own Search panel. Fixed for the one case where a real
+  // lat/lon is actually known: a deep link from Travel Intelligence's own
+  // concert-match banner (initDeepLink(), below) now carries the trip's
+  // real coordinates and passes them straight through as overrideLat/
+  // overrideLon/overrideLabel, geo-scoping the SeatGeek query itself
+  // instead of Berkeley. A manually-typed City with no coordinates behind
+  // it (no deep link) keeps the prior Berkeley-radius + text-filter
+  // behavior — turning arbitrary free-text city search into a real
+  // geo-search would need a geocoder this codebase doesn't have, and
+  // guessing coordinates from a name risked a wrong/misleading result,
+  // which is worse than the honest "near Berkeley" label it already shows.
+  function runLiveSearch(overrideLat, overrideLon, overrideLabel) {
     if (liveSearchInFlight) return;
     var artist = els.artistInput.value.trim();
     els.live.hidden = false;
@@ -1614,18 +1731,28 @@
       els.artistInput.focus();
       return;
     }
+    var hasLocationOverride = isFinite(overrideLat) && isFinite(overrideLon);
+    var locationLabel = hasLocationOverride ? (overrideLabel || 'that area') : 'Berkeley';
     liveSearchInFlight = true;
     els.searchBtn.disabled = true;
     els.searchBtn.textContent = 'Searching…';
-    showLiveStatus('Searching SeatGeek and watched venues for “' + artist + '” near Berkeley…', false);
+    showLiveStatus('Searching SeatGeek' + (hasLocationOverride ? '' : ' and watched venues') + ' for “' + artist + '” near ' + locationLabel + '…', false);
+
+    var tourDatesUrl = '/api/tour-dates?artist=' + encodeURIComponent(artist);
+    if (hasLocationOverride) {
+      tourDatesUrl += '&lat=' + encodeURIComponent(overrideLat) + '&lon=' + encodeURIComponent(overrideLon);
+    }
 
     Promise.all([
-      fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
+      fetch(tourDatesUrl)
         .then(function (res) {
           return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
         })
         .catch(function (err) { return { ok: false, status: 0, data: { error: err.message } }; }),
-      fetchVenueShows()
+      // The venue scrape only ever covers known Bay Area venues — never a
+      // real match once the search is geo-scoped somewhere else, so skip
+      // the request entirely rather than fetch it just to filter it away.
+      hasLocationOverride ? Promise.resolve([]) : fetchVenueShows()
     ]).then(function (results) {
       var tourDatesResult = results[0];
       var venueShowsAll = results[1];
@@ -1662,7 +1789,7 @@
       // still render with the typed name as the display/watch target —
       // "no SeatGeek performer" shouldn't hide a real venue-sourced match.
       var effectiveMeta = meta.matched_performer ? meta : Object.assign({}, meta, { matched_performer: artist });
-      renderLiveResults(combined, effectiveMeta, artist);
+      renderLiveResults(combined, effectiveMeta, artist, hasLocationOverride ? locationLabel : null);
     })
       .catch(function (err) {
         showLiveStatus('Could not reach the search endpoint: ' + err.message, true);
@@ -1674,7 +1801,11 @@
       });
   }
 
-  els.searchBtn.addEventListener('click', runLiveSearch);
+  // Manual search always uses the default Berkeley-radius behavior, never
+  // a leftover location override — only initDeepLink()'s own one-shot call
+  // below ever passes overrideLat/overrideLon. Wrapped rather than passed
+  // directly so a click event object is never mistaken for one.
+  els.searchBtn.addEventListener('click', function () { runLiveSearch(); });
   els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
   els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
 
@@ -1686,6 +1817,15 @@
   // ?artist=&city= (city optional), pre-fills the same fields a manual
   // search would, and fires runLiveSearch() once (not wired to anything
   // else that changes the URL, so this never re-fires on its own).
+  //
+  // 2026-08-06, later same day: also reads ?lat=&lon= (both optional,
+  // added alongside Travel Intelligence's own fix for the Santigold/
+  // Chicago search bug above) and passes them through as a one-shot
+  // location override, so the deep-linked search is actually geo-scoped
+  // to the real destination instead of Berkeley. Travel Intelligence
+  // already knows the trip's real lat/lon (from its own /api/watched-trips
+  // data) and now sends them on the link — see concertRadarLink() in its
+  // index.html.
   (function initDeepLink() {
     var qp = new URLSearchParams(window.location.search);
     var artist = qp.get('artist');
@@ -1693,7 +1833,13 @@
     els.artistInput.value = artist;
     var city = qp.get('city');
     if (city) els.cityInput.value = city;
-    runLiveSearch();
+    var dlLat = parseFloat(qp.get('lat'));
+    var dlLon = parseFloat(qp.get('lon'));
+    if (isFinite(dlLat) && isFinite(dlLon)) {
+      runLiveSearch(dlLat, dlLon, city || 'that area');
+    } else {
+      runLiveSearch();
+    }
     if (typeof els.artistInput.scrollIntoView === 'function') {
       els.artistInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
