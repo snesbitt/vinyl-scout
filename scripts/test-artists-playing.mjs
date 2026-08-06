@@ -6,6 +6,14 @@
 // directly, no live network, no API key, no Blobs mocking needed since
 // none of these four functions touch @netlify/blobs.
 //
+// 2026-08-05, same-day fix: added a CORS-header regression test (see the
+// two new asserts at the bottom) after discovering json() never set
+// Access-Control-Allow-Origin — every direct/server-side check of this
+// endpoint saw a normal 200, which is exactly why the bug stayed invisible
+// until Travel Intelligence's own browser-side cross-origin fetch silently
+// dropped the response. Exercises the default export directly (no Blobs
+// store needed for this path — invalid lat/lon fails validation first).
+//
 // Run: node scripts/test-artists-playing.mjs
 
 import {
@@ -14,7 +22,9 @@ import {
   matchVenueShows,
   milesBetween,
   VENUE_COORDS,
+  ALLOWED_ORIGIN,
 } from "../netlify/functions/artists-playing.mjs";
+import handler from "../netlify/functions/artists-playing.mjs";
 
 var passed = 0;
 var failed = 0;
@@ -164,6 +174,18 @@ assertEqual(venueMatches[0].venue, "Sweetwater Music Hall", "matchVenueShows: su
 // is Bay-Area-only and this is the honest "no overlap" case.
 var farMatches = matchVenueShows(fakeVenueShows, venueIdx, 39.7392, -104.9903, "2026-09-01", "2026-09-20");
 assertEqual(farMatches.length, 0, "matchVenueShows: a real Bay Area match correctly does not surface for a far-away destination");
+
+// --- CORS header (2026-08-05 fix regression test) --------------------------
+
+var req400 = new Request("https://vinylscout.org/api/artists-playing?lat=bad&lon=bad");
+var res400 = await handler(req400);
+assertEqual(res400.status, 400, "handler: invalid lat/lon still returns 400 (validates before any CORS/Blobs work)");
+assertEqual(res400.headers.get("Access-Control-Allow-Origin"), ALLOWED_ORIGIN, "handler: even an error response carries Access-Control-Allow-Origin — this is the header that was missing entirely before the fix, which is why travelintelligence.org's browser-side fetch silently failed on every response, success or error");
+
+var reqMethod = new Request("https://vinylscout.org/api/artists-playing", { method: "POST" });
+var resMethod = await handler(reqMethod);
+assertEqual(resMethod.status, 405, "handler: non-GET still rejected");
+assertEqual(resMethod.headers.get("Access-Control-Allow-Origin"), ALLOWED_ORIGIN, "handler: 405 response also carries the CORS header");
 
 // --- summary ----------------------------------------------------------------
 

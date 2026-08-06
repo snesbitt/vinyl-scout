@@ -63,6 +63,24 @@
 // tour-dates.mjs — required for the SeatGeek half; the venue-shows half
 // still works without it, so a missing key degrades rather than 500s the
 // whole response).
+//
+// 2026-08-05, same-day fix: this endpoint is called cross-origin, in the
+// browser, from travelintelligence.org's own client-side JS
+// (checkConcertMatches() in that repo's index.html) — but json() below
+// only ever set Content-Type, never Access-Control-Allow-Origin. Every
+// response was a real 200 with correct data when hit directly (curl, a
+// server, or this session's own tools), which is exactly what made this
+// invisible in every check that mattered up to this point — but a browser
+// enforces CORS on the READING side: it still fires the request, still
+// gets the 200, and then discards it before travelintelligence.org's JS
+// ever sees it, because the response never said travelintelligence.org
+// was allowed to read it. checkConcertMatches() wraps that fetch in a
+// silent try/catch (deliberately, so a real outage never breaks the
+// watched-trips row) — so the failure produced no error Susan could see
+// anywhere, just a feature that looked like it was doing nothing. Fixed by
+// adding the header below. Allow-listed to the one real caller rather than
+// "*" — the response body is already public data, so this is about being
+// explicit about the intended consumer, not access control.
 
 import { getStore } from "@netlify/blobs";
 
@@ -70,10 +88,19 @@ export const config = { path: "/api/artists-playing" };
 
 var MATCH_RANGE_MI = 25; // fixed, per Susan's explicit 2026-08-05 answer — not user-adjustable
 
+// The one real cross-origin caller (Travel Intelligence's checkConcertMatches()).
+// Exported so the test script can assert the CORS header directly instead
+// of re-hardcoding this string a second place.
+export var ALLOWED_ORIGIN = "https://travelintelligence.org";
+
 function json(body, status) {
   return new Response(JSON.stringify(body), {
     status: status || 200,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+      "Vary": "Origin",
+    },
   });
 }
 

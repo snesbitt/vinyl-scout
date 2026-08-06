@@ -1422,40 +1422,16 @@ access this session, so this is confirmed against the E2E harness's
 fixtures, not the actual deployed site or Susan's real venue-shows/watching
 data. Worth a real look at vinylscout.org/concert-radar next live session.
 
-## 2026-08-05 — Phase 10 built: Travel Intelligence hooks (v19)
+## 2026-08-05 — Phase 10 live: `/api/artists-playing` shipped without CORS headers, silently broke the whole cross-site feature
 
-The day after the technical plan (2026-08-04, PROJECT.md's Phase 10
-section) and Susan's own answers on the two open questions — fixed ~25mi
-radius, and matching scope = full catalog + wishlist + this repo's venue
-scrape (broader than the plan's Watching-only default, watching included
-too for consistency with v18.5's own precedent) — this is the actual
-build. Full design writeup, including one deliberate deviation from the
-drafted plan (a location-first SeatGeek query instead of a per-artist
-sweep — the per-artist approach doesn't scale to a live, uncached,
-arbitrary-destination check the way it does for `sweepCatalog()`'s
-fixed-location, client-cached Coming Soon sweep), lives in PROJECT.md's
-Phase 10 section — not repeated here.
+Phase 10 (Travel Intelligence hooks, planned 2026-08-04 above) shipped the same day as the plan's write-up, as commit `e3a3815`: `netlify/functions/artists-playing.mjs` (new), `tour-dates.mjs`/`venue-shows.mjs` reused as designed, `concert-radar.html` and Travel Intelligence's own `index.html`/`watched-trips.mjs` wired together. `scripts/test-artists-playing.mjs`'s pure-function tests passed, `node --check` passed, and every direct check of the live endpoint that session (curl-equivalent fetches, this session's own tool calls, even a real browser hitting the URL directly) returned a correct 200 with real JSON. By every test that mattered up to that point, this endpoint was done and working.
 
-**New:** `netlify/functions/artists-playing.mjs` (`GET
-/api/artists-playing?lat=&lon=&date_start=&date_end=`) — the endpoint
-Travel Intelligence's side calls. `tour-dates.mjs` generalized to v5
-(optional `lat`/`lon`/`date_start`/`date_end`, fully backward-compatible)
-per the plan, though `artists-playing.mjs` itself doesn't call it (see
-above). `scripts/test-artists-playing.mjs` — 16 assertions against the
-four newly-exported pure functions, no live network/API key needed.
+**Susan reported the feature doing nothing on the live site** — no `.concert-match` note ever appeared next to her watched Chicago trip, even after an unrelated Travel Intelligence-side bug (a `CITY_COORDS` gap — see that repo's own build log) was found and fixed, and even after Susan confirmed via her own browser that Travel Intelligence's `/api/watched-trips` was returning correct data.
 
-**Changed:** `concert-radar.html` (v19) — each Watching row now checks
-Travel Intelligence's watched trips and appends a green `.travel-match`
-note on a real hit; best-effort, never blocks the row's own data.
-`style.css` v29 (new `.travel-match` rule) — every page's `style.css?v=`
-bumped in the same pass per this repo's cache-bust discipline.
-`roadmap.html` — Phase 10 moved from Future to Live.
+**Root cause: `artists-playing.mjs`'s `json()` helper never set `Access-Control-Allow-Origin`.** This function is called two different ways: (1) directly, server-to-server or via any tool/browser hitting the URL on its own — which is every check that had been run so far, and which never needs a CORS header to succeed; and (2) cross-origin, from inside `travelintelligence.org`'s own client-side JS (`checkConcertMatches()` in that repo's `index.html`), which is the ONLY way this feature is actually used in production. A browser enforces CORS on the *reading* side of a cross-origin fetch: the request still goes out, the server still returns a real 200 with the right data, and then the browser discards it before the calling page's JavaScript ever sees it, specifically because the response never said `travelintelligence.org` was allowed to read it. `checkConcertMatches()` wraps that fetch in a deliberately silent `try/catch` (so a real outage never breaks the watched-trips row) — so this failure produced no visible error anywhere, on either site, for either developer. It looked exactly like "no matches found," which is indistinguishable from "the fetch never even completed" from the UI alone.
 
-**Not verified live** — same standing caveat as every Concert Radar entry
-above: no browser/outbound API access this session. `npm run check` and
-the extracted-script `node --check` pass on both `concert-radar.html` and
-every `.mjs` function; `test-artists-playing.mjs`'s 16 assertions pass.
-**`scripts/e2e-concert-radar.mjs` was NOT extended** with a
-`.travel-match` fixture case this pass — flagged as a real gap in
-PROJECT.md's Phase 10 build entry, worth closing next time this file is
-touched.
+**Why every prior verification missed it:** none of curl/WebFetch/a server-side test/Node's own `fetch()`/even a browser hitting the URL directly are cross-origin requests — CORS is a browser-enforced restriction that only applies when the page making the request is a different origin than the page being fetched, and only when JavaScript is doing the reading. Every check run for Phase 10, including "worked fine when I opened it directly in my browser," was structurally incapable of catching this, because none of them were the one specific call pattern (cross-origin `fetch()` from `travelintelligence.org`'s own JS) that actually matters in production.
+
+**Fix:** `json()` now sets `Access-Control-Allow-Origin: https://travelintelligence.org` (the one real caller — allow-listed explicitly rather than `*`, since being precise about the intended consumer costs nothing here; the response body was already public data either way, so this isn't an access-control change) plus `Vary: Origin`. Applies to every response `json()` produces, success and error alike, so a 400/405 during future debugging still carries the header too. `scripts/test-artists-playing.mjs` gained two new asserts that call the exported default handler directly (an invalid-lat/lon 400 and a wrong-method 405, neither of which touch Blobs or SeatGeek) and check `Access-Control-Allow-Origin` on the `Response` object — the header is now under regression test, not just "worked when I looked at it once." Full suite: 20/20 passed (18 original + 2 new).
+
+**Lesson for this project, stated plainly:** for any endpoint whose real caller is a *different origin's browser-side JavaScript* (as opposed to a same-origin page, a server, or a manual/tool check), "I hit the URL directly and got a 200" is not sufficient verification — it structurally cannot catch a missing-CORS-header bug, because that class of bug only manifests for the one call pattern that's hardest to reproduce by hand. The actual test that would have caught this same-day is either a two-origin browser test (a real page on one origin `fetch()`-ing a real endpoint on another, in an actual browser or a tool that enforces CORS) or, more simply, asserting the header exists directly on the `Response` object in a unit test — which is what the fix above now does going forward. Any other cross-origin endpoint this project adds later should get the same header-level assertion from day one, not bolted on after a user reports "it's just not doing anything."
