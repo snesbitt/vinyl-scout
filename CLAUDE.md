@@ -1452,3 +1452,40 @@ Also added lightweight pass/fail tracking (`report()`) so this harness now exits
 **`package.json` never wired `scripts/test-artists-playing.mjs` into anything runnable by name** — it existed, passed 20/20 assertions (see the CORS entry above), and was even referenced in this file's own history, but the only way to run it was typing the full `node scripts/test-artists-playing.mjs` command by hand; nothing in `package.json` pointed at it. Added `"test:artists-playing"` (matching the existing `test:audio-preview`/`test:concert-radar-e2e` naming) plus a new combined `"test"` script (`check` + all three named test scripts) so `npm test` runs everything in one command, the same pattern Travel Intelligence's `package.json` already uses.
 
 **Verified:** `npm test` (the new combined script) runs clean — `check` (all functions `node --check`), 17/17 audio-preview, 20/20 artists-playing, and the extended E2E harness's 37 self-reporting assertions all pass, exit code 0.
+
+## 2026-08-06, later — real Chicago show entered; concert-radar.html gains a deep-link entry point
+
+Live-verified via a real browser round trip (Claude-in-Chrome) that the
+whole cross-site feature above genuinely works: Ziggy Marley (Hunter
+Pavilion, Highland Park IL, Sep 17 2026 — a real Songkick-sourced show,
+not indexed by SeatGeek) was added to the Watching panel's "+ Add show
+details" manual-entry form, and Travel Intelligence's watched-trips card
+picked it up correctly ("🎵 2 artists you follow are playing nearby...
+Ziggy Marley, Santigold"). Confirms Incident #4's CORS fix on the Travel
+Intelligence side and this repo's `/api/artists-playing` are both live and
+actually talking to each other, not just passing unit tests.
+
+Susan then asked for the match note's artist names to link back here.
+Travel Intelligence's `index.html` now wraps each name in a link to
+`concert-radar.html?artist=<name>&city=<city>` (see that repo's own
+2026-08-06 CLAUDE.md entry). This repo's half: a new `initDeepLink()` in
+`concert-radar.html`, wired right after the existing search-button/Enter-
+key listeners — reads `?artist=`/`?city=` on load, pre-fills the same
+`cr-f-artist`/`cr-f-city` fields a manual search would, and calls the
+already-existing `runLiveSearch()` once. No new search logic; this only
+automates what a visitor would otherwise type by hand.
+
+Also, per Susan's request, confirmed a weekly-check gap did NOT already
+exist on the Travel Intelligence side and had one built — full detail in
+that repo's own CLAUDE.md ("Concert Radar match links + weekly server-side
+check"). Nothing new to build on this repo's side for that: the weekly job
+calls this repo's existing `/api/artists-playing` exactly the way the live
+client-side check already does, no new endpoint needed here.
+
+**Verified:** extracted `concert-radar.html`'s inline `<script>` block and
+ran `node --check` against it — syntax-valid. `initDeepLink()` itself
+wasn't added to the jsdom E2E harness (`scripts/e2e-concert-radar.mjs`) —
+it's a thin, low-risk wrapper around `runLiveSearch()`, which that harness
+already exercises indirectly via its existing scenarios; worth a dedicated
+fixture case next time this file is touched, same discipline as every
+other "worth closing next time" note in this doc.

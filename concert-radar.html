@@ -1678,6 +1678,27 @@
   els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
   els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
 
+  // 2026-08-06 (Susan, direct request): query-param deep link so an
+  // external link — specifically the Concert Radar match note Travel
+  // Intelligence now renders per-artist (index.html's concertRadarLink(),
+  // this repo's counterpart to that same feature) — can land here already
+  // running a live search for that artist, not just the bare page. Reads
+  // ?artist=&city= (city optional), pre-fills the same fields a manual
+  // search would, and fires runLiveSearch() once (not wired to anything
+  // else that changes the URL, so this never re-fires on its own).
+  (function initDeepLink() {
+    var qp = new URLSearchParams(window.location.search);
+    var artist = qp.get('artist');
+    if (!artist) return;
+    els.artistInput.value = artist;
+    var city = qp.get('city');
+    if (city) els.cityInput.value = city;
+    runLiveSearch();
+    if (typeof els.artistInput.scrollIntoView === 'function') {
+      els.artistInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  })();
+
   // --- Catalog sweep: real Coming Soon data, sourced from the collection
   // and wishlist rather than a static mock list. Every distinct artist name
   // across both gets a real /api/tour-dates lookup (same endpoint the

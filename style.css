@@ -266,7 +266,7 @@ main#main:focus-visible { outline: none; }
   font-style: italic;
 }
 .controls__highlight-price {
-  color: var(--gold);
+  color: var(--good);
   font-weight: 600;
 }
 
