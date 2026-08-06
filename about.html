@@ -17,53 +17,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=30" />
-  <style>
-    .stack-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin: 18px 0 8px;
-    }
-    .stack-item {
-      border: 1px solid var(--rule);
-      background: var(--bg-soft);
-      border-radius: 6px;
-      padding: 16px 18px;
-    }
-    .stack-item--wide { grid-column: 1 / -1; }
-    .stack-item__label {
-      font-family: var(--serif);
-      font-style: italic;
-      font-weight: 500;
-      font-size: 18px;
-      margin: 0 0 8px;
-      color: var(--ink);
-    }
-    .stack-item__desc {
-      font-size: 14.5px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-      margin: 0;
-    }
-    .stack-item__list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .stack-item__list li {
-      font-size: 14.5px;
-      line-height: 1.55;
-      color: var(--ink-soft);
-      padding: 8px 0;
-      border-top: 1px solid var(--rule);
-    }
-    .stack-item__list li:first-child { border-top: none; padding-top: 0; }
-    .stack-item__list strong { color: var(--ink); font-weight: 600; }
-    @media (max-width: 640px) {
-      .stack-grid { grid-template-columns: 1fr; }
-    }
-  </style>
+  <link rel="stylesheet" href="/style.css?v=31" />
 </head>
 <body>
 
@@ -94,12 +48,19 @@
     third-party tracking, no automation that quietly deletes data.
   </p>
 
-  <p style="margin:0 0 32px; padding:16px 20px; background:var(--bg-soft); border-radius:2px; font-family:var(--sans); font-size:14px; line-height:1.6; color:var(--ink-soft);">
-    <strong style="color:var(--ink); font-weight:600;">This page is the reference:</strong>
+  <p class="callout">
+    <strong>This page is the reference:</strong>
     what this catalog does today, its data model, and its stack. For the
     method behind it, plus the prompt to build one for your own collection,
     read the <a href="/guide.html">Guide</a> instead.
   </p>
+
+  <div class="stat-strip">
+    <div class="stat-tile"><span class="stat-tile__num">94</span><span class="stat-tile__label">records tracked</span></div>
+    <div class="stat-tile"><span class="stat-tile__num">≈€2,232</span><span class="stat-tile__label">collection value</span></div>
+    <div class="stat-tile"><span class="stat-tile__num">0</span><span class="stat-tile__label">accounts or logins</span></div>
+    <div class="stat-tile"><span class="stat-tile__num">Mon</span><span class="stat-tile__label">weekly price refresh</span></div>
+  </div>
 
   <h2><span class="article__num">01</span>What it is</h2>
   <p>
@@ -127,6 +88,25 @@
     community rating, and, where available, a Play button for a preview of
     the album's most popular track.
   </p>
+
+  <div class="page-card-grid">
+    <div class="page-card">
+      <p class="page-card__title">Collection</p>
+      <p class="page-card__desc">The read-only home page: gallery or list view, genre filters, search, full record detail.</p>
+    </div>
+    <div class="page-card">
+      <p class="page-card__title">Wishlist</p>
+      <p class="page-card__desc">Records not yet owned, priced weekly, open to add or remove without an edit key.</p>
+    </div>
+    <div class="page-card">
+      <p class="page-card__title">Concert Radar</p>
+      <p class="page-card__desc">Collection and wishlist artists matched against real upcoming tour dates near Berkeley, CA.</p>
+    </div>
+    <div class="page-card">
+      <p class="page-card__title">Audit</p>
+      <p class="page-card__desc">The editable view: every field, every record, gated by an edit key.</p>
+    </div>
+  </div>
 
   <h2><span class="article__num">02</span>The stack</h2>
   <p>The plumbing, for anyone who wants it. Skip ahead if you don't.</p>
@@ -254,6 +234,14 @@
     The catalog is read-only for the public; anyone can browse it. Edits
     require an edit key. There are no user accounts.
   </p>
+
+  <h2><span class="article__num">09</span>What it won't do</h2>
+  <ul class="wont-list">
+    <li>No user accounts or passwords: reading it requires nothing; edits need only an edit key, never a login.</li>
+    <li>No analytics, advertising, or third-party tracking.</li>
+    <li>No automation that quietly deletes data: nothing on the wishlist is auto-removed, and anything deleted by hand is never auto-re-added.</li>
+    <li>No selling or sharing the data.</li>
+  </ul>
 
 </article>
 

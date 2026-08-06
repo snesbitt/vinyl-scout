@@ -1,5 +1,26 @@
 /* Vinyl Scout — style.css
-   version: 28
+   version: 28 (see cache-bust ?v= query string on each page's <link> for
+   the real current number — v31 as of this note; the "version" line above
+   has drifted from that in the past and is kept here for changelog
+   continuity, not as the authoritative number)
+   v31 (2026-08-06): Phase 1 of the portfolio-wide About/Guide template
+   consolidation (see Travel Intelligence's claude/travel-intelligence-
+   build-log.md for the full plan). Added a canonical article-page
+   component library at the end of this file — stat-strip, page-card-grid,
+   callout, wont-list (new, adopted from Travel Intelligence/Streaming
+   Scout's About pages) plus stack-grid, stepper, purpose-banner,
+   model-grid, model-rule, mode-grid, mode-caption, article__closing-
+   kicker, article__divider, prompt-box, prompt-copy, next-grid, field-note
+   (promoted out of about.html's/guide.html's own page-scoped <style>
+   blocks, where they'd lived until now). All normalized to a single
+   mobile-first @media (min-width: 640px) breakpoint, matching Travel
+   Intelligence/Streaming Scout's convention — this is deliberately the
+   opposite of the rest of this file's desktop-first @media (max-width:
+   ...) pattern; see the new block's own header comment. about.html and
+   guide.html now link this file only, no page-scoped <style> left in
+   either. Vinyl Scout is the reference implementation for this
+   consolidation; About/Guide on the other three sites migrate to it in a
+   later phase, after review.
    v28 (2026-08-04): masthead nav (7 links) was wrapping to a cramped
    second line on phones — see the @media (max-width: 720px) block's
    .masthead__nav rule for the full note. Switched to a single
@@ -1211,3 +1232,120 @@ main {
 footer.site-footer { border-top: 1px solid var(--rule); padding: 1.2rem 0 2.2rem; margin-top: 0.75rem; text-align: center; }
 footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
 @media (min-width: 640px) { footer.site-footer { padding: 1.5rem 0 3rem; } footer.site-footer .wrap { font-size: 11px; } }
+
+/* ---------- Canonical article-page components (Phase 1, 2026-08-06) ----------
+   Shared component library for the About/Guide pages across the whole
+   portfolio (Travel Intelligence, Streaming Scout, Vinyl Scout, Fitness
+   Log). Vinyl Scout is the reference implementation — built here first so
+   Susan can review it before it migrates to the other three sites.
+   Mobile-first: base rules below target a narrow viewport, @media
+   (min-width: 640px) layers on desktop refinements — matches Travel
+   Intelligence/Streaming Scout's convention. This is the opposite of this
+   file's own desktop-first @media (max-width: ...) pattern used elsewhere
+   in this stylesheet (index/audit/concert-radar/wishlist/seed) — do not
+   mix the two conventions within this block.
+
+   Everything below was either promoted out of about.html's/guide.html's
+   own page-scoped <style> blocks (stack-grid, stepper, purpose-banner,
+   model-grid, model-rule, mode-grid, mode-caption, article__closing-kicker,
+   article__divider, prompt-box, prompt-copy, next-grid, field-note — all
+   pre-existing, just centralized here and normalized to the mobile-first
+   breakpoint), or is new, adopted from Travel Intelligence/Streaming
+   Scout's About pages (stat-strip, page-card-grid, callout, wont-list). */
+
+.stat-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0 28px; }
+.stat-tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; text-align: center; }
+.stat-tile__num { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 22px; color: var(--accent); }
+.stat-tile__label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-top: 4px; }
+
+.page-card-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 18px 0 8px; }
+.page-card { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 6px; padding: 16px 18px; }
+.page-card__title { font-family: var(--sans); font-weight: 600; font-size: 14px; margin: 0 0 5px; color: var(--ink); }
+.page-card__desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+
+.callout { display: block; margin: 0 0 32px; padding: 16px 20px; background: var(--bg-soft); border-radius: 2px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.callout strong { color: var(--ink); font-weight: 600; }
+
+.wont-list { list-style: none; padding: 0; margin: 0; }
+.wont-list li { display: flex; gap: 8px; font-size: 14px; line-height: 1.55; color: var(--ink-soft); padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.wont-list li:last-child { border-bottom: none; }
+.wont-list li::before { content: "\2715"; color: var(--accent); flex-shrink: 0; font-size: 12px; line-height: 1.6; }
+.wont-list strong { color: var(--ink); font-weight: 600; }
+
+/* Promoted from about.html's page-scoped <style> (was @media max-width:640px) */
+.stack-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 18px 0 8px; }
+.stack-item { border: 1px solid var(--rule); background: var(--bg-soft); border-radius: 6px; padding: 16px 18px; }
+.stack-item--wide { grid-column: 1 / -1; }
+.stack-item__label { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 18px; margin: 0 0 8px; color: var(--ink); }
+.stack-item__desc { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+.stack-item__list { margin: 0; padding: 0; list-style: none; }
+.stack-item__list li { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); padding: 8px 0; border-top: 1px solid var(--rule); }
+.stack-item__list li:first-child { border-top: none; padding-top: 0; }
+.stack-item__list strong { color: var(--ink); font-weight: 600; }
+
+/* Promoted from guide.html's page-scoped <style> (was @media max-width:640/720/480px) */
+.stepper { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 32px; padding: 0; list-style: none; }
+.stepper li { margin: 0; }
+.stepper a { display: inline-flex; align-items: baseline; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 12px; transition: border-color 100ms, color 100ms; }
+.stepper a:hover { border-color: var(--accent); color: var(--accent); }
+.stepper__n { color: var(--accent); font-weight: 600; }
+
+.purpose-banner { margin: 0 0 36px; padding: 16px 20px; background: var(--bg-soft); border-radius: 2px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.purpose-banner strong { color: var(--ink); font-weight: 600; }
+
+.model-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 22px 0 16px; }
+.model-card { border-radius: 6px; padding: 16px 15px 18px; border: 1px solid var(--rule); }
+.model-card__name { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 19px; margin: 0 0 4px; color: var(--ink); }
+.model-card__tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 10px; line-height: 1.4; }
+.model-card__desc { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+.model-card--haiku  { background: #e6edf4; border-color: #93aec7; }
+.model-card--sonnet { background: #f4ede2; border-color: #c9b891; }
+.model-card--opus   { background: #eeeae3; border-color: #b3a98f; }
+.model-card--fable  { background: #e9f0e6; border-color: #a4bd9a; }
+
+.model-rule { margin: 0 0 8px; padding: 14px 18px; background: var(--bg-soft); border-radius: 2px; font-size: 14px; line-height: 1.65; color: var(--ink); }
+.model-rule strong { font-weight: 600; }
+
+.mode-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 22px 0 10px; }
+.mode-card { border-radius: 6px; padding: 18px 16px 20px; border: 1px solid var(--rule); }
+.mode-card__name { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 20px; margin: 0 0 4px; color: var(--ink); }
+.mode-card__role { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 12px; }
+.mode-card ul { margin: 0; padding: 0; list-style: none; }
+.mode-card li { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink-soft); margin: 0 0 7px; }
+.mode-card li:last-child { margin-bottom: 0; }
+.mode-card--chat      { background: #f4ede2; border-color: #c9b891; }
+.mode-card--terminal  { background: #eeeae3; border-color: #b3a98f; }
+.mode-card--cowork    { background: #e9f0e6; border-color: #a4bd9a; }
+.mode-card--scheduled { background: #e6edf4; border-color: #93aec7; }
+.mode-card--chat .mode-card__role      { color: #6b5f49; }
+.mode-card--terminal .mode-card__role  { color: #6b5f49; }
+.mode-card--cowork .mode-card__role    { color: #5a6e50; }
+.mode-card--scheduled .mode-card__role { color: #4d6377; }
+.mode-caption { font-family: var(--mono); font-size: 13px; font-style: italic; color: var(--ink-faint); text-align: center; margin: 6px 0 20px; }
+
+.article__closing-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 8px; }
+.article__divider { margin: 52px 0 34px; border-top: 1px solid var(--rule); }
+
+.prompt-box { position: relative; margin: 16px 0 24px; padding: 20px 22px; background: #22201b; border: 1px solid #4a4438; border-radius: 6px; }
+.prompt-box pre { margin: 0; padding-right: 68px; white-space: pre-wrap; word-wrap: break-word; font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: #efe9dc; }
+.prompt-copy { position: absolute; top: 12px; right: 12px; background: var(--bg); color: var(--ink); border: none; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+.prompt-copy:hover { background: #fff; }
+
+.next-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 8px 0 32px; }
+.next-card { border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; padding: 14px 16px; background: var(--surface); }
+.next-card__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--gold); margin-bottom: 4px; }
+.next-card h4 { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
+.next-card p { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+
+.field-note { margin: 0 0 32px; padding: 18px 22px; background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; }
+.field-note__kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin: 0 0 8px; }
+.field-note p { font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+
+@media (min-width: 640px) {
+  .stat-strip { grid-template-columns: repeat(4, 1fr); }
+  .page-card-grid { grid-template-columns: 1fr 1fr; }
+  .stack-grid { grid-template-columns: 1fr 1fr; }
+  .model-grid { grid-template-columns: repeat(4, 1fr); }
+  .mode-grid { grid-template-columns: repeat(4, 1fr); }
+  .next-grid { grid-template-columns: 1fr 1fr; }
+}
