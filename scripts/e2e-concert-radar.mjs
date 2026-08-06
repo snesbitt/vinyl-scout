@@ -1,20 +1,51 @@
-// scripts/e2e-concert-radar.mjs — one-off E2E harness, not committed to the
-// deploy path. Loads the REAL concert-radar.html into a jsdom document,
-// mocks every fetch() endpoint it calls with representative fixture data
-// (including realistic watching-list artist-name spelling variants for
-// Black Uhuru / Easy Star All-Stars / Burning Spear), lets the page's own
-// script run its real init sequence, and inspects the real rendered DOM —
-// not a reimplementation of the matching logic, the actual shipped code.
+// scripts/e2e-concert-radar.mjs — real E2E regression harness, committed
+// and run via `npm run test:concert-radar-e2e`. Loads the REAL
+// concert-radar.html into a jsdom document, mocks every fetch() endpoint it
+// calls with representative fixture data, lets the page's own script run
+// its real init sequence, and inspects the real rendered DOM — not a
+// reimplementation of the matching logic, the actual shipped code.
 //
-// Why this exists: 2026-08-04, no live browser/API access was available
-// this session (Claude-in-Chrome not connected, vinylscout.org blocked by
-// its own robots.txt for WebFetch, no outbound curl). This is the closest
-// thing to a real end-to-end check achievable without those — it will NOT
-// catch a live deploy/build failure or a genuine mismatch in Susan's own
-// stored watching-list data, only bugs in the client-side logic itself.
+// Covers two bug classes found live by Susan the same day (2026-08-04):
+// (1) v18.4 — artist-name punctuation/spacing drift ("Easy Star All-Stars"
+// vs "Easy Star Allstars") silently breaking Watching-panel matches.
+// (2) v18.5 — venue-shows.mjs's full per-venue calendar (irrelevant shows
+// included) leaking into Coming Soon unfiltered, instead of being scoped to
+// artists Susan actually cares about (catalog/wishlist/watching).
+// (3) 2026-08-06 — checkTravelMatches() (Phase 10, the Concert Radar half
+// of the Travel Intelligence integration): a real cross-site hit against
+// travelintelligence.org/api/watched-trips + this site's own
+// /api/artists-playing should append a .travel-match note onto the correct
+// watching row, an unmatched artist should get no note, and a failed/empty
+// travel fetch should silently leave every row exactly as it already
+// rendered — this file never had a fixture for any of the three until now,
+// so a regression here (e.g. a future CORS-header or selector change)
+// previously had no test coverage in this repo at all.
+//
+// Why a jsdom harness exists at all: no live browser/API access was
+// available in the session that wrote this (Claude-in-Chrome not
+// connected, vinylscout.org blocked by its own robots.txt for WebFetch, no
+// outbound curl). This is the closest thing to a real end-to-end check
+// achievable without those — it will NOT catch a live deploy/build failure
+// or a genuine mismatch in Susan's own stored watching-list data, only bugs
+// in the client-side logic itself.
 
 import { JSDOM } from "jsdom";
 import fs from "node:fs";
+
+// Lightweight pass/fail tracking so this harness can act as a real
+// regression gate (non-zero exit on any FAIL), not just a printout someone
+// has to read closely. Only wraps assertions that already self-report as
+// "pass"/"FAIL" in their own message text — the original MATCHED/NO MATCH/
+// unclear watch-list lines are left as plain diagnostic output, unchanged,
+// since "NO MATCH (Check live)" is the CORRECT outcome for an artist with
+// no fixture show (Burning Spear) and collapsing that nuance into a binary
+// pass/fail here risked asserting something this file's author never
+// actually claimed.
+let failCount = 0;
+function report(message) {
+  if (/\bFAIL\b/.test(message)) failCount++;
+  console.log(message);
+}
 
 const html = fs.readFileSync(new URL("../concert-radar.html", import.meta.url), "utf8");
 
@@ -31,6 +62,55 @@ const watching = [
   { id: "w2", artist: "Easy Star All-Stars" }, // exact MANUAL_SHOWS spelling
   { id: "w3", artist: "Burning Spear" },
 ];
+
+// v18.5 regression fixtures: two shows that should NEVER reach Coming Soon
+// (irrelevant to Susan — nobody watching/catalog/wishlist has anything to
+// do with either), simulating what a venue's full scraped calendar looks
+// like once you get past the handful of shows that actually matter. Plus
+// one relevant-but-unwatched show (Thievery Corporation, already in the
+// `records` fixture above) at a scraped venue, to confirm relevance
+// filtering doesn't over-correct into hiding real matches too.
+const irrelevantVenueShows = [
+  {
+    id: "venue-sweetwater-99-2026-09-20",
+    artist: "The Wednesday Night Jazz Quartet",
+    title: "The Wednesday Night Jazz Quartet",
+    venue: "Sweetwater Music Hall",
+    city: "Mill Valley, CA",
+    date: "2026-09-20",
+    dateLabel: "Sun, Sep 20, 2026",
+    source: "Venue: Sweetwater Music Hall",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://sweetwatermusichall.org/events/wednesday-jazz",
+  },
+  {
+    id: "venue-sweetwater-100-2026-09-27",
+    artist: "Open Mic Night",
+    title: "Open Mic Night",
+    venue: "Sweetwater Music Hall",
+    city: "Mill Valley, CA",
+    date: "2026-09-27",
+    dateLabel: "Sun, Sep 27, 2026",
+    source: "Venue: Sweetwater Music Hall",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://sweetwatermusichall.org/events/open-mic",
+  },
+];
+const relevantUnwatchedVenueShow = {
+  id: "venue-fillmore-1-2026-11-01",
+  artist: "Thievery Corporation",
+  title: "Thievery Corporation",
+  venue: "The Independent",
+  city: "San Francisco, CA",
+  date: "2026-11-01",
+  dateLabel: "Sun, Nov 1, 2026",
+  source: "Venue: Another Planet Entertainment",
+  priceLow: null,
+  priceHigh: null,
+  url: "https://apeconcerts.com/events/thievery-corporation",
+};
 
 const manualShows = [
   {
@@ -82,7 +162,8 @@ function extractInlineScript(htmlText) {
 
 const scriptText = extractInlineScript(html);
 
-async function run(label, watchingList) {
+async function run(label, watchingList, travelOpts) {
+  travelOpts = travelOpts || {};
   // runScripts: "outside-only" parses the document but does NOT
   // auto-execute the inline <script> tag — that lets fetch be wired up
   // first, then the real script text is eval'd into the same window via
@@ -97,9 +178,22 @@ async function run(label, watchingList) {
     if (u.startsWith("/api/records")) return ok(records);
     if (u.startsWith("/api/wishlist")) return ok(wishlist);
     if (u.startsWith("/api/watching")) return ok(watchingList);
-    if (u.startsWith("/api/venue-shows")) return ok({ shows: manualShows, meta: { venues: [] } });
+    if (u.startsWith("/api/venue-shows")) {
+      return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]), meta: { venues: [] } });
+    }
     if (u.startsWith("/api/catalog-cache")) return ok({ shows: [], artistCount: 0, at: null });
     if (u.startsWith("/api/tour-dates")) return ok({ shows: [] });
+    // Phase 10 — checkTravelMatches()'s two cross-site calls. Absolute URL
+    // for Travel Intelligence's endpoint (hardcoded in concert-radar.html,
+    // same as production); this site's own /api/artists-playing resolves
+    // relative to the jsdom window's origin (vinylscout.org, set below).
+    if (u === "https://travelintelligence.org/api/watched-trips") {
+      if (travelOpts.watchedTripsFails) return { ok: false, json: async () => ({}) };
+      return ok({ trips: travelOpts.trips || [] });
+    }
+    if (u.includes("/api/artists-playing")) {
+      return ok({ matches: travelOpts.artistsPlaying || [] });
+    }
     return { ok: false, json: async () => ({}) };
   };
 
@@ -132,6 +226,44 @@ async function run(label, watchingList) {
     const hasCheckLive = /Check live/.test(windowText);
     console.log("  " + name + ": " + (hasVenue ? "MATCHED (venue shown)" : hasCheckLive ? "NO MATCH (Check live)" : "unclear") );
   });
+
+  // v18.5: Coming Soon relevancy check — a venue's full calendar (irrelevant
+  // shows included) should never leak into #cr-list; a real, relevant-but-
+  // unwatched match should.
+  const soonHtml = window.document.getElementById("cr-list")?.innerHTML || "(missing #cr-list)";
+  irrelevantVenueShows.forEach((s) => {
+    const leaked = soonHtml.toLowerCase().includes(s.artist.toLowerCase());
+    report("  Coming Soon should NOT show \"" + s.artist + "\": " + (leaked ? "FAIL (leaked into Coming Soon)" : "pass (correctly filtered out)"));
+  });
+  const relevantShown = soonHtml.toLowerCase().includes(relevantUnwatchedVenueShow.artist.toLowerCase());
+  report("  Coming Soon SHOULD show \"" + relevantUnwatchedVenueShow.artist + "\" (relevant, unwatched): " + (relevantShown ? "pass" : "FAIL (relevant match missing)"));
+
+  // Phase 10: checkTravelMatches() is fire-and-forget, appended after the
+  // watch list's own render — give its two chained fetches (watched-trips,
+  // then per-trip artists-playing) time to settle before inspecting rows.
+  if (travelOpts.trips || travelOpts.watchedTripsFails) {
+    let prevTravel = null;
+    for (let i = 0; i < 15; i++) {
+      const cur = window.document.getElementById("cr-watch-list")?.innerHTML || "";
+      if (cur === prevTravel) break;
+      prevTravel = cur;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    const rows = window.document.querySelectorAll(".cr-watch-row");
+    (travelOpts.expectMatchFor || []).forEach((artist) => {
+      const idx = watchingList.findIndex((w) => w.artist.toLowerCase() === artist.toLowerCase());
+      const row = idx === -1 ? null : rows[idx];
+      const note = row ? row.querySelector(".travel-match") : null;
+      report("  .travel-match note for \"" + artist + "\": " + (note ? "pass (" + note.textContent.trim() + ")" : "FAIL (no note rendered)"));
+    });
+    (travelOpts.expectNoMatchFor || []).forEach((artist) => {
+      const idx = watchingList.findIndex((w) => w.artist.toLowerCase() === artist.toLowerCase());
+      const row = idx === -1 ? null : rows[idx];
+      const note = row ? row.querySelector(".travel-match") : null;
+      report("  \"" + artist + "\" should have NO .travel-match note: " + (note ? "FAIL (unexpected note: " + note.textContent.trim() + ")" : "pass (none rendered)"));
+    });
+  }
+
   window.close();
 }
 
@@ -141,3 +273,56 @@ await run("Realistic spelling drift (Easy Star Allstars / Easy Star All Stars)",
   { id: "w2", artist: "Easy Star All Stars" },
   { id: "w3", artist: "Burning Spear" },
 ]);
+
+// --- Phase 10: Travel Intelligence cross-site match --------------------
+// A real watched trip (Susan's actual Chicago trip, per travel-intelligence's
+// own watched-trips data) plus a real hit from THIS site's own
+// /api/artists-playing for one watched artist (Black Uhuru) and a second,
+// unrelated artist that should NOT produce a note (not on the watching
+// list at all — proves the byArtist cross-reference doesn't over-match).
+const chicagoTrip = {
+  id: "SFO|ORD|2026-09-14|Economy",
+  destination: "Chicago",
+  lat: 41.98,
+  lon: -87.9,
+  dateStart: "2026-09-14",
+  dateEnd: "2026-09-16",
+};
+await run(
+  "Travel Intelligence match: a real cross-site hit appends .travel-match to the right row only",
+  watching,
+  {
+    trips: [chicagoTrip],
+    artistsPlaying: [
+      { artist: "Black Uhuru", venue: "House of Blues Chicago", dateLabel: "Mon, Sep 15, 2026" },
+      { artist: "Some Unwatched Band", venue: "Metro Chicago", dateLabel: "Tue, Sep 16, 2026" },
+    ],
+    expectMatchFor: ["Black Uhuru"],
+    expectNoMatchFor: ["Easy Star All-Stars", "Burning Spear"],
+  }
+);
+
+// No trips at all (Susan has no watched trips, or none with resolved
+// coordinates) — checkTravelMatches() should no-op cleanly, no notes
+// anywhere, no throw.
+await run(
+  "Travel Intelligence match: no watched trips at all is a clean no-op",
+  watching,
+  { trips: [], expectNoMatchFor: ["Black Uhuru", "Easy Star All-Stars", "Burning Spear"] }
+);
+
+// travelintelligence.org unreachable (down, CORS regression, offline) —
+// checkTravelMatches()'s outer .catch() must swallow it silently, same as
+// production behavior; every row should render exactly as it already did.
+await run(
+  "Travel Intelligence match: a failed cross-site fetch is silently swallowed (fire-and-forget)",
+  watching,
+  { watchedTripsFails: true, expectNoMatchFor: ["Black Uhuru", "Easy Star All-Stars", "Burning Spear"] }
+);
+
+if (failCount > 0) {
+  console.log("\n" + failCount + " assertion(s) FAILED — see FAIL lines above.");
+  process.exit(1);
+} else {
+  console.log("\nAll self-reporting assertions passed.");
+}
