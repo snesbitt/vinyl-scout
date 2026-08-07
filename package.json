@@ -9,7 +9,8 @@
     "test:audio-preview": "node scripts/test-audio-preview.mjs",
     "test:artists-playing": "node scripts/test-artists-playing.mjs",
     "test:concert-radar-e2e": "node scripts/e2e-concert-radar.mjs",
-    "test": "npm run check && npm run test:audio-preview && npm run test:artists-playing && npm run test:concert-radar-e2e",
+    "test:wishlist": "node scripts/test-wishlist.mjs",
+    "test": "npm run check && npm run test:audio-preview && npm run test:artists-playing && npm run test:concert-radar-e2e && npm run test:wishlist",
     "smoke": "node scripts/smoke.mjs",
     "smoke:local": "node scripts/smoke.mjs http://localhost:8888"
   },
