@@ -1508,3 +1508,34 @@ it's a thin, low-risk wrapper around `runLiveSearch()`, which that harness
 already exercises indirectly via its existing scenarios; worth a dedicated
 fixture case next time this file is touched, same discipline as every
 other "worth closing next time" note in this doc.
+
+## 2026-08-07 — GitHub Actions CI wired for real, and it caught a genuine Node-version incompatibility
+
+Part of a portfolio-wide push (see Travel Intelligence's own CLAUDE.md,
+2026-08-07 entry, for the shared write-up across all three repos' Actions
+setup) to make every sibling site more GitHub-based rather than relying
+on manual `device_bash`/Netlify-only workflows. `.github/workflows/
+test.yml` ran for real for the first time this session and failed twice,
+for two different reasons layered on top of each other. First, the same
+missing-`package-lock.json` issue as the other two repos — fixed by
+generating one via `npm install`. Regenerating it surfaced the real
+issue: doing that `npm install` under Node 20 reproduced the exact CI
+failure (`webidl.util.markAsUncloneable is not a function`) locally, plus
+surfaced npm's own `EBADENGINE` warning: `jsdom@30.0.1` requires Node
+`^22.14.0 || >=24.0.0`. Node 20, which the workflow was still pinned to,
+cannot run this dependency at all, lockfile or no lockfile.
+
+Rather than downgrade `jsdom` for no functional reason (it's a real,
+current dependency this repo wants), bumped the workflow's `node-version`
+from `'20'` to `'22'` — matching what both Susan's Mac and the cloud
+sandbox used for this fix already run. Confirmed via `netlify.toml` that
+nothing else in this repo's actual deploy stack is pinned to Node 20, so
+this is a CI-only version bump with no production-behavior change.
+Verified clean under Node 22 with zero warnings, full local suite still
+passing. Delivered and committed by Susan as `b299b47`; Actions run #3
+confirmed green (31s).
+
+Nothing user-facing changed — this is CI/dependency-management plumbing
+only (the live site's actual runtime was never on Node 20 to begin with),
+so no front-end (roadmap/about/PROJECT.md feature) update is needed
+alongside this entry.
