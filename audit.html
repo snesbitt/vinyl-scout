@@ -47,23 +47,6 @@
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .audit-help {
-      max-width: 1100px;
-      margin: 12px auto 0;
-      padding: 12px 32px;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--ink-faint);
-      letter-spacing: 0.04em;
-      line-height: 1.7;
-    }
-    .audit-help kbd {
-      background: var(--bg-soft);
-      border: 1px solid var(--rule);
-      padding: 1px 6px;
-      border-radius: 2px;
-      font-size: 10px;
-    }
     .audit-list {
       max-width: 1100px;
       margin: 0 auto;
@@ -78,27 +61,6 @@
       border-bottom: 1px solid var(--rule); /* was --rule-soft: darker per design review */
       align-items: center;
       position: relative;
-    }
-
-    /* 2026-08-07 Phase 6: catalog index stamp — the one recurring mark this
-       pass settles on, per the roadmap's own "catalog stamp or numbering
-       convention" phrasing. Audit-only: no other page borrows it. Purely
-       decorative (pointer-events:none) so it never blocks the cover
-       upload click target it sits on top of. */
-    .audit-row__index {
-      position: absolute;
-      top: 6px;
-      left: 6px;
-      z-index: 1;
-      pointer-events: none;
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.06em;
-      color: var(--ink-faint);
-      background: var(--card);
-      border: 1px solid var(--rule);
-      border-radius: 2px;
-      padding: 1px 5px;
     }
     .audit-row__cover {
       grid-area: cover;
@@ -481,7 +443,6 @@
     .lookup-candidate__meta .catno { color: var(--gold); }
     @media (max-width: 640px) {
       .audit-toolbar { padding: 0 18px; }
-      .audit-help { padding: 10px 18px; font-size: 10px; }
       .audit-list { padding: 12px 18px 60px; }
       .audit-row {
         grid-template-columns: 80px 1fr;
@@ -545,10 +506,6 @@
     spellcheck="false" />
   <span class="audit-toolbar__count" id="filter-count">—</span>
 </section>
-
-<div class="audit-help">
-  Edit any field → blur or <kbd>Enter</kbd> saves. Click cover to replace. Tap <kbd>Pressing</kbd> to look up a release on Discogs by artist+title or by catalog number. Condition uses Goldmine grading; see <a href='/about#grading'>About</a>.
-</div>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
 
@@ -748,12 +705,8 @@ function render() {
     const condOptions = GRADES.map(function (g) {
       return '<option value="' + g + '"' + (g === cond ? ' selected' : '') + '>' + (CONDITION_NAMES[g] || g) + '</option>';
     }).join('');
-    // 2026-08-07 Phase 6: catalog index stamp, e.g. "№001" — the row's
-    // position in the current sorted/filtered view, not a stored field.
-    const indexNum = String(i + 1).padStart(3, '0');
     return ''
       + '<div class="audit-row" data-id="' + escapeHtml(r.id) + '">'
-      +   '<span class="audit-row__index">№' + indexNum + '</span>'
       +   '<label class="audit-row__cover">' + cover
       +     '<input type="file" accept="image/*" class="js-cover-upload">'
       +   '</label>'
