@@ -33,7 +33,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
     index.html         Gallery + detail modal (loads app.js, style.css)
     seed.html          Paste Claude-generated JSON to bulk-add (writes gated)
     audit.html         Hand-edit: inline edit, single delete, cover upload
-    wishlist.html      Hunt list — add/delete are UNGATED (no edit secret, see below)
+    wishlist.html      Hunt list — add/delete gated by an edit key, remembered per device (Phase 8, 2026-08-06; was UNGATED 2026-07-11 through 2026-08-05, see below)
     guide.html         User-facing how-to guide
     about/roadmap.html Static info pages
     concert-radar.html Phase 11 — LIVE, real SeatGeek-backed feature (see
@@ -49,7 +49,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
       backup.mjs         scheduled 09:00 UTC nightly backup (not HTTP-reachable)
       discogs-lookup.mjs /api/discogs/lookup GET ungated · pure read
       discogs-pricing.mjs/api/discogs-pricing POST gated · writes record · scrapes (see PROJECT.md v25 — no auth check at all before 2026-07-20)
-      wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE UNGATED (see below)
+      wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE gated by EDIT_SECRET, v4 (see below)
       audio-preview.mjs  /api/audio/preview  GET ungated · pure read (audio
                          preview: Deezer first, then a small hand-picked
                          override table for compilations/best-ofs Deezer
@@ -111,12 +111,15 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
   All writes are single-record upserts by `id`. Read endpoints never write.
 - **Secrets travel in headers, never in URLs** and are never committed or baked
   into served HTML. Validated server-side against env vars; gates fail closed.
-  **Exception: `/api/wishlist` POST/DELETE are deliberately ungated** (no
-  X-Edit-Key check) — removed 2026-07-11 at Susan's explicit request, because
-  typing the edit passphrase on mobile every session wasn't practical for a
-  page she uses casually. This is scoped to the wishlist store only; the
-  catalog (`/api/records`) and covers (`/api/save-cover`) remain fully gated.
-  Don't "fix" the wishlist gate back in without asking Susan first.
+  **`/api/wishlist` POST/DELETE were deliberately ungated 2026-07-11 through
+  2026-08-05** (no X-Edit-Key check), because typing the edit passphrase on
+  mobile every session wasn't practical for a page Susan uses casually. As of
+  2026-08-06 (roadmap Phase 8, "Close the wishlist gap"), the gate is back —
+  same X-Edit-Key/EDIT_SECRET check as the catalog — but `wishlist.html`
+  remembers the key in `localStorage` after one entry instead of
+  `sessionStorage`, so it costs one entry per device rather than one per
+  visit. See `wishlist.mjs`'s own v4 header comment and PROJECT.md's v39
+  entry for the full rationale.
 - **Versioned deploys.** Every functional change bumps the cache-bust `?v=N`
   in index.html/seed.html (and audit.html if its inline script changed) and the
   `// version: N` comment at the top of app.js / the changed function.

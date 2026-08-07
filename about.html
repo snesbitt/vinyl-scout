@@ -96,7 +96,7 @@
     </div>
     <div class="page-card">
       <p class="page-card__title">Wishlist</p>
-      <p class="page-card__desc">Records not yet owned, priced weekly, open to add or remove without an edit key.</p>
+      <p class="page-card__desc">Records not yet owned, priced weekly, gated by an edit key remembered per device.</p>
     </div>
     <div class="page-card">
       <p class="page-card__title">Concert Radar</p>
@@ -123,10 +123,11 @@
       <p class="stack-item__label">API</p>
       <ul class="stack-item__list">
         <li><strong>Records</strong> — GET (list), POST (upsert), DELETE. Gated by an edit key.</li>
-        <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are open, no edit key: retyping one on mobile every session wasn't practical.</li>
+        <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are gated by the same edit key as the catalog (2026-08-06), remembered in the browser after it's entered once, so it costs one entry per device rather than one per visit.</li>
         <li><strong>Enrichment</strong> — <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
         <li><strong>Audio</strong> — <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
         <li><strong>Concert Radar</strong> — <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed, resolves an artist to a real performer before querying events, near Berkeley, CA.</li>
+        <li><strong>Concert Radar, reverse lookup</strong> — <code>/api/artists-playing</code>, public, read-only, CORS-enabled for <code>travelintelligence.org</code>. Given a destination and date window, returns real nearby events cross-referenced against this catalog/wishlist/watching, the query Travel Intelligence's watched trips run against.</li>
       </ul>
     </div>
     <div class="stack-item">
@@ -185,7 +186,7 @@
     Each row shows the album art, the current asking price or Discogs&rsquo; median sale price, and a link to current listings. A brand-new item shows no price at all until the following Monday's scout run.
   </p>
   <p>
-    Adding and removing items needs no edit key. It's the one part of the site left open, since re-entering one on mobile every session wasn't practical for a list used this casually. The collection itself stays fully gated.
+    Adding and removing items needs the same edit key as the collection, remembered in the browser once it's entered so it costs one entry per device, not one per visit (2026-08-06). Until then this was left open entirely, since re-entering a key on mobile every session wasn't practical for a list used this casually — the device-remembered key closes that gap without reintroducing the friction that got it removed in the first place.
   </p>
   <p>
     The weekly scout refreshes prices. Nothing is auto-removed, and anything deleted by hand is never auto-re-added.
@@ -222,6 +223,17 @@
     advance that resale listings haven't opened yet. Ticketmaster and a
     Spotify layer are parked for later, added only if a real coverage gap
     shows up.
+  </p>
+  <p>
+    Since 2026-08-05 it also runs in reverse. <a href="https://travelintelligence.org/">Travel Intelligence</a>
+    (the owner's other project) checks its own watched trips &mdash;
+    destination and date range only, no fares or points data &mdash;
+    against this same catalog/wishlist/watching artist list, within about
+    25 miles of the destination. A real match shows up on both sides:
+    here in the Watching panel (with a link back to the trip), and
+    against the relevant trip over on travelintelligence.org. Best-effort
+    on both ends &mdash; if either site is briefly unreachable, the rest
+    of the page still works exactly as it always did.
   </p>
 
   <h2><span class="article__num">08</span>Data & backups</h2>

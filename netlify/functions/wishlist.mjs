@@ -4,7 +4,18 @@ export const config = {
   path: "/api/wishlist/:id?"
 };
 
-// version: 3
+// Edit-secret gate — added v4 (2026-08-06). Same pattern as records.mjs:
+// GET stays public, POST/DELETE require X-Edit-Key to equal EDIT_SECRET
+// (same Netlify env var the catalog uses — Phase 8 explicitly reuses the
+// catalog's own key, not a separate wishlist-only one). Fails closed: if
+// EDIT_SECRET is unset, all writes are rejected.
+function checkWriteAuth(req) {
+  const expected = process.env.EDIT_SECRET;
+  const provided = req.headers.get('x-edit-key');
+  return !!(expected && provided && provided === expected);
+}
+
+// version: 4
 //
 // Phase 3 — Wishlist. Separate Blobs store ('wishlist') so wishlist writes
 // can never touch the catalog store.
@@ -33,6 +44,17 @@ export const config = {
 // This write is best-effort and non-fatal: if it fails (e.g. GITHUB_TOKEN
 // missing), the delete itself still succeeds — bookkeeping should never
 // block the primary action.
+//
+// v4 (2026-08-06, roadmap Phase 8, "Close the wishlist gap"): supersedes
+// v2's decision above. POST/DELETE are now gated by the same X-Edit-Key /
+// EDIT_SECRET check records.mjs uses (see checkWriteAuth below) — but the
+// frontend (wishlist.html) remembers the key in localStorage after it's
+// entered once, rather than sessionStorage (which the catalog's own
+// audit.html/seed.html use, costing one entry per tab session). That
+// difference is deliberate: v2's whole reason for opening this up was that
+// re-entering a key on mobile every session wasn't practical for a casual
+// list. A device-remembered key costs one entry per device, not one per
+// visit, closing the gap without reintroducing that friction.
 
 // Same normalization used to build the `auto_added` keys already in
 // sync-state.json: lowercase, any non a-z0-9 char becomes a space (not
@@ -107,6 +129,20 @@ async function recordDeletion(artist, title) {
 export default async (req, context) => {
   try {
     const method = (req.method || '').toUpperCase();
+
+    // Auth gate runs BEFORE getStore() -- same order records.mjs uses.
+    // Checked here, ahead of any Blobs call, so an unauthorized/misconfigured
+    // request always gets a clean 401 rather than depending on getStore()
+    // not throwing first (it throws if the Blobs environment isn't
+    // configured, which would surface as a 500 instead of a 401 if this
+    // check ran after store creation -- caught by scripts/test-wishlist.mjs
+    // during Phase 8 review, fixed before it ever shipped this way).
+    if ((method === 'POST' || method === 'DELETE') && !checkWriteAuth(req)) {
+      return new Response(JSON.stringify({ error: 'unauthorized — wrong or missing edit passphrase' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     const store = getStore('wishlist');
 

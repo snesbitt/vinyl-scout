@@ -175,15 +175,15 @@
     </div>
   </section>
 
-  <section class="phase phase--future" id="phase-8">
+  <section class="phase phase--live" id="phase-8">
     <div class="phase__rail">8</div>
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">Close the wishlist gap</h3>
-        <span class="phase__status phase__status--future">Future</span>
+        <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Edit key on wishlist writes, remembered per device</p>
-      <p class="phase__covers">The catalog&rsquo;s own add/delete/edit has required an edit key since Phase 1: viewing is open to anyone with the link, editing isn&rsquo;t. The Wishlist never got the same protection: its add/delete was deliberately opened up in July 2026 because re-entering it on mobile every session wasn&rsquo;t practical for a casual hunting list. As links get shared more widely, that gap is worth closing. The plan: the same edit key already protecting the catalog, but remembered in the browser after it&rsquo;s entered once, so it costs one entry per device instead of one per visit, closing the gap without reintroducing the friction that got it removed in the first place.</p>
+      <p class="phase__covers">The catalog&rsquo;s own add/delete/edit has required an edit key since Phase 1: viewing is open to anyone with the link, editing isn&rsquo;t. The Wishlist never got the same protection: its add/delete was deliberately opened up in July 2026 because re-entering it on mobile every session wasn&rsquo;t practical for a casual hunting list. Built 2026-08-06: the same edit key that already protects the catalog now also gates wishlist writes, but the browser remembers it in <code>localStorage</code> after it&rsquo;s entered once &mdash; the catalog&rsquo;s own key prompt only remembers for the current tab (<code>sessionStorage</code>) &mdash; so it costs one entry per device instead of one per visit, closing the gap without reintroducing the friction that got it removed in the first place.</p>
     </div>
   </section>
 
@@ -200,10 +200,6 @@
   </section>
 
 </main>
-
-  <p class="roadmap-note">
-  Phases are normally sequential: a later phase isn&rsquo;t started early, and nothing gets added to an earlier phase just because it would be easy to slot in. Phases 4 (Listen), 9 (Wishlist priority), and 11 (Concert radar) are the deliberate exceptions: each pulled forward and built at the owner&rsquo;s explicit request &mdash; Phase 11 specifically ahead of the lower-numbered Phase 10, since Phase 10 depends on it existing.
-</p>
 
 <footer class="site-footer">
   <div class="wrap">&copy; 2026</div>

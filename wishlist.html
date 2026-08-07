@@ -166,11 +166,11 @@
   // " or ' -- fine for plain text nodes, but this helper is also used inside
   // double-quoted attributes (src=, data-id=, data-artist=, data-title=), so
   // a wishlist item's artist/title/cover_url containing a `"` could break
-  // out of the attribute and inject markup. The POST /wishlist endpoint is
-  // deliberately ungated (Susan's own 2026-07-11 decision -- not re-gating
-  // it), so this escaping is the only thing standing between an ungated
-  // write and a stored-XSS hit. Explicit character map, escapes both quote
-  // styles, safe in either context.
+  // out of the attribute and inject markup. Kept in place after the 2026-08-06
+  // Phase 8 edit-key gate below -- that gate controls WHO can write, this
+  // escaping controls what a write can do to the page once rendered, and an
+  // XSS-safe render matters regardless of how writes are gated. Explicit
+  // character map, escapes both quote styles, safe in either context.
   function esc(s) {
     if (s == null) return '';
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -200,6 +200,25 @@
   function setSortMode(v) { localStorage.setItem(SORT_KEY, v); }
   function getWeightKey() { var v = localStorage.getItem(WEIGHT_KEY); return SORT_MODES.indexOf(v) !== -1 ? v : 'cheapest'; }
   function setWeightKey(v) { localStorage.setItem(WEIGHT_KEY, v); }
+
+  // Edit key (Phase 8, 2026-08-06, "Close the wishlist gap"). Same edit key
+  // that already gates the catalog (audit.html/seed.html), but remembered
+  // in localStorage rather than sessionStorage -- audit.html/seed.html's
+  // sessionStorage choice costs one entry per tab session, which is exactly
+  // the friction that got wishlist writes opened up back in July. A
+  // device-remembered key costs one entry per device instead.
+  var EDIT_KEY = 'wlEditSecret';
+  function getEditSecret() {
+    var s = '';
+    try { s = localStorage.getItem(EDIT_KEY) || ''; } catch (e) {}
+    if (s) return s;
+    s = prompt('Enter edit key (writes are protected):') || '';
+    if (s) { try { localStorage.setItem(EDIT_KEY, s); } catch (e) {} }
+    return s;
+  }
+  function clearEditSecret() {
+    try { localStorage.removeItem(EDIT_KEY); } catch (e) {}
+  }
 
   function effectivePrice(w) {
     // Must match the priority the row itself displays (price_median first,
@@ -449,7 +468,10 @@
       created_at: new Date().toISOString()
     };
     try {
-      var res = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+      var secret = getEditSecret();
+      if (!secret) throw new Error('Edit key required');
+      var res = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Edit-Key': secret }, body: JSON.stringify(item) });
+      if (res.status === 401) { clearEditSecret(); throw new Error('Unauthorized: wrong edit key. Try again.'); }
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
       $('f-artist').value = ''; $('f-title').value = '';
@@ -462,7 +484,10 @@
   async function delItem(id) {
     if (!confirm('Remove this record from the wishlist?')) return;
     try {
-      var res = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE' });
+      var secret = getEditSecret();
+      if (!secret) throw new Error('Edit key required');
+      var res = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE', headers: { 'X-Edit-Key': secret } });
+      if (res.status === 401) { clearEditSecret(); throw new Error('Unauthorized: wrong edit key. Try again.'); }
       if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
       clearError();
       items = items.filter(function (x) { return x.id !== id; });
