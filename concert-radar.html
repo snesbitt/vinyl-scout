@@ -17,7 +17,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=31" />
+  <link rel="stylesheet" href="/style.css?v=32" />
   <style>
     /* Concert Radar — version: 20 (2026-08-06).
        v20: two fixes, same session. (1) Susan: "fix this search issue
@@ -649,7 +649,11 @@
     .cr-input { width: 100%; font-family: var(--mono); font-size: 16px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; background: var(--bg); color: var(--ink); min-height: 44px; box-sizing: border-box; }
     .cr-input:focus { outline: none; border-color: var(--accent); }
     .cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* 2026-08-07: "Traveling?" panel — City/From/To, three fields on one
+       row on desktop rather than the default two-column .cr-fields grid. */
+    .cr-fields-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .cr-field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 5px; }
+    .cr-travel-panel { margin: 0 0 24px; }
     .cr-search-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
     .cr-search-btn { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; background: var(--ink); color: var(--bg); border: 0; border-radius: 2px; padding: 0 18px; min-height: 44px; cursor: pointer; flex: 0 0 auto; }
     .cr-search-btn:hover { background: var(--accent); }
@@ -699,6 +703,17 @@
     .cr-watch-check { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 5px 10px; white-space: nowrap; cursor: pointer; margin-top: 6px; }
     .cr-watch-check:hover { border-color: var(--accent); color: var(--accent); }
     .cr-watch-empty { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 4px; }
+    /* 2026-08-07 (Susan: "i just got tix... change the status to GOING") —
+       a watched artist with a confirmed matched show can be marked as
+       already-going, distinct from just tracking it. Same visual language
+       as .travel-match's --good "confirmed/positive" treatment elsewhere
+       on this page. */
+    .cr-watch-going-badge { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--good); background: rgba(74, 107, 59, 0.12); border-radius: 2px; padding: 2px 7px; margin-left: 8px; white-space: nowrap; display: inline-block; }
+    .cr-watch-going { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px; padding: 4px 10px; white-space: nowrap; cursor: pointer; }
+    .cr-watch-going:hover { border-color: var(--good); color: var(--good); }
+    .cr-watch-going--active { background: var(--good); border-color: var(--good); color: var(--bg); }
+    .cr-watch-going--active:hover { opacity: 0.85; border-color: var(--good); color: var(--bg); }
+    .cr-watch-going:disabled { opacity: 0.6; cursor: default; }
     /* 2026-08-05, Phase 10 — Travel Intelligence match note. Appended (JS,
        best-effort, never blocks the row's own render) when a cross-site
        check against travelintelligence.org's /api/watched-trips finds this
@@ -729,7 +744,7 @@
     @media (max-width: 640px) {
       .cr-wrap { padding: 0 18px 64px; }
       .cr-hero { grid-template-columns: 1fr; }
-      .cr-fields { grid-template-columns: 1fr; }
+      .cr-fields, .cr-fields-3 { grid-template-columns: 1fr; }
       .cr-item, .cr-live-item { flex-direction: column; align-items: flex-start; }
       .cr-who { flex: 0 0 auto; }
       .cr-meta { text-align: left; }
@@ -812,6 +827,28 @@
       </form>
     </div>
   </div>
+
+  <section class="cr-panel cr-travel-panel">
+    <h3 class="cr-panel__label">Traveling?</h3>
+    <p class="cr-watch-detail-hint">Enter a city and date range to check every artist you follow — catalog, wishlist, and watching — for shows while you're there. Matches can be added to Coming Soon or Watching right from the results.</p>
+    <div class="cr-fields cr-fields-3">
+      <div class="cr-field">
+        <label for="cr-f-travel-city">City</label>
+        <input type="text" id="cr-f-travel-city" class="cr-input" placeholder="e.g. Chicago" autocomplete="off" />
+      </div>
+      <div class="cr-field">
+        <label for="cr-f-travel-from">From</label>
+        <input type="date" id="cr-f-travel-from" class="cr-input" />
+      </div>
+      <div class="cr-field">
+        <label for="cr-f-travel-to">To</label>
+        <input type="date" id="cr-f-travel-to" class="cr-input" />
+      </div>
+    </div>
+    <div class="cr-search-actions">
+      <button type="button" id="cr-travel-search-btn" class="cr-search-btn">Search my artists</button>
+    </div>
+  </section>
 
   <section id="cr-live" class="cr-live" hidden>
     <h3 class="cr-section-label">Live Results</h3>
@@ -937,7 +974,11 @@
     watchDetailCity: document.getElementById('cr-wd-city'),
     watchDetailUrl: document.getElementById('cr-wd-url'),
     watchDetailError: document.getElementById('cr-wd-error'),
-    watchDetailCancel: document.getElementById('cr-wd-cancel')
+    watchDetailCancel: document.getElementById('cr-wd-cancel'),
+    travelCityInput: document.getElementById('cr-f-travel-city'),
+    travelFromInput: document.getElementById('cr-f-travel-from'),
+    travelToInput: document.getElementById('cr-f-travel-to'),
+    travelSearchBtn: document.getElementById('cr-travel-search-btn')
   };
 
   function fmtPrice(low, high) {
@@ -1169,11 +1210,22 @@
           ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
           : '';
         var ticketUrl = matches.map(function (m) { return m.url; }).filter(Boolean)[0];
+        // 2026-08-07 (Susan: "i just got tix to the easy star show but i
+        // want to change the status to GOING") — only offered once there's
+        // a real matched show to be going to; toggled via the delegated
+        // data-watch-going handler below, persisted to the same /api/
+        // watching record (POST accepts any extra field, see that file's
+        // handler — no schema change needed).
+        var goingBtn = '<button type="button" class="cr-watch-going' + (w.going ? ' cr-watch-going--active' : '') +
+          '" data-watch-going="' + esc(w.id || '') + '">' +
+          (w.going ? '🎟 Going ✓' : 'I’m going') +
+        '</button>';
         statusHtml = venueHtml +
         '<div class="cr-watch-info">' +
           '<div class="cr-watch-date">' + esc(fmtDateRange(matches)) + '</div>' +
           (hasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs))) + '</div>' : '') +
           (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+          goingBtn +
         '</div>';
       } else {
         // v18.1: live-caught by Susan (screenshot, 2:54pm) — Black Uhuru,
@@ -1215,7 +1267,7 @@
       return '<div class="cr-watch-row">' +
         '<div class="cr-watch-top">' +
           '<div class="cr-watch-who">' +
-            '<div class="cr-watch-artist">' + esc(w.artist) + '</div>' +
+            '<div class="cr-watch-artist">' + esc(w.artist) + (w.going ? '<span class="cr-watch-going-badge">Going</span>' : '') + '</div>' +
             (w.city ? '<div class="cr-watch-city">' + esc(w.city) + '</div>' : '') +
           '</div>' +
           '<button type="button" class="cr-watch-del" aria-label="Stop watching ' + esc(w.artist) + '" data-watch-del="' + esc(w.id || '') + '">&times;</button>' +
@@ -1357,6 +1409,9 @@
   els.clearBtn.addEventListener('click', function () {
     els.artistInput.value = '';
     els.cityInput.value = '';
+    els.travelCityInput.value = '';
+    els.travelFromInput.value = '';
+    els.travelToInput.value = '';
     els.live.hidden = true;
     els.liveBody.innerHTML = '';
     els.clearBtn.hidden = true;
@@ -1489,6 +1544,32 @@
       var wd = watching[didx];
       if (!wd) return;
       openWatchDetailForm(wd);
+      return;
+    }
+    // 2026-08-07: toggle "Going" — persists the same way addWatch()/the
+    // delete handler above already do (POST the full record to
+    // /api/watching; that handler stores whatever body it's given, no
+    // schema change needed for the new `going` field).
+    var goingBtn = e.target.closest('[data-watch-going]');
+    if (goingBtn) {
+      var gid = goingBtn.getAttribute('data-watch-going');
+      var gw = watching.filter(function (x) { return x.id === gid; })[0];
+      if (!gw) return;
+      var updated = Object.assign({}, gw, { going: !gw.going });
+      goingBtn.disabled = true;
+      fetch('/api/watching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      }).then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        watching = watching.map(function (x) { return x.id === gid ? updated : x; });
+        watchError = null;
+        renderWatchList();
+      }).catch(function (err) {
+        watchError = 'Could not update "' + gw.artist + '": ' + err.message;
+        renderWatchList();
+      });
       return;
     }
   });
@@ -1844,6 +1925,132 @@
       els.artistInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   })();
+
+  // 2026-08-07 (Susan, direct request): "if i'm travelling to another city i
+  // want to put the dates in and have it search for any artist i care abt to
+  // add to coming soon or watching." Distinct from the single-artist Search
+  // panel above — this sweeps EVERY artist Susan follows (catalog + wishlist
+  // + watching, via the existing fetchDistinctArtists(), same set the Coming
+  // Soon sweep already uses) against one real destination city and date
+  // window, using tour-dates.mjs's new v6 `city` param (SeatGeek's own
+  // venue.city filter — no geocoder needed in this codebase; see that
+  // file's header comment) plus its existing v5 date_start/date_end range.
+  // venue-shows.mjs is skipped entirely: it only ever covers 7 fixed Bay
+  // Area venues, never a real match once the search is scoped somewhere
+  // else — same reasoning runLiveSearch() already applies for a lat/lon
+  // override.
+  //
+  // Results render into the SAME #cr-live / #cr-live-body panel and reuse
+  // its already-tested delegated click handler (data-watch-artist,
+  // data-add-show) rather than inventing a second results panel + a second
+  // handler — each card gets its own watchRowHtml() "+ Watch" button
+  // (unlike the single shared one runLiveSearch() renders, since a
+  // multi-artist result list has more than one artist to watch) plus the
+  // existing "+ Add to Coming Soon" button, unchanged.
+  var travelSearchInFlight = false;
+
+  function renderTravelResults(shows, cityLabel, fromLabel, toLabel) {
+    var sorted = (shows || []).slice().sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    if (!sorted.length) {
+      els.liveBody.innerHTML = '<div class="cr-live-status">No shows found for the artists you follow in ' +
+        esc(cityLabel) + ' between ' + esc(fromLabel) + ' and ' + esc(toLabel) + '.</div>';
+      return;
+    }
+
+    lastLiveShowsById = {};
+    sorted.forEach(function (s) { lastLiveShowsById[s.id] = s; });
+
+    var header = '<div class="cr-live-query">' + sorted.length + ' show' + (sorted.length === 1 ? '' : 's') +
+      ' in ' + esc(cityLabel) + ', ' + esc(fromLabel) + '–' + esc(toLabel) + '</div>';
+
+    els.liveBody.innerHTML = header + sorted.map(function (s) {
+      var hasPrice = typeof s.priceLow === 'number' && typeof s.priceHigh === 'number';
+      var added = addedShows.some(function (a) { return a.id === s.id; });
+      return '<div class="cr-live-item">' +
+        '<div class="cr-who">' +
+          '<div class="cr-artist">' + esc(s.artist) + '</div>' +
+          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          watchRowHtml(s.artist, s.city || cityLabel) +
+          '<div class="cr-live-actions">' +
+            (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+            '<button type="button" class="cr-live-add-btn" data-add-show="' + esc(s.id) + '"' + (added ? ' disabled' : '') + '>' +
+              (added ? 'Added ✓' : '+ Add to Coming Soon') +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cr-meta">' +
+          '<div class="cr-date">' + esc(s.dateLabel || s.date || 'Date TBA') + '</div>' +
+          (hasPrice ? '<div class="cr-price">' + fmtPrice(s.priceLow, s.priceHigh) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function runTravelSearch() {
+    if (travelSearchInFlight) return;
+    var city = els.travelCityInput.value.trim();
+    var dateFrom = els.travelFromInput.value;
+    var dateTo = els.travelToInput.value;
+    els.live.hidden = false;
+    els.clearBtn.hidden = false;
+
+    if (!city) {
+      showLiveStatus('Enter a city above, then search.', true);
+      els.travelCityInput.focus();
+      return;
+    }
+    if (!dateFrom || !dateTo) {
+      showLiveStatus('Enter both a From and To date, then search.', true);
+      (dateFrom ? els.travelToInput : els.travelFromInput).focus();
+      return;
+    }
+    if (dateTo < dateFrom) {
+      showLiveStatus('The To date is before the From date.', true);
+      els.travelToInput.focus();
+      return;
+    }
+
+    travelSearchInFlight = true;
+    els.travelSearchBtn.disabled = true;
+    els.travelSearchBtn.textContent = 'Searching…';
+    showLiveStatus('Checking every artist you follow against ' + city + '…', false);
+
+    fetchDistinctArtists().then(function (artists) {
+      if (!artists.length) {
+        showLiveStatus('Nothing in your catalog, wishlist, or Watching list to search yet.', true);
+        return;
+      }
+      return mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
+        var u = '/api/tour-dates?artist=' + encodeURIComponent(artist) +
+          '&city=' + encodeURIComponent(city) +
+          '&date_start=' + encodeURIComponent(dateFrom) +
+          '&date_end=' + encodeURIComponent(dateTo);
+        return fetch(u)
+          .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+          .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+          .catch(function () { return []; });
+      }).then(function (perArtistShows) {
+        var all = [];
+        perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
+        renderTravelResults(dedupeById(all), city, dateFrom, dateTo);
+      });
+    })
+      .catch(function (err) {
+        showLiveStatus('Could not reach the search endpoint: ' + err.message, true);
+      })
+      .finally(function () {
+        travelSearchInFlight = false;
+        els.travelSearchBtn.disabled = false;
+        els.travelSearchBtn.textContent = 'Search my artists';
+      });
+  }
+
+  els.travelSearchBtn.addEventListener('click', runTravelSearch);
+  els.travelCityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runTravelSearch(); });
+  els.travelFromInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runTravelSearch(); });
+  els.travelToInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runTravelSearch(); });
 
   // --- Catalog sweep: real Coming Soon data, sourced from the collection
   // and wishlist rather than a static mock list. Every distinct artist name

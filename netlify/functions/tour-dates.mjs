@@ -1,5 +1,16 @@
 // netlify/functions/tour-dates.mjs
-// version: 5
+// version: 6
+//
+// v6: optional `city` param (2026-08-07, Concert Radar "Traveling?" search —
+// Susan: search every artist she follows against a real destination city,
+// not just Berkeley + a client-side text filter). When present, this is used
+// as SeatGeek's own `venue.city` event filter instead of lat/lon/range —
+// SeatGeek resolves the city server-side, so no geocoder needs to live in
+// this codebase. lat/lon (v5, still used by Travel Intelligence's deep
+// link and artists-playing.mjs) takes priority if BOTH are somehow present,
+// since that path already carries a precise, pre-resolved location and
+// existing callers must keep behaving exactly as before. `range` is dropped
+// entirely in city mode — it only means something paired with lat/lon.
 // Phase 10 — Travel Intelligence hooks (2026-08-05). Generalized beyond the
 // hardcoded Berkeley home location, per the plan drafted 2026-08-04 (see
 // PROJECT.md's Phase 10 section) and Susan's answers on radius/scope. Two
@@ -141,8 +152,15 @@ export default async (req) => {
   // than a 400, since every pre-v5 caller only ever omits both.
   var latParam = parseFloat(url.searchParams.get("lat"));
   var lonParam = parseFloat(url.searchParams.get("lon"));
-  var lat = (isFinite(latParam) && isFinite(lonParam)) ? latParam : HOME_LAT;
-  var lon = (isFinite(latParam) && isFinite(lonParam)) ? lonParam : HOME_LON;
+  var hasLatLon = isFinite(latParam) && isFinite(lonParam);
+  var lat = hasLatLon ? latParam : HOME_LAT;
+  var lon = hasLatLon ? lonParam : HOME_LON;
+
+  // v6: city filter, ignored if a real lat/lon override is already present
+  // (see header comment — lat/lon is the more precise, already-resolved
+  // path and must keep winning for existing callers).
+  var cityParam = (url.searchParams.get("city") || "").trim();
+  var hasCity = !hasLatLon && !!cityParam;
 
   // v5: optional date window. Both ends required together (see header
   // comment) — a lone date_start or date_end is dropped rather than
@@ -231,9 +249,13 @@ export default async (req) => {
     if (performer && performer.slug) {
       const evParams = authParams();
       evParams.set("performers.slug", performer.slug);
-      evParams.set("lat", String(lat));
-      evParams.set("lon", String(lon));
-      evParams.set("range", range);
+      if (hasCity) {
+        evParams.set("venue.city", cityParam);
+      } else {
+        evParams.set("lat", String(lat));
+        evParams.set("lon", String(lon));
+        evParams.set("range", range);
+      }
       evParams.set("sort", "datetime_utc.asc");
       evParams.set("per_page", "10");
       if (hasDateWindow) {
@@ -291,9 +313,10 @@ export default async (req) => {
       matched_performer: performer ? performer.name : null,
       matched_slug: performer ? performer.slug : null,
       match_tier: matchTier,
-      lat,
-      lon,
-      range,
+      lat: hasCity ? null : lat,
+      lon: hasCity ? null : lon,
+      range: hasCity ? null : range,
+      city: hasCity ? cityParam : null,
       date_start: hasDateWindow ? dateStart : null,
       date_end: hasDateWindow ? dateEnd : null,
     },
