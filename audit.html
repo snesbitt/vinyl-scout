@@ -16,7 +16,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=31" />
+  <link rel="stylesheet" href="/style.css?v=32" />
   <style>
     .audit-toolbar {
       max-width: 1100px;
@@ -74,9 +74,31 @@
       grid-template-columns: 96px 1fr auto;
       grid-template-areas: "cover meta actions";
       gap: 20px;
-      padding: 18px 0;
-      border-bottom: 1px solid var(--rule-soft);
+      padding: 13px 0; /* 2026-08-07 Phase 6: tighter rows, was 18px */
+      border-bottom: 1px solid var(--rule); /* was --rule-soft: darker per design review */
       align-items: center;
+      position: relative;
+    }
+
+    /* 2026-08-07 Phase 6: catalog index stamp — the one recurring mark this
+       pass settles on, per the roadmap's own "catalog stamp or numbering
+       convention" phrasing. Audit-only: no other page borrows it. Purely
+       decorative (pointer-events:none) so it never blocks the cover
+       upload click target it sits on top of. */
+    .audit-row__index {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 1;
+      pointer-events: none;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--ink-faint);
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      padding: 1px 5px;
     }
     .audit-row__cover {
       grid-area: cover;
@@ -467,7 +489,7 @@
           "cover meta"
           "actions actions";
         gap: 14px;
-        padding: 16px 0;
+        padding: 12px 0; /* 2026-08-07 Phase 6: tighter rows, was 16px */
       }
       .audit-row__cover,
       .audit-row__cover img,
@@ -549,7 +571,7 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 17 (paired with style.css?v=31)
+// version: 18 (paired with style.css?v=32)
 // v17 (2026-07-20): mobile touch-target/zoom fix. .audit-input's base
 // font-size was 14px, with per-field overrides as low as 12px
 // (js-year/js-genre) and 13px (js-notes) — all under the 16px iOS Safari
@@ -718,7 +740,7 @@ function render() {
     return;
   }
 
-  list.innerHTML = visible.map(function (r) {
+  list.innerHTML = visible.map(function (r, i) {
     const cover = r.cover_url
       ? '<img src="' + escapeHtml(r.cover_url) + '" alt="">'
       : '<div class="nocover">no cover</div>';
@@ -726,8 +748,12 @@ function render() {
     const condOptions = GRADES.map(function (g) {
       return '<option value="' + g + '"' + (g === cond ? ' selected' : '') + '>' + (CONDITION_NAMES[g] || g) + '</option>';
     }).join('');
+    // 2026-08-07 Phase 6: catalog index stamp, e.g. "№001" — the row's
+    // position in the current sorted/filtered view, not a stored field.
+    const indexNum = String(i + 1).padStart(3, '0');
     return ''
       + '<div class="audit-row" data-id="' + escapeHtml(r.id) + '">'
+      +   '<span class="audit-row__index">№' + indexNum + '</span>'
       +   '<label class="audit-row__cover">' + cover
       +     '<input type="file" accept="image/*" class="js-cover-upload">'
       +   '</label>'

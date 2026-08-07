@@ -1,8 +1,14 @@
 /* Vinyl Scout — style.css
    version: 28 (see cache-bust ?v= query string on each page's <link> for
-   the real current number — v31 as of this note; the "version" line above
+   the real current number — v32 as of this note; the "version" line above
    has drifted from that in the past and is kept here for changelog
    continuity, not as the authoritative number)
+   v32 (2026-08-07): Phase 6 "Editorial polish pass", part 1 — masthead
+   nav gap tightened 22px->18px (desktop only; the <=720px scrollable-row
+   gap of 16px is left alone, it was already tightened for a different
+   reason in v28). Audit-row spacing/rule-darkening and the wishlist price
+   size bump are page-scoped changes, not in this file — see audit.html
+   and wishlist.html's own version notes.
    v31 (2026-08-06): Phase 1 of the portfolio-wide About/Guide template
    consolidation (see Travel Intelligence's claude/travel-intelligence-
    build-log.md for the full plan). Added a canonical article-page
@@ -210,7 +216,7 @@ main#main:focus-visible { outline: none; }
 }
 .masthead__nav {
   display: flex;
-  gap: 22px;
+  gap: 18px; /* 2026-08-07 Phase 6: subtle tightening, was 22px */
   flex-shrink: 0;
 }
 .masthead__nav a {
