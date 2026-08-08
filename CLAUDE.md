@@ -1551,3 +1551,13 @@ Deliberately did NOT build the same check for the "≈€2,232 collection value"
 Verified both failure modes before shipping: temporarily set the stat tile to 88 (confirmed a clear about.html-drift failure message with the right numbers), separately corrupted the backup file's own `record_count` to 999 (confirmed a distinctly-worded backup.mjs-bug failure, not misattributed to about.html) — both restored and reconfirmed clean afterward. Wired into `package.json`'s `test` script and added the same weekly `schedule:` cron trigger the other two repos got today.
 
 Local verification ran the new check standalone (both passes and both failure modes above, all via real file edits and restores, not simulated) plus a JSON-validity check on `package.json`. Did not attempt a full local `npm test`/`npm install` run this time, having just hit a 45-second command-timeout truncating an install on the travel-intelligence repo minutes earlier — CI's `npm ci` has no such constraint and is the real gate; confirm green after pushing.
+
+## 2026-08-08 — doc alignment pass: a removed design element and two unshipped-on-paper features
+
+Per Susan's "check review align and update as needed all the roadmaps, guides and about pages" request. Three real fixes, all in `roadmap.html` and `about.html`:
+
+`roadmap.html` Phase 6 ("Editorial polish pass") still described the catalog-index stamp ("№001") on Audit rows as "the one small mark this pass settles on" — but that stamp, plus the `.audit-help` instructional text, were removed at Susan's request the same week (commit `9fd5488`). Rewrote the phase to say both were tried and then removed as clutter, rather than leaving a roadmap page actively describing a UI element that no longer exists.
+
+`roadmap.html` Phase 11 (Concert Radar) and `about.html`'s Concert Radar section (07) both predated the "Traveling?" city/date search panel and the "Going" status toggle on Watching rows, both shipped 2026-08-07. Added a paragraph to each describing both features. `about.html`'s API stack list was also missing `/api/watching` entirely — added it, including the `going` field.
+
+Checked `guide.html` against the current `netlify/functions/` directory and the daily-health-check claim in step 5 — found no obvious drift, left unchanged; that page is more a general six-step methodology than a feature-by-feature description, and this session made no changes to the mechanism it describes. Verified: `npm run check` (all functions still syntactically valid) and a manual HTML-parse/div-balance check on both edited pages, both clean.

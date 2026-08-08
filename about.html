@@ -17,7 +17,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=31" />
+  <link rel="stylesheet" href="/style.css?v=32" />
 </head>
 <body>
 
@@ -126,8 +126,9 @@
         <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are gated by the same edit key as the catalog (2026-08-06), remembered in the browser after it's entered once, so it costs one entry per device rather than one per visit.</li>
         <li><strong>Enrichment</strong> — <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
         <li><strong>Audio</strong> — <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
-        <li><strong>Concert Radar</strong> — <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed, resolves an artist to a real performer before querying events, near Berkeley, CA.</li>
+        <li><strong>Concert Radar</strong> — <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed, resolves an artist to a real performer before querying events, near Berkeley, CA; also accepts an optional <code>city</code> override (2026-08-07) so the &ldquo;Traveling?&rdquo; panel can sweep a different destination.</li>
         <li><strong>Concert Radar, reverse lookup</strong> — <code>/api/artists-playing</code>, public, read-only, CORS-enabled for <code>travelintelligence.org</code>. Given a destination and date window, returns real nearby events cross-referenced against this catalog/wishlist/watching, the query Travel Intelligence's watched trips run against.</li>
+        <li><strong>Watching</strong> — <code>/api/watching</code>, POST, ungated. Stores which artists you're tracking, including a <code>going</code> flag (2026-08-07) that persists a confirmed-ticket toggle across devices.</li>
       </ul>
     </div>
     <div class="stack-item">
@@ -223,6 +224,15 @@
     advance that resale listings haven't opened yet. Ticketmaster and a
     Spotify layer are parked for later, added only if a real coverage gap
     shows up.
+  </p>
+  <p>
+    Two more pieces shipped 2026-08-07. A &ldquo;Traveling?&rdquo; panel takes
+    a city and a date range and sweeps every distinct artist across the
+    collection, wishlist, and watching list against that destination
+    instead of Berkeley, so a trip elsewhere surfaces shows you'd otherwise
+    never see. And Watching rows now carry a &ldquo;Going&rdquo; toggle
+    &mdash; once you've actually got tickets, marking it persists across
+    devices, with a badge next to the artist name.
   </p>
   <p>
     Since 2026-08-05 it also runs in reverse. <a href="https://travelintelligence.org/">Travel Intelligence</a>
