@@ -1539,3 +1539,15 @@ Nothing user-facing changed — this is CI/dependency-management plumbing
 only (the live site's actual runtime was never on Node 20 to begin with),
 so no front-end (roadmap/about/PROJECT.md feature) update is needed
 alongside this entry.
+
+## 2026-08-08 — second content-drift check: about.html's "records tracked" vs. the latest catalog backup
+
+Same pattern, third instance (after Streaming Scout's services-tracked check and Travel Intelligence's dimension/priority check, both same day). Susan's pick, going slow through the architecture review's recommendation 5 items while recommendation 1 (direct Claude-to-GitHub commits) stays parked on the credential blocker.
+
+`about.html`'s stat strip claims "94 records tracked." The daily scheduled `backup.mjs` function already commits a full catalog snapshot to git as `backups/YYYY-MM-DD.json`, including a `record_count` field — a real, already-existing source of truth, no new infrastructure needed. New `scripts/check-content-drift.mjs` finds the latest dated backup file, cross-checks its own `record_count` against its `records` array length (catching a `backup.mjs` bug distinctly from an `about.html` bug), then compares against the about.html stat tile.
+
+Deliberately did NOT build the same check for the "≈€2,232 collection value" tile — that number is explicitly approximate and tracks live market prices refreshed weekly (see the adjacent "Mon weekly price refresh" tile); summing the latest backup's `price_median` field across all 94 records gives €2,224.72, a few euros off from the page copy purely from ordinary price movement since that copy was last hand-updated. A strict equality check there would fail on completely normal weeks. Left as a note for a future session if a tolerance-band version is ever wanted — not bundled into this check.
+
+Verified both failure modes before shipping: temporarily set the stat tile to 88 (confirmed a clear about.html-drift failure message with the right numbers), separately corrupted the backup file's own `record_count` to 999 (confirmed a distinctly-worded backup.mjs-bug failure, not misattributed to about.html) — both restored and reconfirmed clean afterward. Wired into `package.json`'s `test` script and added the same weekly `schedule:` cron trigger the other two repos got today.
+
+Local verification ran the new check standalone (both passes and both failure modes above, all via real file edits and restores, not simulated) plus a JSON-validity check on `package.json`. Did not attempt a full local `npm test`/`npm install` run this time, having just hit a 45-second command-timeout truncating an install on the travel-intelligence repo minutes earlier — CI's `npm ci` has no such constraint and is the real gate; confirm green after pushing.
