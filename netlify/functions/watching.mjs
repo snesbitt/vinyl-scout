@@ -4,7 +4,7 @@ export const config = {
   path: "/api/watching/:id?"
 };
 
-// version: 1
+// version: 2
 //
 // Phase 11 — Concert Radar. Watching panel storage, added 2026-08-04 (v16).
 //
@@ -43,6 +43,27 @@ export const config = {
 // works for one flag) but is filtered out of every GET response below by
 // id prefix, so it never renders as a card and never counts toward
 // anything client-side sees.
+//
+// v2 (2026-08-09): DELETE now records the removed artist into a `deleted`
+// list in watching-state.json (committed via the GitHub Contents API, same
+// pattern wishlist.mjs's v3 already uses for its own sync-state.json — a
+// deliberate copy, not a shared file, so a bug in one feature's
+// no-re-add tracking can never touch the other's). Direct cause: the night
+// this shipped, Susan restored three artists to this store by hand after a
+// data-loss incident, then deliberately removed them again herself moments
+// later via the live Remove button — nothing recorded that second removal
+// anywhere, so a future backup-restore (see netlify/lib/run-watching-backup.mjs,
+// added the same night) would have silently brought them right back,
+// indistinguishable from genuine data loss. Susan asked directly: "remember
+// when i click it." This is what makes that true going forward. This
+// endpoint itself does NOT block Susan's own re-adds through the UI — she
+// can always change her mind and re-add anything herself. What this closes
+// is a FUTURE AUTOMATED RESTORE silently undoing a deliberate removal;
+// any future backup-restore action (human or Claude-driven) must check
+// watching-state.json's `deleted` list before restoring any artist from a
+// backup snapshot and skip anything that appears there. This write is
+// best-effort and non-fatal, same as wishlist.mjs's recordDeletion: if it
+// fails (e.g. GITHUB_TOKEN missing), the delete itself still succeeds.
 
 function isSentinel(id) {
   return typeof id === 'string' && id.indexOf('_meta_') === 0;
@@ -82,6 +103,79 @@ async function seedIfNeeded(store) {
   }
 }
 
+// Same normalization convention wishlist.mjs's recordDeletion uses:
+// lowercase, non a-z0-9 becomes a space (not deleted — matters for accented
+// names), collapse runs of spaces, trim. Keyed on artist name only (not
+// city) — re-adding the same artist under a different city is still the
+// same "Susan removed this artist" fact.
+function normalizeKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function recordDeletion(artist) {
+  const key = normalizeKey(artist);
+  if (!key) return { ok: false, reason: 'empty key' };
+
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPO || 'snesbitt/vinyl-scout';
+  const branch = process.env.GITHUB_BRANCH || 'main';
+  if (!token) return { ok: false, reason: 'GITHUB_TOKEN not configured' };
+
+  const path = 'watching-state.json';
+  const ghHeaders = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': 'vinyl-scout-watching',
+  };
+
+  try {
+    const getRes = await fetch(
+      'https://api.github.com/repos/' + repo + '/contents/' + path + '?ref=' + branch,
+      { headers: ghHeaders }
+    );
+    let state = { deleted: [] };
+    let sha = null;
+    if (getRes.ok) {
+      const file = await getRes.json();
+      sha = file.sha;
+      state = JSON.parse(Buffer.from(file.content, 'base64').toString('utf-8'));
+    }
+    if (!Array.isArray(state.deleted)) state.deleted = [];
+    if (state.deleted.some(function (e) { return e.key === key; })) {
+      return { ok: true, already_present: true };
+    }
+
+    state.deleted.push({ key: key, artist: artist, deletedAt: new Date().toISOString() });
+
+    const body = {
+      message: 'watching: record deletion "' + key + '"',
+      content: Buffer.from(JSON.stringify(state, null, 2), 'utf-8').toString('base64'),
+      branch: branch,
+    };
+    if (sha) body.sha = sha;
+
+    const putRes = await fetch(
+      'https://api.github.com/repos/' + repo + '/contents/' + path,
+      {
+        method: 'PUT',
+        headers: Object.assign({}, ghHeaders, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+      }
+    );
+    if (!putRes.ok) {
+      const detail = await putRes.text();
+      return { ok: false, reason: 'GitHub commit failed: ' + putRes.status + ' ' + detail.slice(0, 200) };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
+
 export default async (req) => {
   try {
     const method = (req.method || '').toUpperCase();
@@ -115,8 +209,26 @@ export default async (req) => {
       if (!id || id === 'watching') {
         return json({ error: 'ID required' }, 400);
       }
+
+      // Read the item BEFORE deleting so we can record its artist name --
+      // once it's gone from the store there's nothing left to key on.
+      let item = null;
+      try {
+        const raw = await store.get(id);
+        if (raw) item = JSON.parse(raw);
+      } catch (e) { /* malformed stored item; deletion still proceeds below */ }
+
       await store.delete(id);
-      return json({ ok: true, deleted: id });
+
+      let deletionRecord = { ok: false, reason: 'no artist on stored item' };
+      if (item && item.artist) {
+        deletionRecord = await recordDeletion(item.artist);
+        if (!deletionRecord.ok) {
+          console.warn('watching.mjs: could not record deletion for no-re-add tracking:', deletionRecord.reason);
+        }
+      }
+
+      return json({ ok: true, deleted: id, no_readd_recorded: !!deletionRecord.ok });
     }
 
     return json({ error: 'Method not allowed' }, 405);
