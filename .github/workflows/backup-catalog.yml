@@ -1,0 +1,56 @@
+name: Daily catalog backup
+
+# Added 2026-08-09, see claude/weekend-netlify-github-cost-plan-2026-08-08.md
+# (in the "Travel Intelligence Agent" Claude project) for the full rationale.
+# Runs entirely inside Actions -- no Netlify compute, no Netlify credential
+# of any kind. Fetches the live public catalog from vinylscout.org's own
+# /api/records endpoint and commits a snapshot straight to this repo, using
+# only Actions' own built-in GITHUB_TOKEN (scoped to this one workflow run).
+#
+# This is additive alongside the existing Netlify-scheduled backup.mjs, not
+# a replacement yet -- both will run for a period so Susan can compare a
+# real run's output against the Netlify version before retiring the old
+# one. Once she's confident this is working (check the Actions tab, or
+# trigger it manually via "Run workflow" below), backup.mjs and its 09:00
+# UTC schedule can be removed from netlify/functions/ to actually realize
+# the Netlify compute-credit savings this migration is for.
+#
+# Scheduled 5 minutes after the old Netlify job's 09:00 UTC time, same
+# offset convention already used for backup-watching.mjs, so overlapping
+# backups (this one and the old one, during the transition period) don't
+# race on anything.
+
+on:
+  schedule:
+    - cron: "5 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backup-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch catalog and write snapshot
+        id: backup
+        run: node scripts/backup-catalog.mjs
+
+      - name: Commit snapshot if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.backup.outputs.backup_path }}"
+          if git diff --cached --quiet; then
+            echo "No changes to commit (catalog snapshot for today already matches, or this is a same-day re-run)."
+          else
+            git commit -m "backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.record_count }} records, via GitHub Actions)"
+            git push
+          fi
