@@ -1706,11 +1706,15 @@
 
     var watchRow = watchRowHtml(meta.matched_performer, els.cityInput.value.trim());
     var nearLabel = locationLabel || 'Berkeley';
+    // meta.range is only meaningful for a lat/lon-scoped search (a fixed
+    // radius around a point); a city-scoped search has no radius, SeatGeek
+    // matched the city directly, so say "in <city>" instead of the
+    // radius-shaped phrasing that only makes sense for the lat/lon case.
+    var scopePhrase = meta.range ? ('within ' + esc(meta.range) + ' of ' + esc(nearLabel)) : ('in ' + esc(nearLabel));
 
     if (!filtered.length) {
       els.liveBody.innerHTML = matchedLine + watchRow +
-        '<div class="cr-live-status">No upcoming ' + esc(meta.matched_performer) + ' shows found within ' +
-        esc(meta.range || 'range') + ' of ' + esc(nearLabel) +
+        '<div class="cr-live-status">No upcoming ' + esc(meta.matched_performer) + ' shows found ' + scopePhrase +
         (cityQ ? ' matching “' + esc(els.cityInput.value.trim()) + '”' : '') + '.</div>';
       return;
     }
@@ -1780,28 +1784,39 @@
   // client-side to whatever substring-matches the searched artist name,
   // same loose match findWatchMatches()/isShowWatched() already use
   // elsewhere in this file.
-  // 2026-08-06 (Susan: "fix this search issue regarding Santigold" — a
+  // 2026-08-06 (Susan: "fix this search issue regarding Santigold", a
   // Santigold+Chicago search came back "No upcoming Santigold shows found
   // within 60mi of Berkeley matching \u201cChicago\u201d"). Root cause: this
-  // panel's City field was NEVER a real location for the SeatGeek query —
+  // panel's City field was NEVER a real location for the SeatGeek query,
   // /api/tour-dates was always called artist-only, which server-side
   // (tour-dates.mjs) defaults to a fixed 60mi-of-Berkeley radius, and City
   // only ever text-filtered THOSE Bay Area results afterward. A city with
   // no Bay Area date for that artist was always going to come back empty,
   // regardless of what real shows exist elsewhere. tour-dates.mjs has
   // supported an optional lat/lon override since v5 (built for Phase 10's
-  // Travel Intelligence cross-check) — this was simply never wired up to
-  // this page's own Search panel. Fixed for the one case where a real
-  // lat/lon is actually known: a deep link from Travel Intelligence's own
-  // concert-match banner (initDeepLink(), below) now carries the trip's
+  // Travel Intelligence cross-check), this was simply never wired up to
+  // this page's own Search panel. Fixed same day for the one case where a
+  // real lat/lon is actually known: a deep link from Travel Intelligence's
+  // own concert-match banner (initDeepLink(), below) carries the trip's
   // real coordinates and passes them straight through as overrideLat/
   // overrideLon/overrideLabel, geo-scoping the SeatGeek query itself
   // instead of Berkeley. A manually-typed City with no coordinates behind
-  // it (no deep link) keeps the prior Berkeley-radius + text-filter
-  // behavior — turning arbitrary free-text city search into a real
-  // geo-search would need a geocoder this codebase doesn't have, and
-  // guessing coordinates from a name risked a wrong/misleading result,
-  // which is worse than the honest "near Berkeley" label it already shows.
+  // it (no deep link) kept the old Berkeley-radius + text-filter behavior
+  // at the time, flagged as a known remaining gap: turning arbitrary
+  // free-text city search into a real geo-search needed a geocoder this
+  // codebase didn't have, and guessing coordinates from a name risked a
+  // wrong/misleading result.
+  //
+  // 2026-08-08: closed, without adding a geocoder. tour-dates.mjs's v6
+  // (built 2026-08-07 for the "Traveling?" panel below) already added an
+  // optional city param that SeatGeek itself resolves server-side via its
+  // own venue.city filter, exactly the capability this comment described
+  // as missing, just built for a different panel first. A manually-typed
+  // City with no lat/lon override now sends that same city param instead
+  // of falling back to Berkeley-radius-plus-text-filter: SeatGeek does the
+  // real geo resolution, no coordinates are ever guessed client-side, and
+  // the result is scoped to the actual typed city rather than whatever
+  // happens to fall within 60mi of Berkeley.
   function runLiveSearch(overrideLat, overrideLon, overrideLabel) {
     if (liveSearchInFlight) return;
     var artist = els.artistInput.value.trim();
@@ -1813,15 +1828,24 @@
       return;
     }
     var hasLocationOverride = isFinite(overrideLat) && isFinite(overrideLon);
-    var locationLabel = hasLocationOverride ? (overrideLabel || 'that area') : 'Berkeley';
+    var cityQuery = hasLocationOverride ? '' : els.cityInput.value.trim();
+    var hasCityQuery = !!cityQuery;
+    // A geo-scoped search either way (real lat/lon, or a typed city SeatGeek
+    // resolves server-side) means the results are already correctly scoped;
+    // neither the venue scrape (Bay Area only) nor the client-side text
+    // filter belong on top of either one. See renderLiveResults()'s own note.
+    var isGeoScoped = hasLocationOverride || hasCityQuery;
+    var locationLabel = hasLocationOverride ? (overrideLabel || 'that area') : (hasCityQuery ? cityQuery : 'Berkeley');
     liveSearchInFlight = true;
     els.searchBtn.disabled = true;
-    els.searchBtn.textContent = 'Searching…';
-    showLiveStatus('Searching SeatGeek' + (hasLocationOverride ? '' : ' and watched venues') + ' for “' + artist + '” near ' + locationLabel + '…', false);
+    els.searchBtn.textContent = 'Searching\u2026';
+    showLiveStatus('Searching SeatGeek' + (isGeoScoped ? '' : ' and watched venues') + ' for \u201c' + artist + '\u201d near ' + locationLabel + '\u2026', false);
 
     var tourDatesUrl = '/api/tour-dates?artist=' + encodeURIComponent(artist);
     if (hasLocationOverride) {
       tourDatesUrl += '&lat=' + encodeURIComponent(overrideLat) + '&lon=' + encodeURIComponent(overrideLon);
+    } else if (hasCityQuery) {
+      tourDatesUrl += '&city=' + encodeURIComponent(cityQuery);
     }
 
     Promise.all([
@@ -1833,7 +1857,7 @@
       // The venue scrape only ever covers known Bay Area venues — never a
       // real match once the search is geo-scoped somewhere else, so skip
       // the request entirely rather than fetch it just to filter it away.
-      hasLocationOverride ? Promise.resolve([]) : fetchVenueShows()
+      isGeoScoped ? Promise.resolve([]) : fetchVenueShows()
     ]).then(function (results) {
       var tourDatesResult = results[0];
       var venueShowsAll = results[1];
@@ -1870,7 +1894,7 @@
       // still render with the typed name as the display/watch target —
       // "no SeatGeek performer" shouldn't hide a real venue-sourced match.
       var effectiveMeta = meta.matched_performer ? meta : Object.assign({}, meta, { matched_performer: artist });
-      renderLiveResults(combined, effectiveMeta, artist, hasLocationOverride ? locationLabel : null);
+      renderLiveResults(combined, effectiveMeta, artist, isGeoScoped ? locationLabel : null);
     })
       .catch(function (err) {
         showLiveStatus('Could not reach the search endpoint: ' + err.message, true);
@@ -1882,10 +1906,12 @@
       });
   }
 
-  // Manual search always uses the default Berkeley-radius behavior, never
-  // a leftover location override — only initDeepLink()'s own one-shot call
-  // below ever passes overrideLat/overrideLon. Wrapped rather than passed
-  // directly so a click event object is never mistaken for one.
+  // Manual search never passes a lat/lon override of its own, only
+  // initDeepLink()'s own one-shot call below ever passes overrideLat/
+  // overrideLon; a manually-typed City still gets a real geo-scoped search
+  // via runLiveSearch()'s own city-param logic above, just without
+  // overrideLat/overrideLon in play. Wrapped rather than passed directly
+  // so a click event object is never mistaken for a coordinate.
   els.searchBtn.addEventListener('click', function () { runLiveSearch(); });
   els.artistInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
   els.cityInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') runLiveSearch(); });
