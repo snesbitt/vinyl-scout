@@ -137,7 +137,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 | GITHUB_TOKEN   | save-cover, run-backup           | Commits covers + backups via GitHub API    | Covers + backups       |
 | GITHUB_REPO    | save-cover, run-backup           | Target repo (default snesbitt/vinyl-scout) | optional               |
 | GITHUB_BRANCH  | save-cover, run-backup           | Target branch (default main)               | optional               |
-| YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview's YouTube tier is currently a dormant last-resort — all 93 records already resolve via Deezer, so this key's status doesn't affect coverage today. Status not independently reconfirmed this pass; get one free from Google Cloud Console if you do need to set it (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, this tier gracefully reports "not configured" with zero effect on the rest of the pipeline. |
+| YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview's YouTube tier is currently a dormant last-resort — 93 of 94 records resolve via Deezer as of 2026-08-10 (Verve // Remixed is the sole remaining gap, pending YouTube), so this key's status barely affects coverage today. Status not independently reconfirmed this pass; get one free from Google Cloud Console if you do need to set it (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, this tier gracefully reports "not configured" with zero effect on the rest of the pipeline. |
 | SEATGEEK_CLIENT_ID    | tour-dates.mjs            | SeatGeek Platform API client_id, server-side only | Required for Concert Radar (Phase 11) — without it `/api/tour-dates` returns a 500. Must be scoped to "Functions" (or "All scopes") in Netlify's env var UI; "Builds, Runtime" alone isn't enough for a serverless function to read it at request time (bit us on first deploy, 2026-08-03). Currently set and live. |
 | SEATGEEK_CLIENT_SECRET| tour-dates.mjs            | SeatGeek Platform API client_secret, server-side only | Optional — SeatGeek's docs say client_secret isn't required for read-only calls like `/events`, so `tour-dates.mjs` tries `client_id` alone first and only adds the secret if this var is present. |
 
@@ -351,9 +351,7 @@ in doubt about what's actually live vs. what a phase label says, read the
 repo (or ask Susan) rather than trusting a "parked"/"planned" status by
 itself.
 
-**Current state (as of `audio-preview.mjs` version 15, 2026-07-13):** all
-93 records resolve to a real, individually-verified-correct playable
-preview, 100% served via Deezer. Spotify and iTunes tiers were tried and
+**Current state (as of 2026-08-10 weekly run):** 93 of 94 records resolve to a real, individually-verified-correct playable preview, served via Deezer. "Verve // Remixed" remains the sole record pending the YouTube fallback (key still not configured). Spotify and iTunes tiers were tried and
 removed — neither ever contributed a single playable preview across the
 whole catalog. A YouTube tier 4 exists in the code as a last-resort
 fallback (needs `YOUTUBE_API_KEY`, not yet confirmed set) but is currently
