@@ -1,0 +1,30 @@
+{
+  "snapshot_at": "2026-08-10T09:05:11.744Z",
+  "item_count": 4,
+  "items": [
+    {
+      "id": "watch_08e5e12f9f7f04cb",
+      "artist": "Easy Star All-Stars",
+      "city": "Berkeley, CA",
+      "going": true
+    },
+    {
+      "id": "watch_45acfd4406c3dc74",
+      "artist": "Thievery Corporation",
+      "city": "Oakland, CA",
+      "going": true
+    },
+    {
+      "id": "watch_61e3df1d9e63d5",
+      "artist": "Ziggy Marley",
+      "city": "Highland Park, IL",
+      "going": true
+    },
+    {
+      "id": "watch_ac01cc289e63d5",
+      "artist": "Burning Spear",
+      "city": "",
+      "going": true
+    }
+  ]
+}
