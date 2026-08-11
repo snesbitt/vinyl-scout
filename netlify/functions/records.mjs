@@ -47,13 +47,23 @@ export default async (req, context) => {
       const store = getStore('records');
       const { blobs } = await store.list();
       const records = [];
+      const badKeys = [];
       for (const blob of blobs) {
         const data = await store.get(blob.key);
-        if (data) records.push(JSON.parse(data));
+        if (!data) continue;
+        try {
+          records.push(JSON.parse(data));
+        } catch (parseErr) {
+          badKeys.push(blob.key);
+          console.error('records.mjs: skipping corrupt record', blob.key, parseErr.message);
+        }
       }
       return new Response(JSON.stringify(records), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          ...(badKeys.length ? { 'X-Skipped-Records': badKeys.join(',') } : {})
+        }
       });
     }
 
