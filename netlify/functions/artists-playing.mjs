@@ -1,5 +1,6 @@
 // netlify/functions/artists-playing.mjs
-// version: 1
+// version: 2 (2026-08-12: parallelized store reads + outbound fetches,
+// SeatGeek capped at 4.5s -- see PROJECT.md's v42 entry)
 // Phase 10 — Travel Intelligence hooks (2026-08-05). The Vinyl Scout half of
 // the bidirectional Concert Radar <-> Travel Intelligence integration Susan
 // asked for 2026-08-04 ("if i'm watching a fare like Chicago you check the
