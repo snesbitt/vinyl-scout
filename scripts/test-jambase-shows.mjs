@@ -164,7 +164,7 @@ var FAKE_JAMBASE_RESPONSE = {
 };
 
 global.fetch = async (url, opts) => {
-  assert(String(url).indexOf("data.jambase.com/v3/events") !== -1, "handler calls the v3 /events endpoint");
+  assert(String(url).indexOf("api.data.jambase.com/v3/events") !== -1, "handler calls the real api.data.jambase.com v3 /events endpoint (confirmed via the real OpenAPI spec's servers field, 2026-08-12)");
   assert(String(url).indexOf("geoLatitude=37.8715") !== -1, "handler sends the Berkeley home latitude by default");
   assert(String(url).indexOf("eventType=concert") !== -1, "handler scopes to eventType=concert");
   var authHeader = opts && opts.headers && opts.headers.Authorization;

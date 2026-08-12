@@ -2,6 +2,21 @@
 // version: 1 (draft, staged 2026-08-12 — see "NOT YET LIVE-VERIFIED" note
 // below before this ships)
 //
+// v1 correction, same day: the base URL was originally guessed as
+// "https://data.jambase.com/v3" from JamBase's prose docs. A real curl
+// from Susan's own Terminal against that URL came back HTTP 200 but with
+// content-type: text/html — the marketing site's own SSR catch-all route,
+// not the API. Pulled the real OpenAPI spec directly from
+// https://data.jambase.com/openapi.json (a static JSON file, unlike the
+// JS-rendered reference pages — reachable via WebFetch) and confirmed the
+// authoritative "servers" entry: "https://api.data.jambase.com/v3" (note
+// the "api." subdomain). Fixed below. The same spec confirmed the other
+// two open questions from the original note: auth is exactly
+// `Authorization: Bearer <key>` (securitySchemes: type "http", scheme
+// "bearer") and the response envelope is `{ success, pagination, events:
+// [...], request }` — "events" was already parseEnvelope()'s first-tried
+// key, so no parsing-logic change was needed there, just the URL.
+//
 // Phase 11/12 — Concert Radar, third feed. Susan signed up for JamBase
 // Data's new self-serve platform (data.jambase.com) after Ticketmaster's
 // developer signup stalled (see venue-shows.mjs's and CLAUDE.md's
@@ -36,33 +51,28 @@
 // translation, same reasoning venue-shows.mjs's header comment gives for
 // matching the same shape.
 //
-// *** NOT YET LIVE-VERIFIED — read before deploying or committing ***
-// Everything in this file is built directly from JamBase's own published
-// API reference (query parameters + the "Concert" response schema,
-// screenshotted directly off data.jambase.com/api/reference by Susan,
-// 2026-08-12) — not guessed. But two things specifically have NOT been
-// confirmed against a real live response, because this session has no
-// network path to data.jambase.com (sandboxed; same restriction documented
-// elsewhere in this repo) and no device-bridge/browser access this pass:
-//   1. The exact Authorization header format. JamBase's docs describe
-//      "Bearer token (API key) in the Authorization header," which is what
-//      this file sends (`Authorization: Bearer <key>`) — the standard
-//      form, but not clicked-through and confirmed on the "Authentication"
-//      doc page specifically.
-//   2. The top-level response envelope — i.e. is the events array at
-//      `body.events`, `body.data`, or something else, and what the
-//      pagination object is actually called/shaped. The schema sidebar
-//      listed a `Pagination` schema but its expanded fields weren't
-//      captured. `parseEnvelope()` below tries a few plausible keys
-//      defensively and reports `meta.envelope_key_used` so a real test
-//      call makes this obvious immediately rather than silently returning
-//      an empty list forever if the real key is something else.
-// Before this goes anywhere near production: run one real request (once
-// device-bridge/browser access is available), diff the real response
-// against `scripts/test-jambase-shows.mjs`'s fixture, and fix whatever
-// doesn't match — the fixture was built field-by-field from the schema
-// screenshots, not from a live call, so treat it as a well-informed guess
-// at shape, not ground truth.
+// *** NOT YET LIVE-VERIFIED WITH REAL DATA — read before deploying ***
+// The base URL, auth header format, and response envelope key are now all
+// confirmed against JamBase's authoritative OpenAPI spec (see the v1
+// correction note above) — no longer guesses. What's still NOT confirmed
+// is the exact field-level content of a REAL event object: things like
+// whether `addressRegion` really comes back as a plain string or a
+// `{name: "CA"}`-shaped object in practice (the spec documents it as
+// "object" but every worked example in the docs showed a bare string —
+// `addressCityState()` below handles both defensively), whether `offers`
+// is ever empty for a real free/TBA-priced show, and whether
+// `performer[].x-isHeadliner` is reliably present or often missing. This
+// session still has no network path to api.data.jambase.com to make that
+// one real test call (this sandbox's outbound network is allowlisted to a
+// small set of hosts and that isn't one of them — same restriction
+// documented elsewhere in this repo). `scripts/test-jambase-shows.mjs`'s
+// fixture was built field-by-field from the real OpenAPI schema, which is
+// a much stronger basis than the original screenshot-based guess, but it's
+// still not an actual captured response. Before this goes anywhere near
+// production: run one real request — either from Susan's own Terminal
+// (`curl https://api.data.jambase.com/v3/events?geoLatitude=37.8715&geoLongitude=-122.273&geoRadiusAmount=60&geoRadiusUnits=miles&eventType=concert&perPage=3&sort=eventDate -H "Authorization: Bearer <real key>"`)
+// or once device-bridge/browser access is available — and diff the real
+// response against the fixture, fixing whatever doesn't match.
 //
 // PURE READ. Never touches the Netlify Blobs "records"/"wishlist"/
 // "watching" stores and never writes anything. Not gated by the edit
@@ -79,7 +89,7 @@
 
 export const config = { path: "/api/jambase-shows" };
 
-const JAMBASE_BASE = "https://data.jambase.com/v3";
+const JAMBASE_BASE = "https://api.data.jambase.com/v3";
 
 // Same home location + default radius as tour-dates.mjs's HOME_LAT/HOME_LON/
 // DEFAULT_RANGE ("60mi") — kept as separate constants here rather than a
