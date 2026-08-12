@@ -98,7 +98,24 @@ const JAMBASE_BASE = "https://api.data.jambase.com/v3";
 // venue-shows.mjs (see venue-shows.mjs's own comment on why).
 const HOME_LAT = 37.8715;
 const HOME_LON = -122.273;
-const DEFAULT_RADIUS_MI = 60;
+
+// LIVE-VERIFIED 2026-08-12: geoRadiusAmount is broken on this account's
+// Developer-tier key — every value tried (60, 25, 10, 1) failed identically
+// with "The geoRadiusAmount N miles is too high. Please use a max of  miles."
+// (JamBase's own error message has a template bug — the actual max is never
+// filled in). Confirmed this isn't a units/scale issue by testing multiple
+// orders of magnitude. Worth reporting to JamBase support at some point, but
+// not blocking: omitting geoRadiusAmount/geoRadiusUnits entirely and sending
+// only geoLatitude/geoLongitude works and returns real, correctly-scoped
+// results — every event in a real 3-result test sample was genuinely in the
+// Bay Area (San Francisco, Sonoma), with `x-jamBaseMetroId: 4` shared across
+// all of them, suggesting JamBase resolves a bare lat/lon to its containing
+// metro area automatically when no radius is given. That's arguably a better
+// fit for "Bay Area" scoping than an arbitrary mile radius anyway, so this
+// isn't really a workaround — it's the actual code path now. DO NOT re-add
+// geoRadiusAmount without re-testing; this may be an account-level bug that
+// gets fixed later, but as of this date it always fails.
+const MAX_PAGES = 25; // see fetchAllEvents()'s own comment for the reasoning
 
 // Same tribute/cover-act blocklist as tour-dates.mjs and venue-shows.mjs.
 // JamBase's catalog is broad enough to plausibly index a tribute act under
@@ -158,22 +175,95 @@ export function primaryPerformerName(performers) {
 // strings.
 export function firstUsableOffer(offers) {
   if (!Array.isArray(offers)) return null;
+  // LIVE-VERIFIED 2026-08-12: real category values are "ticketingLinkPrimary"
+  // / "ticketingLinkSecondary" (not the generic "primary"/"secondary" this
+  // was originally guessed as). Prefer the explicit primary link; fall back
+  // to the first offer with a usable url/price if no primary is flagged
+  // (real responses so far always list primary first anyway, so this is
+  // belt-and-suspenders, not a behavior change from before).
+  const primary = offers.find((o) => o && o.category === "ticketingLinkPrimary" && o.url);
+  if (primary) return primary;
   return offers.find((o) => o && (o.url || (o.priceSpecification && typeof o.priceSpecification.price === "number"))) || null;
 }
 
 export function addressCityState(address) {
   if (!address) return null;
   const city = address.addressLocality || null;
-  // addressRegion is documented as an `object`, not a plain string — exact
-  // sub-shape not confirmed live. Defensively try a couple of plausible
-  // shapes rather than assume; falls back to city-only if none match.
+  // LIVE-VERIFIED 2026-08-12: a real response shows addressRegion as
+  // {"@type":"State","alternateName":"CA","identifier":"US-CA","name":
+  // "California"} — an object, confirmed. Prefer alternateName (the 2-letter
+  // code, "CA") over the full name ("California") to match this repo's
+  // existing "City, CA" convention (venue-shows.mjs, tour-dates.mjs) rather
+  // than "City, California". String fallback kept for safety since it's
+  // cheap and costs nothing if a future response ever sends a bare string.
   let region = null;
   if (address.addressRegion) {
     if (typeof address.addressRegion === "string") region = address.addressRegion;
-    else region = address.addressRegion.name || address.addressRegion.identifier || null;
+    else region = address.addressRegion.alternateName || address.addressRegion.name || address.addressRegion.identifier || null;
   }
   if (!city) return null;
   return region ? city + ", " + region : city;
+}
+
+// Fetches every page of the metro-scoped event list, up to MAX_PAGES.
+// LIVE-VERIFIED 2026-08-12: a real unfiltered Bay Area sweep returned
+// `pagination.totalItems: 2038` across `totalPages: 680` at perPage=3 —
+// i.e. a single page badly undercounts. At perPage=100 that's ~21 pages for
+// a full sweep. MAX_PAGES=25 covers that with headroom and is still cheap
+// against the free tier's budget (1,000 calls/month, 3,600/hr) IF this only
+// runs from the weekly scheduled-sweep.mjs job, not on every live page
+// visit — ~21 calls/week is ~84/month, comfortably inside budget. This is
+// exactly why `allPages` defaults to false below: a live/interactive caller
+// (if one is ever wired up) gets one fast page by default; only an explicit
+// `?allPages=true` — which scheduled-sweep.mjs's future wiring should pass —
+// pays the 21-call cost of a full sweep.
+async function fetchAllEvents(apiKey, lat, lon, perPage, allPages) {
+  const events = [];
+  let page = 1;
+  let totalPages = 1;
+  let httpStatus = null;
+  let envelopeKey = null;
+
+  while (page <= totalPages && page <= MAX_PAGES) {
+    const params = new URLSearchParams();
+    params.set("geoLatitude", String(lat));
+    params.set("geoLongitude", String(lon));
+    // geoRadiusAmount/geoRadiusUnits deliberately omitted — see the
+    // MAX_PAGES/geoRadiusAmount comment above this function for why.
+    params.set("eventType", "concert"); // exclude festivals — different schema shape, out of scope for this pass
+    params.set("perPage", String(perPage));
+    params.set("sort", "eventDate"); // ascending, oldest first — documented default, set explicitly for clarity
+    params.set("page", String(page));
+    // eventDateFrom deliberately omitted — documented to default to "current
+    // date" when blank, which is exactly what a forward-looking sweep wants.
+
+    const res = await fetch(JAMBASE_BASE + "/events?" + params.toString(), {
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        Accept: "application/json",
+      },
+    });
+    httpStatus = res.status;
+    if (!res.ok) {
+      let detail = "";
+      try { detail = JSON.stringify(await res.json()); } catch (e) {}
+      throw new Error("JamBase returned HTTP " + res.status + (detail ? " — " + detail : "") + " on page " + page);
+    }
+    const body = await res.json();
+    const parsed = parseEnvelope(body || {});
+    envelopeKey = parsed.envelopeKey;
+    events.push.apply(events, parsed.events);
+
+    if (!allPages) break; // fast path: caller only wants page 1
+    if (body && body.pagination && typeof body.pagination.totalPages === "number") {
+      totalPages = body.pagination.totalPages;
+    } else {
+      break; // no pagination info in the response — stop rather than loop forever
+    }
+    page++;
+  }
+
+  return { events, pagesFetched: page > totalPages ? totalPages : Math.min(page, MAX_PAGES), totalPages, httpStatus, envelopeKey };
 }
 
 export default async (req) => {
@@ -192,43 +282,21 @@ export default async (req) => {
   const hasLatLon = isFinite(latParam) && isFinite(lonParam);
   const lat = hasLatLon ? latParam : HOME_LAT;
   const lon = hasLatLon ? lonParam : HOME_LON;
-  const radiusParam = parseFloat(url.searchParams.get("radius"));
-  const radius = isFinite(radiusParam) && radiusParam > 0 ? radiusParam : DEFAULT_RADIUS_MI;
   const perPageParam = parseInt(url.searchParams.get("perPage"), 10);
-  const perPage = Number.isInteger(perPageParam) && perPageParam > 0 ? Math.min(perPageParam, 200) : 100;
+  const perPage = Number.isInteger(perPageParam) && perPageParam > 0 ? Math.min(perPageParam, 100) : 100;
+  const allPages = url.searchParams.get("allPages") === "true" || url.searchParams.get("allPages") === "1";
 
-  const params = new URLSearchParams();
-  params.set("geoLatitude", String(lat));
-  params.set("geoLongitude", String(lon));
-  params.set("geoRadiusAmount", String(radius));
-  params.set("geoRadiusUnits", "miles");
-  params.set("eventType", "concert"); // exclude festivals — different schema shape, out of scope for this pass
-  params.set("perPage", String(perPage));
-  params.set("sort", "eventDate"); // ascending, oldest first — documented default, set explicitly for clarity
-  // eventDateFrom deliberately omitted — documented to default to "current
-  // date" when blank, which is exactly what a forward-looking sweep wants.
-
-  let body;
-  let httpStatus;
+  let rawEvents, envelopeKey, httpStatus, pagesFetched, totalPages;
   try {
-    const res = await fetch(JAMBASE_BASE + "/events?" + params.toString(), {
-      headers: {
-        Authorization: "Bearer " + apiKey,
-        Accept: "application/json",
-      },
-    });
-    httpStatus = res.status;
-    if (!res.ok) {
-      let detail = "";
-      try { detail = JSON.stringify(await res.json()); } catch (e) {}
-      return json({ error: "JamBase returned HTTP " + res.status + (detail ? " — " + detail : "") }, 502);
-    }
-    body = await res.json();
+    const result = await fetchAllEvents(apiKey, lat, lon, perPage, allPages);
+    rawEvents = result.events;
+    envelopeKey = result.envelopeKey;
+    httpStatus = result.httpStatus;
+    pagesFetched = result.pagesFetched;
+    totalPages = result.totalPages;
   } catch (err) {
     return json({ error: "Could not reach JamBase: " + err.message }, 502);
   }
-
-  const { events: rawEvents, envelopeKey } = parseEnvelope(body || {});
 
   const shows = rawEvents
     .filter((e) => e && e.eventStatus !== "cancelled")
@@ -264,8 +332,10 @@ export default async (req) => {
     meta: {
       lat,
       lon,
-      radius_mi: radius,
       per_page: perPage,
+      all_pages: allPages,
+      pages_fetched: pagesFetched,
+      total_pages: totalPages,
       http_status: httpStatus,
       envelope_key_used: envelopeKey,
       raw_event_count: rawEvents.length,

@@ -108,13 +108,17 @@ assertEqual(addressCityState(null), null, "addressCityState(null) doesn't throw"
 
 // --- End-to-end: default handler against a mocked fetch --------------
 
-// Hand-built directly from the Concert schema's documented fields (name,
-// identifier, url, startDate, eventStatus, location{name, address{
-// addressLocality, addressRegion}, geo}, offers[]{url, category,
-// priceSpecification{minPrice, maxPrice, price, priceCurrency}},
-// performer[]{name, x-isHeadliner}). Three events: one real show (should
-// survive), one cancelled show (should be dropped), one tribute act
-// (should be dropped by the title filter).
+// LIVE-VERIFIED 2026-08-12: this fixture was rebuilt from a REAL captured
+// response (a real curl from Susan's own Terminal, real key, real Bay Area
+// sweep) rather than hand-guessed from the schema — see jambase-shows.mjs's
+// own header for the full story. Real, confirmed shapes used here:
+// addressRegion is an object ({alternateName, name, identifier}, not a bare
+// string), offer category is "ticketingLinkPrimary"/"ticketingLinkSecondary"
+// (not "primary"/"secondary"), and priceSpecification is frequently an EMPTY
+// object `{}` on real events (not null, not populated) — the third fixture
+// event below models that. Three events: one real show (should survive),
+// one cancelled show (should be dropped), one tribute act (should be
+// dropped by the title filter).
 var FAKE_JAMBASE_RESPONSE = {
   events: [
     {
@@ -126,14 +130,22 @@ var FAKE_JAMBASE_RESPONSE = {
       startDate: "2026-09-13T20:00:00",
       location: {
         name: "Sweetwater Music Hall",
-        address: { addressLocality: "Mill Valley", addressRegion: "CA" },
+        address: {
+          addressLocality: "Mill Valley",
+          addressRegion: { "@type": "State", alternateName: "CA", identifier: "US-CA", name: "California" },
+        },
         geo: { latitude: 37.906, longitude: -122.545 },
       },
       offers: [
         {
           url: "https://www.etix.com/ticket/p/93358603/black-uhuru-mill-valley-sweetwater-music-hall",
-          category: "primary",
+          category: "ticketingLinkPrimary",
           priceSpecification: { minPrice: 28, maxPrice: 45, price: 28, priceCurrency: "USD" },
+        },
+        {
+          url: "https://www.stubhub.com/black-uhuru-tickets",
+          category: "ticketingLinkSecondary",
+          priceSpecification: {},
         },
       ],
       performer: [{ name: "Black Uhuru", "x-isHeadliner": true }],
@@ -145,7 +157,7 @@ var FAKE_JAMBASE_RESPONSE = {
       url: "https://www.jambase.com/show/cancelled-99002",
       eventStatus: "cancelled",
       startDate: "2026-09-20T20:00:00",
-      location: { name: "Some Venue", address: { addressLocality: "Oakland", addressRegion: "CA" } },
+      location: { name: "Some Venue", address: { addressLocality: "Oakland", addressRegion: { alternateName: "CA", name: "California" } } },
       offers: [],
       performer: [{ name: "Some Artist", "x-isHeadliner": true }],
     },
@@ -156,17 +168,23 @@ var FAKE_JAMBASE_RESPONSE = {
       url: "https://www.jambase.com/show/sade-tribute-99003",
       eventStatus: "scheduled",
       startDate: "2026-10-01T20:00:00",
-      location: { name: "Small Theater", address: { addressLocality: "San Leandro", addressRegion: "CA" } },
-      offers: [{ url: "https://tix.example/3", priceSpecification: { price: 20, priceCurrency: "USD" } }],
+      location: { name: "Small Theater", address: { addressLocality: "San Leandro", addressRegion: { alternateName: "CA", name: "California" } } },
+      // Real events frequently have an empty priceSpecification object —
+      // confirmed live (every offer in a real 3-event sample had {}), not
+      // just a theoretical edge case. This event would be dropped by the
+      // tribute filter regardless, but models the shape correctly anyway.
+      offers: [{ url: "https://tix.example/3", category: "ticketingLinkPrimary", priceSpecification: {} }],
       performer: [{ name: "Sade", "x-isHeadliner": true }],
     },
   ],
+  pagination: { page: 1, perPage: 100, totalItems: 3, totalPages: 1, nextPage: null, previousPage: null },
 };
 
 global.fetch = async (url, opts) => {
   assert(String(url).indexOf("api.data.jambase.com/v3/events") !== -1, "handler calls the real api.data.jambase.com v3 /events endpoint (confirmed via the real OpenAPI spec's servers field, 2026-08-12)");
   assert(String(url).indexOf("geoLatitude=37.8715") !== -1, "handler sends the Berkeley home latitude by default");
   assert(String(url).indexOf("eventType=concert") !== -1, "handler scopes to eventType=concert");
+  assert(String(url).indexOf("geoRadiusAmount") === -1, "handler does NOT send geoRadiusAmount — confirmed broken on this account's tier live, 2026-08-12 (every value 60/25/10/1 failed identically)");
   var authHeader = opts && opts.headers && opts.headers.Authorization;
   assert(authHeader === "Bearer test-key-123", "handler sends Authorization: Bearer <key>");
   return {
@@ -184,6 +202,8 @@ var body = await res.json();
 
 assertEqual(res.status, 200, "handler returns 200 on a successful mocked fetch");
 assertEqual(body.shows.length, 1, "handler returns exactly 1 show — cancelled + tribute both correctly dropped");
+assertEqual(body.meta.all_pages, false, "allPages defaults to false (fast single-page path) when not explicitly requested");
+assertEqual(body.meta.pages_fetched, 1, "single-page default only fetches page 1");
 
 var show = body.shows[0];
 assertEqual(show.artist, "Black Uhuru", "surviving show has the correct artist (headliner-preferred)");
