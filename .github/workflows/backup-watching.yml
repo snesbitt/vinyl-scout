@@ -1,0 +1,59 @@
+name: Daily watching-list backup
+
+# Added as the second step of the Netlify-to-GitHub cost/reliability
+# migration scripts/backup-catalog.mjs started (2026-08-09) -- see that
+# workflow's own header comment and CLAUDE.md's matching entry for the
+# full rationale. Runs entirely inside Actions -- no Netlify compute, no
+# Netlify credential of any kind. Fetches the live public watching list
+# from vinylscout.org's own /api/watching endpoint and commits a snapshot
+# straight to this repo, using only Actions' own built-in GITHUB_TOKEN
+# (scoped to this one workflow run).
+#
+# This is additive alongside the existing Netlify-scheduled
+# backup-watching.mjs, not a replacement yet -- both will run for a period
+# so Susan can compare a real Actions run's output against it and confirm
+# both are producing correct, matching snapshots. Once she's confident
+# this is working (check the Actions tab, or trigger it manually via
+# "Run workflow" below), backup-watching.mjs and run-watching-backup.mjs
+# can be removed from netlify/ to actually realize the Netlify compute
+# savings this migration is for.
+#
+# Scheduled at 09:10 UTC -- 5 minutes after backup-catalog.yml's own
+# 09:05 UTC Actions run and 5 minutes after the old Netlify job's own
+# 09:05 UTC schedule, so none of the three race on the same GitHub API
+# rate-limit window or the same repo ref during the transition period.
+
+on:
+  schedule:
+    - cron: "10 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backup-watching:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch watching list and write snapshot
+        id: backup
+        run: node scripts/backup-watching.mjs
+
+      - name: Commit snapshot if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.backup.outputs.backup_path }}"
+          if git diff --cached --quiet; then
+            echo "No changes to commit (watching snapshot for today already matches, or this is a same-day re-run)."
+          else
+            git commit -m "watching-backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.item_count }} items, via GitHub Actions)"
+            git push
+          fi

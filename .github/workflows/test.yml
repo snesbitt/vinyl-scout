@@ -30,3 +30,40 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  # Added alongside the branch-protection/PR workflow change (see CLAUDE.md's
+  # matching entry): deploys via the Netlify CLI, driven explicitly by
+  # Actions, rather than relying only on Netlify's own git-integration
+  # auto-deploy. Only runs on an actual push to main after tests pass --
+  # never on a PR run (a PR still gets Netlify's own automatic Deploy
+  # Preview via its git integration, unaffected by this) and never on the
+  # weekly content-drift cron push above.
+  #
+  # This does NOT replace Netlify's git-integration auto-deploy by itself
+  # -- both will fire on a push to main until Susan explicitly turns off
+  # "auto publishing" in Netlify's own site settings (Site configuration ->
+  # Build & deploy). Until she does, a push to main triggers two separate,
+  # harmless, redundant deploys of the same content -- wasteful, not
+  # unsafe. Flagged here rather than silently left for someone to notice.
+  #
+  # Needs a NETLIFY_AUTH_TOKEN repo secret (a Netlify Personal Access
+  # Token, User settings -> Applications -> New access token) -- nothing
+  # else. NETLIFY_SITE_ID below is this site's id, not a secret (same
+  # value visible in this site's own Netlify dashboard URL).
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: 605623dc-208f-42c0-a13f-3db9dfa5662b
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Deploy to Netlify (production)
+        run: npx --yes netlify-cli@21 deploy --prod --dir=. --site="$NETLIFY_SITE_ID"
