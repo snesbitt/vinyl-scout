@@ -1,7 +1,7 @@
 import { getStore } from '@netlify/blobs';
 
 // netlify/functions/scheduled-sweep.mjs
-// version: 1
+// version: 2
 //
 // Phase 11 — Concert Radar. Weekly server-side catalog refresh, added
 // 2026-08-04 (v18).
@@ -21,13 +21,14 @@ import { getStore } from '@netlify/blobs';
 //
 // Deliberately reuses the SAME public endpoints concert-radar.html's own
 // client-side sweepCatalog() already calls (/api/records, /api/wishlist,
-// /api/tour-dates, /api/venue-shows) rather than re-implementing any of
-// their logic here — tour-dates.mjs in particular carries four rounds of
-// hard-won tribute-act/exact-match fixes (see its own version history) that
-// have no business being duplicated into a second copy that can drift out
-// of sync. This function is pure orchestration: figure out which artists to
-// check, call the existing endpoints (server-to-server, same as any other
-// caller of these already-public routes), merge, cache.
+// /api/watching, /api/tour-dates, /api/venue-shows, /api/jambase-shows)
+// rather than re-implementing any of their logic here — tour-dates.mjs in
+// particular carries four rounds of hard-won tribute-act/exact-match fixes
+// (see its own version history) that have no business being duplicated
+// into a second copy that can drift out of sync. This function is pure
+// orchestration: figure out which artists to check, call the existing
+// endpoints (server-to-server, same as any other caller of these
+// already-public routes), merge, cache.
 //
 // Writes the merged result to a new 'catalog-cache' Blobs store (key
 // 'latest') as { shows, artistCount, at }. The new catalog-cache.mjs
@@ -41,6 +42,39 @@ import { getStore } from '@netlify/blobs';
 // Netlify's scheduler to choke on — next week's run just tries again, and
 // whatever cache already exists (stale or not) stays in place rather than
 // being wiped by a partial/failed run.
+//
+// v2 (2026-08-13): two changes, same pass.
+//   (1) Wired in jambase-shows.mjs as a third source (see that file's own
+//       header for the full story — JamBase Data, free tier, a real
+//       geoRadiusAmount bug found and worked around via pagination
+//       instead). Called with ?allPages=true here specifically — this is
+//       the ONE place in the app that should pay the full ~21-call cost
+//       of a complete Bay Area sweep (well inside the 1,000/month free
+//       tier budget at once a week), unlike concert-radar.html's own
+//       client-side sweepCatalog(), which deliberately calls the fast
+//       single-page default on every live visit instead.
+//   (2) Closed a latent gap this same wiring exposed: this file's own
+//       artist list was built from /api/records + /api/wishlist only,
+//       never /api/watching — unlike concert-radar.html's client-side
+//       fetchDistinctArtists(), which picked up /api/watching back at
+//       v18.5 (2026-08-04). A watched-only artist with no catalog/
+//       wishlist entry (e.g. Black Uhuru) was therefore never part of
+//       this file's relevance filtering. Also closed: venue-shows.mjs's
+//       output was previously merged into the cache completely
+//       UNFILTERED here (unlike the client, which has filtered it since
+//       v18.5) — harmless when venue-shows.mjs's own calendars were
+//       small, but clearly wrong once JamBase's much larger raw sweep
+//       (2,038 total Bay Area events in one real test, see
+//       jambase-shows.mjs's header) needed filtering anyway. Rather than
+//       filter only the new source and leave the old inconsistency in
+//       place, both non-artist-scoped sources (venue-shows.mjs and
+//       jambase-shows.mjs) now go through the same relevance filter,
+//       matching what the client already does. normalizeArtistKey()/
+//       artistIsRelevant() below are a deliberate duplicate of
+//       concert-radar.html's own versions (v18.4/v18.5) — same
+//       one-small-file-per-endpoint precedent this repo already uses for
+//       TRIBUTE_WORDS between tour-dates.mjs/venue-shows.mjs; keep both
+//       copies in sync if the matching rule ever changes.
 
 export const config = {
   schedule: '@weekly'
@@ -59,10 +93,35 @@ function siteUrl() {
 // Same null-guard/default-to-title normalization concert-radar.html's own
 // normalizeVenueShows() does client-side — see that function's comment in
 // concert-radar.html (v16) for the full "Cannot read properties of null"
-// root-cause story this traces back to.
-function normalizeVenueShows(venueShows) {
-  return venueShows.map(function (s) {
+// root-cause story this traces back to. Generic enough to reuse for
+// jambase-shows.mjs's output too (v2) — same reasoning as
+// concert-radar.html's own v21 reuse, see that file's comment.
+function normalizeShowsArtist(shows) {
+  return shows.map(function (s) {
     return s && !s.artist ? Object.assign({}, s, { artist: s.title || '' }) : s;
+  });
+}
+
+// Deliberate duplicate of concert-radar.html's normalizeArtistKey() —
+// see this file's v2 header note above for why.
+function normalizeArtistKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[-,]/g, ' ')
+    .replace(/[''.]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Deliberate duplicate of concert-radar.html's artistIsRelevant() — see
+// this file's v2 header note above for why.
+function artistIsRelevant(showArtist, relevantNames) {
+  var a = normalizeArtistKey(showArtist);
+  if (!a) return false;
+  return relevantNames.some(function (name) {
+    var q = normalizeArtistKey(name);
+    return !!q && (a.indexOf(q) !== -1 || q.indexOf(a) !== -1);
   });
 }
 
@@ -106,14 +165,17 @@ async function fetchJSON(url, fallback) {
   }
 }
 
+// v2: also fetches /api/watching now — see this file's own v2 header note.
 async function fetchDistinctArtists(base) {
   var records = await fetchJSON(base + '/api/records', []);
   var wishlist = await fetchJSON(base + '/api/wishlist', []);
+  var watchingList = await fetchJSON(base + '/api/watching', []);
   records = Array.isArray(records) ? records : [];
   wishlist = Array.isArray(wishlist) ? wishlist : [];
+  watchingList = Array.isArray(watchingList) ? watchingList : [];
   var seen = {};
   var names = [];
-  records.concat(wishlist).forEach(function (item) {
+  records.concat(wishlist).concat(watchingList).forEach(function (item) {
     var name = (item && item.artist ? String(item.artist) : '').trim();
     if (!name) return;
     var key = name.toLowerCase();
@@ -134,12 +196,30 @@ export default async () => {
     var venueShowsData = await fetchJSON(base + '/api/venue-shows', { shows: [] });
     var venueShows = Array.isArray(venueShowsData.shows) ? venueShowsData.shows : [];
 
+    // v2: allPages=true — this IS the weekly full sweep jambase-shows.mjs's
+    // own header describes as the intended use of that flag (~21 calls for
+    // a complete Bay Area sweep at the time this was written, well inside
+    // the free tier's 1,000/month budget for a once-a-week job).
+    var jambaseShowsData = await fetchJSON(base + '/api/jambase-shows?allPages=true', { shows: [] });
+    var jambaseShows = Array.isArray(jambaseShowsData.shows) ? jambaseShowsData.shows : [];
+
     var perArtistShows = await mapLimit(artists, SWEEP_CONCURRENCY, async function (artist) {
       var data = await fetchJSON(base + '/api/tour-dates?artist=' + encodeURIComponent(artist), { shows: [] });
       return Array.isArray(data.shows) ? data.shows : [];
     });
 
-    var all = normalizeVenueShows(venueShows);
+    // v2: both non-artist-scoped sources now filtered to relevance before
+    // merging — see this file's own v2 header note for why venue-shows.mjs
+    // wasn't already filtered here even though the client has done this
+    // since v18.5.
+    var relevantVenueShows = normalizeShowsArtist(venueShows).filter(function (s) {
+      return artistIsRelevant(s.artist, artists);
+    });
+    var relevantJambaseShows = normalizeShowsArtist(jambaseShows).filter(function (s) {
+      return artistIsRelevant(s.artist, artists);
+    });
+
+    var all = relevantVenueShows.concat(relevantJambaseShows);
     perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
     var shows = dedupeById(all);
 
@@ -149,7 +229,7 @@ export default async () => {
       at: Date.now()
     }));
 
-    console.log('scheduled-sweep.mjs: cached ' + shows.length + ' shows across ' + artists.length + ' artists');
+    console.log('scheduled-sweep.mjs: cached ' + shows.length + ' shows across ' + artists.length + ' artists (venue raw=' + venueShows.length + '/relevant=' + relevantVenueShows.length + ', jambase raw=' + jambaseShows.length + '/relevant=' + relevantJambaseShows.length + ')');
   } catch (err) {
     console.error('scheduled-sweep.mjs error:', err.message, err.stack);
   }

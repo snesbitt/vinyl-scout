@@ -112,6 +112,38 @@ const relevantUnwatchedVenueShow = {
   url: "https://apeconcerts.com/events/thievery-corporation",
 };
 
+// v21 fixtures — JamBase's third feed, same irrelevant/relevant-unwatched
+// pattern as the venue-shows fixtures above, since jambase-shows.mjs's
+// output goes through the identical artistIsRelevant() filter.
+const irrelevantJambaseShows = [
+  {
+    id: "jambase-88881",
+    artist: "Some Unrelated Cover Band",
+    title: "Some Unrelated Cover Band at The Warfield",
+    venue: "The Warfield",
+    city: "San Francisco, CA",
+    date: "2026-09-05",
+    dateLabel: "Sat, Sep 5, 2026",
+    source: "JamBase",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://www.jambase.com/show/unrelated-88881",
+  },
+];
+const relevantUnwatchedJambaseShow = {
+  id: "jambase-77771",
+  artist: "Kruder & Dorfmeister",
+  title: "Kruder & Dorfmeister at The Masonic",
+  venue: "The Masonic",
+  city: "San Francisco, CA",
+  date: "2026-11-15",
+  dateLabel: "Sun, Nov 15, 2026",
+  source: "JamBase",
+  priceLow: 45,
+  priceHigh: 85,
+  url: "https://www.jambase.com/show/kruder-dorfmeister-77771",
+};
+
 const manualShows = [
   {
     id: "manual-black-uhuru-2026-09-13",
@@ -181,6 +213,11 @@ async function run(label, watchingList, travelOpts) {
     if (u.startsWith("/api/venue-shows")) {
       return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]), meta: { venues: [] } });
     }
+    // v21: jambase-shows.mjs, third source — same shape/filtering contract
+    // as venue-shows.mjs above, deliberately mirrored fixtures.
+    if (u.startsWith("/api/jambase-shows")) {
+      return ok({ shows: irrelevantJambaseShows.concat([relevantUnwatchedJambaseShow]), meta: {} });
+    }
     if (u.startsWith("/api/catalog-cache")) return ok({ shows: [], artistCount: 0, at: null });
     if (u.startsWith("/api/tour-dates")) return ok({ shows: [] });
     // Phase 10 — checkTravelMatches()'s two cross-site calls. Absolute URL
@@ -237,6 +274,20 @@ async function run(label, watchingList, travelOpts) {
   });
   const relevantShown = soonHtml.toLowerCase().includes(relevantUnwatchedVenueShow.artist.toLowerCase());
   report("  Coming Soon SHOULD show \"" + relevantUnwatchedVenueShow.artist + "\" (relevant, unwatched): " + (relevantShown ? "pass" : "FAIL (relevant match missing)"));
+
+  // v21: same relevancy check, now for jambase-shows.mjs's output too —
+  // proves sweepCatalog()'s v21 wiring actually filters the new source,
+  // not just merges it in unfiltered.
+  irrelevantJambaseShows.forEach((s) => {
+    const leaked = soonHtml.toLowerCase().includes(s.artist.toLowerCase());
+    report("  Coming Soon should NOT show \"" + s.artist + "\" (JamBase, irrelevant): " + (leaked ? "FAIL (leaked into Coming Soon)" : "pass (correctly filtered out)"));
+  });
+  // esc() HTML-escapes "&" to "&amp;" in the real rendered output — check
+  // for the escaped form too, not just the raw fixture string, so this
+  // assertion isn't a false negative on an artist name with a "&" in it.
+  const jambaseArtistEscaped = relevantUnwatchedJambaseShow.artist.toLowerCase().replace(/&/g, "&amp;");
+  const jambaseRelevantShown = soonHtml.toLowerCase().includes(relevantUnwatchedJambaseShow.artist.toLowerCase()) || soonHtml.toLowerCase().includes(jambaseArtistEscaped);
+  report("  Coming Soon SHOULD show \"" + relevantUnwatchedJambaseShow.artist + "\" (JamBase, relevant, unwatched): " + (jambaseRelevantShown ? "pass" : "FAIL (relevant JamBase match missing)"));
 
   // Phase 10: checkTravelMatches() is fire-and-forget, appended after the
   // watch list's own render — give its two chained fetches (watched-trips,

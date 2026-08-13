@@ -19,7 +19,45 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Concert Radar — version: 20 (2026-08-06).
+    /* Concert Radar — version: 21 (2026-08-13).
+       v21: third Concert Radar feed wired in — JamBase Data
+       (netlify/functions/jambase-shows.mjs), alongside the existing
+       SeatGeek (tour-dates.mjs) and 7-venue scrape (venue-shows.mjs)
+       sources. Susan researched and signed up for JamBase's new
+       self-serve platform after Ticketmaster's developer signup stalled
+       (see venue-shows.mjs's 2026-08-04 notes) — free "Developer" tier,
+       1,000 calls/month, non-commercial. Real curl testing from Susan's
+       own Terminal (not guessed) found and fixed a real bug along the
+       way: JamBase's geoRadiusAmount parameter is broken on this
+       account's tier (every value tried — 60/25/10/1 miles — failed
+       identically), worked around by omitting it entirely and relying on
+       JamBase's own metro-level resolution instead, which turned out to
+       be a better fit for "Bay Area" scoping than a numeric radius
+       anyway. Full story in jambase-shows.mjs's own header comment.
+
+       Wired in exactly like venue-shows.mjs already was: fetchJambaseShows()
+       kicks off in parallel with the venue scrape and the per-artist
+       SeatGeek sweep in sweepCatalog(), then its results run through the
+       same artistIsRelevant()/normalizeArtistKey() filter venue-shows.mjs's
+       results already do, before merging into Coming Soon — reused, not
+       duplicated a third time. Same null-artist defensive guard
+       venue-shows.mjs needed at v16 (a JamBase event can theoretically
+       come back with no parseable performer name) applied here too,
+       learned the hard way once already — no reason to risk that crash
+       class again.
+
+       Not yet done, flagged honestly rather than silently skipped: (1)
+       runLiveSearch() (the manual Search panel / "Check live" button)
+       does not yet also query jambase-shows.mjs the way it already does
+       venue-shows.mjs — same value-add venue-shows.mjs got, just not
+       done in this pass; worth closing next time this file is touched,
+       same discipline as every other "worth closing next time" note in
+       this doc. (2) JamBase's required attribution credit line (their
+       free tier's terms explicitly require one, confirmed on the
+       upgrade-plan screen) is not yet added anywhere on this page —
+       needs the exact required wording pulled from JamBase's own
+       Attribution doc page first, not guessed at.
+
        v20: two fixes, same session. (1) Susan: "fix this search issue
        regarding Santigold" — a Santigold+Chicago search on the manual
        Search panel came back "No upcoming Santigold shows found within
@@ -2188,6 +2226,22 @@
       .catch(function () { return []; });
   }
 
+  // v21: JamBase Data, the third Concert Radar feed (see jambase-shows.mjs's
+  // own header for the full story). Same shape as fetchVenueShows() above —
+  // a fixed, non-artist-scoped sweep (this one geo-scoped to the Bay Area
+  // metro rather than a curated venue list) that gets filtered down to
+  // relevant artists client-side below, same reason venue-shows.mjs's
+  // results are. No ?allPages=true here deliberately — a live per-visit
+  // sweep gets jambase-shows.mjs's fast single-page default (nearest-term
+  // events only); the comprehensive multi-page sweep is scheduled-sweep.mjs's
+  // job (weekly, server-side), not every browser's.
+  function fetchJambaseShows() {
+    return fetch('/api/jambase-shows')
+      .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+      .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+      .catch(function () { return []; });
+  }
+
   // v18: reads scheduled-sweep.mjs's weekly, server-side pre-computed
   // catalog (netlify/functions/scheduled-sweep.mjs + catalog-cache.mjs).
   // Used only as an instant first paint for a browser with no local
@@ -2246,16 +2300,20 @@
     // client-side below, once the artist list is in — the fetch itself
     // stays unfiltered since venue-shows.mjs owes the catalog nothing.
     var venueShowsPromise = fetchVenueShows();
+    // v21: same reasoning as venueShowsPromise above — JamBase's sweep is
+    // artist-agnostic (geo-scoped, not artist-scoped), so it kicks off
+    // immediately too rather than waiting on the artist list.
+    var jambaseShowsPromise = fetchJambaseShows();
 
     return fetchDistinctArtists().then(function (artists) {
-      // Two sources run in parallel: the existing per-artist SeatGeek
-      // sweep, plus the venue scrape kicked off above. venue-shows.mjs
-      // returns shows in the exact same shape tour-dates.mjs does, so no
+      // Three sources run in parallel: the existing per-artist SeatGeek
+      // sweep, the venue scrape, and JamBase's geo sweep (both kicked off
+      // above). All three return shows in the exact same shape, so no
       // reshaping is needed — they just concat into the same list before
-      // de-duping, once the venue side has been filtered to relevance.
-      // mapLimit/artistIsRelevant both handle an empty `artists` list
-      // safely (resolves to [] / matches nothing), so no separate
-      // zero-artists branch is needed here anymore.
+      // de-duping, once the two non-artist-scoped sources have been
+      // filtered to relevance. mapLimit/artistIsRelevant both handle an
+      // empty `artists` list safely (resolves to [] / matches nothing), so
+      // no separate zero-artists branch is needed here.
       return Promise.all([
         mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
           return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
@@ -2263,14 +2321,25 @@
             .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
             .catch(function () { return []; });
         }),
-        venueShowsPromise
+        venueShowsPromise,
+        jambaseShowsPromise
       ]).then(function (results) {
         var perArtistShows = results[0];
         var venueShows = results[1];
+        var jambaseShows = results[2];
         var relevantVenueShows = normalizeVenueShows(venueShows).filter(function (s) {
           return artistIsRelevant(s.artist, artists);
         });
-        var all = relevantVenueShows;
+        // v21: same null-artist defensive guard venue-shows.mjs needed at
+        // v16 — jambase-shows.mjs's own primaryPerformerName() can in
+        // theory return null (a malformed/support-only performer array),
+        // and normalizeVenueShows()'s logic (default artist to title) is
+        // generic enough to reuse as-is rather than writing a near-
+        // identical third copy.
+        var relevantJambaseShows = normalizeVenueShows(jambaseShows).filter(function (s) {
+          return artistIsRelevant(s.artist, artists);
+        });
+        var all = relevantVenueShows.concat(relevantJambaseShows);
         perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and

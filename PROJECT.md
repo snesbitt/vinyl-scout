@@ -1,8 +1,9 @@
 # Vinyl Scout — Project Charter
 
-**Version:** 40 · **Last revised:** 2026-08-07
+**Version:** 41 · **Last revised:** 2026-08-13
 
 **Changelog**
+- **v41 (2026-08-13)** — Phase 11 gains a third Concert Radar feed: JamBase Data (`netlify/functions/jambase-shows.mjs`, new), a genuinely free/permanent ticketing API discovered after re-ruling-out every other option (Ticketmaster still stalled on Susan's account, Bandsintown/Songkick/Eventbrite/Dice/PredictHQ all re-confirmed non-viable). Two real JamBase-side bugs found via live curl testing from Susan's own Terminal (a wrong base URL in their prose docs; a broken `geoRadiusAmount` parameter, worked around by omitting it) — full detail in the new "JamBase Data feed" subsection under Phase 11 below and CLAUDE.md's 2026-08-11–13 entry. Wired into both `concert-radar.html` (v21) and `scheduled-sweep.mjs` (v2), which also closed two latent gaps this wiring surfaced (scheduled-sweep.mjs's artist list was missing `/api/watching`; `venue-shows.mjs`'s output was merging into the weekly cache unfiltered). `scripts/test-jambase-shows.mjs` (new, 46 assertions) and `scripts/e2e-concert-radar.mjs` extended; `npm test` passes clean. Still open: JamBase's attribution requirement isn't satisfied yet (wording not pulled), `runLiveSearch()` doesn't query this feed yet, and `JAMBASE_API_KEY` isn't yet set in Netlify. **Note on changelog continuity:** this repo's day-to-day work between v40 (2026-08-07) and this entry was tracked in CLAUDE.md's own dated sections (2026-08-08 content-drift check, 2026-08-08 doc alignment pass, 2026-08-08 city-geocoding fix, 2026-08-09 watching.mjs v2 deletion-tracking, 2026-08-09 backup-catalog GitHub Actions migration) but this changelog's own version counter wasn't bumped for any of them — flagging that gap here rather than silently skipping from v40 to v41 as if nothing happened in between; a future pass should backfill v numbers for that work if a clean sequential record matters going forward.
 - **v40 (2026-08-07)** — Roadmap Phase 6, "Editorial polish pass," built at Susan's go-ahead (scoped earlier via AskUserQuestion: subtle nav tightening, tighter/darker Audit rows, taller wishlist prices, one small recurring mark). Four changes, all page-scoped except the nav gap: (1) `.masthead__nav` gap 22px&rarr;18px (desktop only; the &le;720px scrollable-row gap was already tightened in v28 for a different reason and is untouched). (2) `.audit-row` padding 18px&rarr;13px (12px on mobile, was 16px) and its bottom rule switched from `--rule-soft` to the darker `--rule`, so the Audit page reads as a working table. (3) `.wl-nums` (the wishlist price) went 11px/`--ink-soft`&rarr;16px/bold/`--ink` &mdash; it now stands taller than the artist/title text next to it instead of being the quietest thing in the row. (4) A new `.audit-row__index` catalog stamp ("&#8470;001", "&#8470;002", ...) on every Audit row &mdash; the row's position in the current sorted/filtered view, computed client-side in `render()`, not a stored field; absolutely positioned over the cover's corner, `pointer-events:none` so it never blocks the upload click target. This is the one recurring mark the phase settles on, and Audit is the only page that uses it, per the roadmap's own "no other page borrows it" framing. `style.css` bumped to v32 (cache-bust bumped across all 8 pages); `audit.html`/`seed.html`'s own version comments bumped to match. `roadmap.html`'s Phase 6 card flipped Future &rarr; Live. Verified via a minimal local render harness reproducing the exact new CSS rules (screenshot-checked, catalog stamp and price sizing both read as intended) plus HTML-balance and `node --check` syntax verification against the real delivered files &mdash; **not verified against the live site with real records** (no browser/API access this session); worth a visual once-over after this deploys, same as the Concert Radar mobile-gap fix needed in 2026-08-06.
 - **v39 (2026-08-06)** — Roadmap Phase 8, "Close the wishlist gap," built at Susan's go-ahead. The catalog's own `POST`/`DELETE /api/records` has required an edit key since Phase 1; the Wishlist's equivalent endpoints were deliberately opened up 2026-07-11 (v-unnumbered doc note above) because re-entering the passphrase on mobile every session wasn't practical for a casual hunting list. As links get shared more widely that gap was worth closing, so `wishlist.mjs` reaches **v4**: `POST`/`DELETE` now run through the same `checkWriteAuth()` gate `records.mjs` uses, checked against the same `EDIT_SECRET` env var (no separate wishlist-only secret). The frontend difference from the catalog's own key prompt is deliberate: `audit.html`/`seed.html` cache the key in `sessionStorage` (one entry per tab session); `wishlist.html`'s new `getEditSecret()`/`clearEditSecret()` pair (same prompt-once-then-cache shape) uses `localStorage` instead, so it costs one entry per device, not one per visit — closing the 2026-07-11 gap without reintroducing the mobile friction that opened it. A real ordering bug was caught before shipping, not after: the handler's first draft called `getStore('wishlist')` before checking auth, so an unauthorized request in an environment where the Blobs store can't initialize would 500 instead of 401 — reordered to match `records.mjs`'s own auth-before-store pattern, and a regression test (`scripts/test-wishlist.mjs`, new, 6 assertions, wired into `npm test`) exercises exactly the unauthorized-write paths this ordering affects, mirroring `test-artists-playing.mjs`'s "exercise the real exported handler, no Blobs mocking" convention. `roadmap.html`'s Phase 8 card flipped Future → Live; `about.html` updated in three places (Wishlist page-card description, the `/api/wishlist` endpoint bullet, and the Wishlist section's own prose) to describe the new gated-but-remembered behavior instead of the retired "no edit key" one. Verified: `npm run check` (syntax) and `node scripts/test-wishlist.mjs` (6/6 passing) both run clean against the exact bytes delivered — confirmed via md5 match between the local working copy and what shipped, not assumed from a successful write. Not independently pixel/browser-verified this round (no live Netlify Blobs environment available from this session to exercise the authorized-write or GET paths) — worth Susan doing one real add/delete round-trip on `/wishlist.html` after this deploys, entering the key once and confirming it's remembered on reload.
 - **v38 (2026-08-04)** — Susan, back briefly: "it seems to be putting the entire sweetwater calendar in coming soon / use the logic in place to filter for relevancy." Real bug, and it wasn't new — `venue-shows.mjs` has always returned every show at its 7 scraped venues with no artist filtering server-side (deliberate, documented in that file's own header), but nothing on the client ever filtered it back down before merging into Coming Soon, so every venue's full calendar had been reaching Coming Soon unfiltered since the venue scraper shipped. Susan noticed it via Sweetwater specifically, but it affected all 7 venues equally. Fixed by reusing "the logic in place" she pointed at — `runLiveSearch()` (the ad-hoc Search panel) already filtered venue-shows results down to whatever matched one typed-in artist name; that same filter (now a shared `artistIsRelevant()`, built on v18.4's `normalizeArtistKey()`) now runs in `sweepCatalog()` too, scoped to the full list of artists Susan actually cares about. `fetchDistinctArtists()` was extended to also pull `/api/watching`, not just catalog/wishlist, so a watched-only artist like Black Uhuru counts as relevant (and, as a side benefit, now gets its own direct SeatGeek sweep for the first time). `runLiveSearch()`'s own venue filter was also upgraded from a raw lowercase compare to the same normalized match, closing the same punctuation-drift gap v18.4 fixed for Watching. Verified by extending `scripts/e2e-concert-radar.mjs` with fixture shows for two irrelevant Sweetwater listings (confirmed filtered out of Coming Soon) and one relevant-but-unwatched match (confirmed still shows), alongside re-confirming Watching-panel matches still work — full trail in CLAUDE.md's 2026-08-04 "v18.5" entry. `concert-radar.html` bumped to v18.5. Not verified against the live site (no browser/API access this session, same standing caveat as v18.4).
@@ -449,6 +450,78 @@ consolidated status so a future session doesn't re-research the same ground:
   YouTube as audio preview's last-resort tier rather than building it
   speculatively.
 
+**JamBase Data feed (added 2026-08-11 to 2026-08-13):** With Ticketmaster's
+signup still stalled and every other option above still ruled out on
+re-check, Susan asked to "improve and expand the live concert look ups"
+directly, naming Songkick as a candidate worth another look. Discovered
+JamBase Data's new self-serve platform (`data.jambase.com`) instead — a
+genuinely free, permanent "Developer" tier (1,000 calls/month, 3,600/hr,
+non-commercial use, 6-month future event window), unlike every option
+already ruled out. Susan signed up and, over two sessions, upgraded to a
+real `jbd_live_` production key (the initial `jbd_trial_` key rotates and
+expires).
+
+Two real bugs surfaced through live testing from Susan's own Terminal
+(this session's sandbox has no outbound network path to JamBase, so every
+verification claim below traces back to a real curl Susan ran herself,
+not a guess): (1) the base URL in JamBase's own prose docs
+(`data.jambase.com/v3`) is wrong — it 200s but serves the marketing
+site's HTML, not the API; the real base URL
+(`https://api.data.jambase.com/v3`) was confirmed via JamBase's own
+static OpenAPI spec file. (2) The `geoRadiusAmount` query parameter is
+broken on this account's tier — every value tested failed identically
+with a templating-bugged JamBase error message; omitting the parameter
+entirely works, and JamBase resolves the bare lat/lon to its containing
+metro area automatically, which fits "Bay Area" scoping at least as well
+as a radius would have.
+
+Shipped `netlify/functions/jambase-shows.mjs` (v1): a third Concert Radar
+feed, same pure-read/ungated pattern as `tour-dates.mjs`/`venue-
+shows.mjs`. One geo sweep per invocation rather than one call per artist
+(unlike `tour-dates.mjs`'s SeatGeek pattern), to stay well inside
+JamBase's monthly budget against Susan's 150+-name artist list. Real
+pagination (`fetchAllEvents()`, `?allPages=true`) was added after an
+unfiltered live sweep showed 2,038 total Bay Area events across 680
+pages at the default page size. Field-mapping was live-verified against
+a real captured response, not just JamBase's published schema — notably,
+`addressRegion` is a real object (not the bare string every doc example
+showed) and `offers[].category` uses real values
+(`"ticketingLinkPrimary"`/`"ticketingLinkSecondary"`) different from the
+generic ones originally guessed. `scripts/test-jambase-shows.mjs` (new,
+46 assertions) has its fixture rebuilt from that real response.
+
+Wired into both sweep paths: `concert-radar.html` (v21) added
+`fetchJambaseShows()` alongside the existing venue-shows fetch in
+`sweepCatalog()`'s `Promise.all`, filtered through the same
+`artistIsRelevant()`/`normalizeArtistKey()` pattern (v18.5) before
+merging into Coming Soon — fast single-page default, since this runs on
+every live visit. `scheduled-sweep.mjs` (v2) calls it with
+`?allPages=true` instead, since it's the one place that should pay the
+full pagination cost (once a week, well inside budget). Wiring this in
+surfaced two latent gaps in `scheduled-sweep.mjs` itself, both closed in
+the same pass: its artist list never included `/api/watching` (unlike
+the client, since v18.5), and `venue-shows.mjs`'s output was being merged
+into the weekly cache completely unfiltered (harmless while its calendars
+were small, clearly wrong once JamBase's much larger raw sweep needed
+filtering anyway). Both non-artist-scoped sources now go through the same
+relevance filter server-side, matching the client.
+
+Verified via `scripts/e2e-concert-radar.mjs` (the real jsdom harness, not
+a reimplementation — see the v18.4 entry below), extended with an
+irrelevant and a relevant-unwatched JamBase fixture show; `npm test`
+(full suite) passes clean. **Still open, flagged rather than guessed
+at:** JamBase's required attribution credit-line wording hasn't been
+pulled from their docs yet, so nothing has been added to
+`concert-radar.html`'s footer for it — do not treat this feed as fully
+compliant until that's closed. `runLiveSearch()` (the manual Search panel
+/ a Watching row's "Check live →" button) doesn't query this endpoint
+yet, unlike `venue-shows.mjs`'s own v17 parity treatment — a manual
+search for a JamBase-only artist will still report "not found."
+`JAMBASE_API_KEY` also still needs to be set in Netlify's env var UI
+before any of this returns real data instead of a 500 — Susan's real key
+was never pasted into chat, per this repo's never-echo-a-secret rule; she
+sets it herself. Full narrative in CLAUDE.md's 2026-08-11–13 entry.
+
 **v16 (same day, three issues found/reported in one live-review pass right
 after v15 deployed):**
 (1) Most `venue-shows.mjs` parsers only ever capture a `title`, not a
@@ -825,6 +898,7 @@ No automation between chat and the site. Chat → JSON → paste → add. Every 
 - `GET  /api/audio/preview?artist=…&title=…` — public; pure read; tries Deezer first (plus a small hand-picked override table for compilation/best-of albums not on Deezer under their own title), then YouTube as a last resort — Spotify and iTunes tiers were removed at v12 (2026-07-13), see the v23 changelog entry; returns whichever provider's most-popular-track preview is playable, or a graceful `available:false` reason. Also serves `wishlist.html`'s per-row preview buttons (shipped 2026-07-14, commit `83b56ec`), same endpoint.
 - `GET  /api/tour-dates?artist=…&range=…` — public; pure read; Phase 11 Concert Radar, SeatGeek-backed. Resolves the artist to a real SeatGeek performer first (exact match, then a guarded fuzzy fallback), queries events scoped to that performer's slug, and filters every event's own title against a tribute/cover-act blocklist. Returns upcoming shows near Berkeley, CA (hardcoded) with date, venue, price (when SeatGeek provides it), and a ticket URL. Powers `/concert-radar.html`'s Coming Soon sweep and its ad-hoc Search panel.
 - `GET  /api/venue-shows` — public; pure read; Phase 11 Concert Radar, added 2026-08-04. Server-side scrapes 7 hand-picked Bay Area venues' own public event pages (no API key needed for any of them; one fetch covers 6 Another Planet Entertainment venues at once) and returns shows in the same shape `/api/tour-dates` uses. Two requested venues (Ashkenaz, The New Parish) are deliberately excluded — both render client-side, so a plain server fetch sees no data — see the function's own header comment. Powers `/concert-radar.html`'s Coming Soon sweep alongside `/api/tour-dates`.
+- `GET  /api/jambase-shows?lat=…&lon=…&perPage=…&allPages=…` — public; pure read; Phase 11 Concert Radar, added 2026-08-13. JamBase Data v3 API, one geo sweep (not per-artist) resolved to the containing metro area — `geoRadiusAmount` is deliberately never sent (confirmed broken on this account's tier live). Returns shows in the same shape `/api/tour-dates`/`/api/venue-shows` use. `allPages=true` fetches every page (used by `scheduled-sweep.mjs`'s weekly job only); omitted, it fetches one fast page (used by `concert-radar.html`'s live sweep). Requires `JAMBASE_API_KEY`, server-side only; returns 500 without it. Powers `/concert-radar.html`'s Coming Soon sweep alongside `/api/tour-dates` and `/api/venue-shows` — not yet wired into the manual Search panel / "Check live" path.
 - `GET  /api/watching` — public; returns all watched artists (`{id, artist, city}`) as a JSON array. `POST /api/watching` — **ungated**, same exception as the wishlist; upsert one watched artist by `id`. `DELETE /api/watching/:id` — **ungated**; delete one watched artist by `id`. Added 2026-08-04 (v16) after Watching's previous localStorage-only storage lost real data in Susan's browser; separate `watching` Blobs store, same pattern as `wishlist.mjs`. The very first `GET` ever made against the store seeds 3 artists Susan named directly (Easy Star All-Stars, Black Uhuru, Burning Spear), gated by a sentinel record so it only ever runs once. Powers `/concert-radar.html`'s Watching panel.
 - `GET  /api/catalog-cache` — public; pure read; added 2026-08-04 (v18). Serves whatever `netlify/functions/scheduled-sweep.mjs` (a Netlify Scheduled Function, `schedule: '@weekly'`, not HTTP-reachable) last wrote to the `catalog-cache` Blobs store — `{ shows, artistCount, at }`. `concert-radar.html` calls this only when it has no local catalog cache of its own (a new device or cleared profile), as an instant real-data first paint in place of the manual "Refresh" flow removed the same day; the client's own live sweep still always runs afterward regardless.
 

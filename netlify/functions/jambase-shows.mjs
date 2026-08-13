@@ -1,8 +1,18 @@
 // netlify/functions/jambase-shows.mjs
-// version: 1 (draft, staged 2026-08-12 — see "NOT YET LIVE-VERIFIED" note
-// below before this ships)
+// version: 1
 //
-// v1 correction, same day: the base URL was originally guessed as
+// STATUS (2026-08-13): live-verified against a real captured response and
+// wired into both concert-radar.html's client-side sweepCatalog() (v21) and
+// scheduled-sweep.mjs's weekly server-side sweep (v2) — see both files' own
+// headers for the wiring details. What's still open, flagged rather than
+// guessed at: JamBase's required attribution credit-line wording hasn't been
+// pulled from their Attribution doc page yet (TODO 3 below), and
+// runLiveSearch() (the manual Search panel / Watching row's "Check live"
+// button) doesn't query this endpoint yet, unlike venue-shows.mjs which
+// already got that treatment back at v17 (TODO 2 below, now partly done —
+// the sweepCatalog() half is complete, the runLiveSearch() half isn't).
+//
+// v1 correction, same day (2026-08-12): the base URL was originally guessed as
 // "https://data.jambase.com/v3" from JamBase's prose docs. A real curl
 // from Susan's own Terminal against that URL came back HTTP 200 but with
 // content-type: text/html — the marketing site's own SSR catch-all route,
@@ -35,44 +45,33 @@
 // (SeatGeek) resolves and queries one artist at a time, which is fine on
 // SeatGeek's much higher free-tier ceiling but would burn through JamBase's
 // 1,000/month budget fast against Susan's full catalog+wishlist+watching
-// artist list (150+ distinct names). Instead this function makes ONE
-// request per invocation — every upcoming concert within DEFAULT_RANGE_MI
-// of home — the same shape venue-shows.mjs already uses (a fixed source,
-// filtered down to relevant artists by the CALLER, not by this function).
+// artist list (150+ distinct names). Instead this function makes ONE sweep
+// per invocation — every upcoming concert in the metro area around home —
+// the same shape venue-shows.mjs already uses (a fixed source, filtered
+// down to relevant artists by the CALLER, not by this function).
 // concert-radar.html's existing artistIsRelevant()/normalizeArtistKey()
-// filter (added v18.5 for venue-shows.mjs) should be reused against this
-// endpoint's output too rather than duplicated — see the TODO at the
-// bottom of this file for the concert-radar.html/scheduled-sweep.mjs wiring
-// this still needs, deliberately NOT done in this same pass.
+// filter (added v18.5 for venue-shows.mjs) is reused against this
+// endpoint's output too, both client-side (concert-radar.html v21) and
+// server-side (scheduled-sweep.mjs v2) — see both files' own headers.
 //
 // Response shape matches tour-dates.mjs's `shows[]` exactly (id, artist,
 // title, venue, city, date, dateLabel, source, priceLow, priceHigh, url) —
-// so wiring this into the existing merge logic later needs no schema
+// so wiring this into the existing merge logic needed no schema
 // translation, same reasoning venue-shows.mjs's header comment gives for
 // matching the same shape.
 //
-// *** NOT YET LIVE-VERIFIED WITH REAL DATA — read before deploying ***
-// The base URL, auth header format, and response envelope key are now all
-// confirmed against JamBase's authoritative OpenAPI spec (see the v1
-// correction note above) — no longer guesses. What's still NOT confirmed
-// is the exact field-level content of a REAL event object: things like
-// whether `addressRegion` really comes back as a plain string or a
-// `{name: "CA"}`-shaped object in practice (the spec documents it as
-// "object" but every worked example in the docs showed a bare string —
-// `addressCityState()` below handles both defensively), whether `offers`
-// is ever empty for a real free/TBA-priced show, and whether
-// `performer[].x-isHeadliner` is reliably present or often missing. This
-// session still has no network path to api.data.jambase.com to make that
-// one real test call (this sandbox's outbound network is allowlisted to a
-// small set of hosts and that isn't one of them — same restriction
-// documented elsewhere in this repo). `scripts/test-jambase-shows.mjs`'s
-// fixture was built field-by-field from the real OpenAPI schema, which is
-// a much stronger basis than the original screenshot-based guess, but it's
-// still not an actual captured response. Before this goes anywhere near
-// production: run one real request — either from Susan's own Terminal
-// (`curl https://api.data.jambase.com/v3/events?geoLatitude=37.8715&geoLongitude=-122.273&geoRadiusAmount=60&geoRadiusUnits=miles&eventType=concert&perPage=3&sort=eventDate -H "Authorization: Bearer <real key>"`)
-// or once device-bridge/browser access is available — and diff the real
-// response against the fixture, fixing whatever doesn't match.
+// LIVE-VERIFIED 2026-08-12 against a REAL captured response (a real curl
+// from Susan's own Terminal, real key, real Bay Area sweep) — not just the
+// OpenAPI schema. Confirmed field-level: `addressRegion` comes back as an
+// object (`{alternateName, name, identifier}`, not a bare string — schema
+// said "object" but every doc example showed a bare string, so this was
+// worth checking rather than trusting either source blindly);
+// `offers[].category` is `"ticketingLinkPrimary"`/`"ticketingLinkSecondary"`
+// (not the generically-guessed `"primary"`/`"secondary"`); `offers[].
+// priceSpecification` is frequently an empty object `{}` on real events,
+// not null and not populated. `addressCityState()`/`firstUsableOffer()`
+// below were updated to match all three. `scripts/test-jambase-shows.mjs`'s
+// fixture was rebuilt from this real response, not the schema guess.
 //
 // PURE READ. Never touches the Netlify Blobs "records"/"wishlist"/
 // "watching" stores and never writes anything. Not gated by the edit
@@ -345,25 +344,28 @@ export default async (req) => {
 };
 
 // TODO (not done in this pass — flagged, not guessed at):
-//   1. Live-verify against a real request once device-bridge/browser access
-//      is available (see file-header note). Fix parseEnvelope/
-//      addressCityState/firstUsableOffer's field guesses against the real
-//      response before this ever gets wired into concert-radar.html.
-//   2. Once verified, wire into concert-radar.html's sweepCatalog() and
-//      scheduled-sweep.mjs the same way venue-shows.mjs's output already
-//      is: fetch in parallel with the existing two sources, run the
-//      existing artistIsRelevant()/normalizeArtistKey() filter (v18.5)
-//      against Susan's full catalog+wishlist+watching artist list before
-//      merging into Coming Soon, and dedupe by id same as today.
-//   3. Check JamBase's "Attribution" doc page (seen in the reference
-//      sidebar, not yet opened) — the free tier likely requires visible
-//      attribution when displaying their data publicly; add whatever's
-//      required to concert-radar.html's footer/credit line, same spirit as
-//      this repo's existing Deezer/YouTube "via {Provider}" credit pattern
-//      in app.js's buildAudioBlock().
-//   4. If `pagination`/`x-jamBaseMetroId`-style truncation ever matters at
-//      Susan's actual Bay Area event volume, add real pagination — v1
-//      deliberately fetches one page only (perPage capped at 200) and
-//      reports raw_event_count/returned_count in meta so under-coverage is
-//      visible rather than silently truncated, per this repo's "no silent
-//      caps" discipline, but doesn't loop pages yet.
+//   1. DONE 2026-08-13 — live-verified against a real captured response,
+//      parseEnvelope/addressCityState/firstUsableOffer all corrected to
+//      match (see the header's "LIVE-VERIFIED 2026-08-12" note above).
+//   2. DONE 2026-08-13 — wired into concert-radar.html's sweepCatalog()
+//      (v21) and scheduled-sweep.mjs's weekly server-side sweep (v2), both
+//      filtered through the existing artistIsRelevant()/normalizeArtistKey()
+//      pattern (v18.5) before merging, deduped by id same as the other two
+//      sources. NOT done as part of this: runLiveSearch() (the manual
+//      Search panel / Watching row's "Check live" button) still only
+//      queries tour-dates.mjs + venue-shows.mjs, not this endpoint — parity
+//      with venue-shows.mjs's own v17 treatment is still open.
+//   3. Still open: check JamBase's "Attribution" doc page (seen in the
+//      reference sidebar, not yet opened) — the free tier likely requires
+//      visible attribution when displaying their data publicly; add
+//      whatever's required to concert-radar.html's footer/credit line, same
+//      spirit as this repo's existing Deezer/YouTube "via {Provider}"
+//      credit pattern in app.js's buildAudioBlock(). Nothing has been
+//      added yet — do not assume attribution is satisfied just because the
+//      data is flowing.
+//   4. DONE 2026-08-13 — real pagination added (fetchAllEvents(),
+//      MAX_PAGES=25, `?allPages=true`). scheduled-sweep.mjs's weekly job
+//      uses allPages=true for a full sweep; concert-radar.html's live
+//      client-side sweepCatalog() deliberately still uses the fast
+//      single-page default (allPages unset) to keep every live page visit
+//      cheap — see fetchAllEvents()'s own comment for the budget math.
