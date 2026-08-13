@@ -8,4 +8,4 @@ Catalog (Phase 1), Discogs enrichment (Phase 2), wishlist (Phase 3), audio previ
 
 ## Deploy
 
-Push to `main`; Netlify auto-deploys.
+Push to `main`; Netlify auto-deploys. As of 2026-08-13, GitHub Actions also runs its own deploy job on every push to `main` (`.github/workflows/test.yml`'s `deploy` job, gated on tests passing) — both currently fire on the same push until Netlify's own "auto publishing" is turned off in its site settings. See `CLAUDE.md`'s 2026-08-13 "GitHub Actions Phase 1" entry for the full migration plan.
