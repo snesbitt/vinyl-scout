@@ -289,6 +289,16 @@ async function run(label, watchingList, travelOpts) {
   const jambaseRelevantShown = soonHtml.toLowerCase().includes(relevantUnwatchedJambaseShow.artist.toLowerCase()) || soonHtml.toLowerCase().includes(jambaseArtistEscaped);
   report("  Coming Soon SHOULD show \"" + relevantUnwatchedJambaseShow.artist + "\" (JamBase, relevant, unwatched): " + (jambaseRelevantShown ? "pass" : "FAIL (relevant JamBase match missing)"));
 
+  // v21.1: JamBase's card should carry a real attribution link to
+  // jambase.com (sourceCreditHtml() in concert-radar.html), unlike every
+  // other source's plain-text "via {source}" tag — see that file's own
+  // v21.1 header note for why. Checks both that the link exists and that
+  // it's actually anchored to the JamBase card, not just present anywhere
+  // on the page (a Watching-panel .travel-match note or unrelated markup
+  // could otherwise produce a false pass).
+  const jambaseLinkPresent = /<a class="cr-source" href="https:\/\/www\.jambase\.com\/"[^>]*>via JamBase<\/a>/.test(soonHtml);
+  report("  JamBase card's source tag SHOULD be a real link to jambase.com: " + (jambaseLinkPresent ? "pass" : "FAIL (missing or not a link — check sourceCreditHtml())"));
+
   // Phase 10: checkTravelMatches() is fire-and-forget, appended after the
   // watch list's own render — give its two chained fetches (watched-trips,
   // then per-trip artists-playing) time to settle before inspecting rows.

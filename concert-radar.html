@@ -19,7 +19,35 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Concert Radar — version: 21 (2026-08-13).
+    /* Concert Radar — version: 21.1 (2026-08-13).
+       v21.1: JamBase attribution — partial. Tried to pull the exact
+       required credit-line wording from JamBase's own Attribution doc
+       page (https://data.jambase.com/api/docs/attribution, linked from
+       their Getting Started docs) — that page is client-side rendered
+       and this session's WebFetch tool only ever returns its metadata,
+       never the actual body text, no matter which variant was tried
+       (the page itself, a `.md` suffix, `llms.txt`, `llms-full.txt`).
+       What WAS confirmed, repeatedly, across those same fetches: the
+       free "Developer" tier is unambiguously "Attribution required"
+       (Pro is "appreciated," Pro+ is "whitelisted attribution") — so
+       shipping nothing was judged worse than shipping a reasonable,
+       clearly-flagged interim measure. Every Coming Soon/Search-result
+       card already renders a per-source tag ("via SeatGeek"/"via
+       {Venue}"/"via JamBase" — see the existing `<span class="cr-
+       source">` markup, unchanged since well before this feed existed)
+       — that's real, existing per-listing sourcing, not new. What v21.1
+       adds: for JamBase-sourced cards specifically, that tag is now a
+       real hyperlink to jambase.com (see sourceCreditHtml() below),
+       since "attribution" conventionally means a link back to the
+       source, not just a name. This is NOT confirmed to satisfy
+       JamBase's actual required wording/format — it's an honest,
+       reasonable placeholder pending Susan opening
+       https://data.jambase.com/api/docs/attribution in her own browser
+       (which renders the page's real JS content fine, unlike this
+       session's tools) and confirming or correcting the exact text.
+       Do not treat JamBase data as fully attribution-compliant based on
+       this change alone.
+
        v21: third Concert Radar feed wired in — JamBase Data
        (netlify/functions/jambase-shows.mjs), alongside the existing
        SeatGeek (tour-dates.mjs) and 7-venue scrape (venue-shows.mjs)
@@ -772,6 +800,11 @@
     .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; overflow-wrap: anywhere; }
     .cr-tags { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
     .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
+    /* v21.1: .cr-source is now sometimes a real <a> (JamBase attribution
+       link, see sourceCreditHtml()) instead of always a <span> — strip the
+       default link underline/visited-color so it still reads identically
+       to the plain-text tag every other source uses. */
+    a.cr-source, a.cr-source:visited { text-decoration: none; }
     .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
     .cr-date { font-size: 13px; color: var(--ink); white-space: nowrap; }
     .cr-price { font-size: 12px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
@@ -967,6 +1000,22 @@
     });
   }
 
+  // v21.1: builds the small "via {source}" tag every card already renders.
+  // For JamBase specifically, that tag is now a real hyperlink to
+  // jambase.com — see the file-header v21.1 note for why (their free tier
+  // is confirmed "Attribution required," but the exact required wording
+  // couldn't be fetched from their client-side-rendered Attribution doc
+  // page this session). Every other source keeps the existing plain-text
+  // tag unchanged — this repo has no confirmed attribution requirement for
+  // SeatGeek or any of the 7 scraped venues.
+  function sourceCreditHtml(source) {
+    var label = source || 'SeatGeek';
+    if (label === 'JamBase') {
+      return '<a class="cr-source" href="https://www.jambase.com/" target="_blank" rel="noopener">via ' + esc(label) + '</a>';
+    }
+    return '<span class="cr-source">via ' + esc(label) + '</span>';
+  }
+
   function loadJSON(key) {
     try { return JSON.parse(localStorage.getItem(key) || '[]'); }
     catch (e) { return []; }
@@ -1107,7 +1156,7 @@
       '<div class="cr-who">' +
         '<div class="cr-artist">' + esc(s.artist) + '</div>' +
         '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-        '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+        '<div class="cr-tags">' + sourceCreditHtml(s.source) + '</div>' +
         '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
       '</div>' +
       '<div class="cr-meta">' +
@@ -1767,7 +1816,7 @@
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist || meta.matched_performer) + '</div>' +
           '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           '<div class="cr-live-actions">' +
             (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
             '<button type="button" class="cr-live-add-btn" data-add-show="' + esc(s.id) + '"' + (added ? ' disabled' : '') + '>' +
@@ -2035,7 +2084,7 @@
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist) + '</div>' +
           '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           watchRowHtml(s.artist, s.city || cityLabel) +
           '<div class="cr-live-actions">' +
             (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
