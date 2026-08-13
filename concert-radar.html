@@ -19,7 +19,73 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Concert Radar — version: 20 (2026-08-06).
+    /* Concert Radar — version: 21.1 (2026-08-13).
+       v21.1: JamBase attribution — partial. Tried to pull the exact
+       required credit-line wording from JamBase's own Attribution doc
+       page (https://data.jambase.com/api/docs/attribution, linked from
+       their Getting Started docs) — that page is client-side rendered
+       and this session's WebFetch tool only ever returns its metadata,
+       never the actual body text, no matter which variant was tried
+       (the page itself, a `.md` suffix, `llms.txt`, `llms-full.txt`).
+       What WAS confirmed, repeatedly, across those same fetches: the
+       free "Developer" tier is unambiguously "Attribution required"
+       (Pro is "appreciated," Pro+ is "whitelisted attribution") — so
+       shipping nothing was judged worse than shipping a reasonable,
+       clearly-flagged interim measure. Every Coming Soon/Search-result
+       card already renders a per-source tag ("via SeatGeek"/"via
+       {Venue}"/"via JamBase" — see the existing `<span class="cr-
+       source">` markup, unchanged since well before this feed existed)
+       — that's real, existing per-listing sourcing, not new. What v21.1
+       adds: for JamBase-sourced cards specifically, that tag is now a
+       real hyperlink to jambase.com (see sourceCreditHtml() below),
+       since "attribution" conventionally means a link back to the
+       source, not just a name. This is NOT confirmed to satisfy
+       JamBase's actual required wording/format — it's an honest,
+       reasonable placeholder pending Susan opening
+       https://data.jambase.com/api/docs/attribution in her own browser
+       (which renders the page's real JS content fine, unlike this
+       session's tools) and confirming or correcting the exact text.
+       Do not treat JamBase data as fully attribution-compliant based on
+       this change alone.
+
+       v21: third Concert Radar feed wired in — JamBase Data
+       (netlify/functions/jambase-shows.mjs), alongside the existing
+       SeatGeek (tour-dates.mjs) and 7-venue scrape (venue-shows.mjs)
+       sources. Susan researched and signed up for JamBase's new
+       self-serve platform after Ticketmaster's developer signup stalled
+       (see venue-shows.mjs's 2026-08-04 notes) — free "Developer" tier,
+       1,000 calls/month, non-commercial. Real curl testing from Susan's
+       own Terminal (not guessed) found and fixed a real bug along the
+       way: JamBase's geoRadiusAmount parameter is broken on this
+       account's tier (every value tried — 60/25/10/1 miles — failed
+       identically), worked around by omitting it entirely and relying on
+       JamBase's own metro-level resolution instead, which turned out to
+       be a better fit for "Bay Area" scoping than a numeric radius
+       anyway. Full story in jambase-shows.mjs's own header comment.
+
+       Wired in exactly like venue-shows.mjs already was: fetchJambaseShows()
+       kicks off in parallel with the venue scrape and the per-artist
+       SeatGeek sweep in sweepCatalog(), then its results run through the
+       same artistIsRelevant()/normalizeArtistKey() filter venue-shows.mjs's
+       results already do, before merging into Coming Soon — reused, not
+       duplicated a third time. Same null-artist defensive guard
+       venue-shows.mjs needed at v16 (a JamBase event can theoretically
+       come back with no parseable performer name) applied here too,
+       learned the hard way once already — no reason to risk that crash
+       class again.
+
+       Not yet done, flagged honestly rather than silently skipped: (1)
+       runLiveSearch() (the manual Search panel / "Check live" button)
+       does not yet also query jambase-shows.mjs the way it already does
+       venue-shows.mjs — same value-add venue-shows.mjs got, just not
+       done in this pass; worth closing next time this file is touched,
+       same discipline as every other "worth closing next time" note in
+       this doc. (2) JamBase's required attribution credit line (their
+       free tier's terms explicitly require one, confirmed on the
+       upgrade-plan screen) is not yet added anywhere on this page —
+       needs the exact required wording pulled from JamBase's own
+       Attribution doc page first, not guessed at.
+
        v20: two fixes, same session. (1) Susan: "fix this search issue
        regarding Santigold" — a Santigold+Chicago search on the manual
        Search panel came back "No upcoming Santigold shows found within
@@ -734,6 +800,11 @@
     .cr-venue { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); margin-top: 2px; overflow-wrap: anywhere; }
     .cr-tags { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
     .cr-source { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 2px; padding: 2px 6px; }
+    /* v21.1: .cr-source is now sometimes a real <a> (JamBase attribution
+       link, see sourceCreditHtml()) instead of always a <span> — strip the
+       default link underline/visited-color so it still reads identically
+       to the plain-text tag every other source uses. */
+    a.cr-source, a.cr-source:visited { text-decoration: none; }
     .cr-meta { flex: 0 0 auto; text-align: right; font-family: var(--mono); }
     .cr-date { font-size: 13px; color: var(--ink); white-space: nowrap; }
     .cr-price { font-size: 12px; color: var(--ink-soft); white-space: nowrap; margin-top: 2px; }
@@ -929,6 +1000,22 @@
     });
   }
 
+  // v21.1: builds the small "via {source}" tag every card already renders.
+  // For JamBase specifically, that tag is now a real hyperlink to
+  // jambase.com — see the file-header v21.1 note for why (their free tier
+  // is confirmed "Attribution required," but the exact required wording
+  // couldn't be fetched from their client-side-rendered Attribution doc
+  // page this session). Every other source keeps the existing plain-text
+  // tag unchanged — this repo has no confirmed attribution requirement for
+  // SeatGeek or any of the 7 scraped venues.
+  function sourceCreditHtml(source) {
+    var label = source || 'SeatGeek';
+    if (label === 'JamBase') {
+      return '<a class="cr-source" href="https://www.jambase.com/" target="_blank" rel="noopener">via ' + esc(label) + '</a>';
+    }
+    return '<span class="cr-source">via ' + esc(label) + '</span>';
+  }
+
   function loadJSON(key) {
     try { return JSON.parse(localStorage.getItem(key) || '[]'); }
     catch (e) { return []; }
@@ -1069,7 +1156,7 @@
       '<div class="cr-who">' +
         '<div class="cr-artist">' + esc(s.artist) + '</div>' +
         '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-        '<div class="cr-tags"><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+        '<div class="cr-tags">' + sourceCreditHtml(s.source) + '</div>' +
         '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
       '</div>' +
       '<div class="cr-meta">' +
@@ -1729,7 +1816,7 @@
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist || meta.matched_performer) + '</div>' +
           '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           '<div class="cr-live-actions">' +
             (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
             '<button type="button" class="cr-live-add-btn" data-add-show="' + esc(s.id) + '"' + (added ? ' disabled' : '') + '>' +
@@ -1997,7 +2084,7 @@
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist) + '</div>' +
           '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
-          '<div class="cr-tags"><span class="cr-live-tag">Live</span><span class="cr-source">via ' + esc(s.source || 'SeatGeek') + '</span></div>' +
+          '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           watchRowHtml(s.artist, s.city || cityLabel) +
           '<div class="cr-live-actions">' +
             (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
@@ -2188,6 +2275,22 @@
       .catch(function () { return []; });
   }
 
+  // v21: JamBase Data, the third Concert Radar feed (see jambase-shows.mjs's
+  // own header for the full story). Same shape as fetchVenueShows() above —
+  // a fixed, non-artist-scoped sweep (this one geo-scoped to the Bay Area
+  // metro rather than a curated venue list) that gets filtered down to
+  // relevant artists client-side below, same reason venue-shows.mjs's
+  // results are. No ?allPages=true here deliberately — a live per-visit
+  // sweep gets jambase-shows.mjs's fast single-page default (nearest-term
+  // events only); the comprehensive multi-page sweep is scheduled-sweep.mjs's
+  // job (weekly, server-side), not every browser's.
+  function fetchJambaseShows() {
+    return fetch('/api/jambase-shows')
+      .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+      .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+      .catch(function () { return []; });
+  }
+
   // v18: reads scheduled-sweep.mjs's weekly, server-side pre-computed
   // catalog (netlify/functions/scheduled-sweep.mjs + catalog-cache.mjs).
   // Used only as an instant first paint for a browser with no local
@@ -2246,16 +2349,20 @@
     // client-side below, once the artist list is in — the fetch itself
     // stays unfiltered since venue-shows.mjs owes the catalog nothing.
     var venueShowsPromise = fetchVenueShows();
+    // v21: same reasoning as venueShowsPromise above — JamBase's sweep is
+    // artist-agnostic (geo-scoped, not artist-scoped), so it kicks off
+    // immediately too rather than waiting on the artist list.
+    var jambaseShowsPromise = fetchJambaseShows();
 
     return fetchDistinctArtists().then(function (artists) {
-      // Two sources run in parallel: the existing per-artist SeatGeek
-      // sweep, plus the venue scrape kicked off above. venue-shows.mjs
-      // returns shows in the exact same shape tour-dates.mjs does, so no
+      // Three sources run in parallel: the existing per-artist SeatGeek
+      // sweep, the venue scrape, and JamBase's geo sweep (both kicked off
+      // above). All three return shows in the exact same shape, so no
       // reshaping is needed — they just concat into the same list before
-      // de-duping, once the venue side has been filtered to relevance.
-      // mapLimit/artistIsRelevant both handle an empty `artists` list
-      // safely (resolves to [] / matches nothing), so no separate
-      // zero-artists branch is needed here anymore.
+      // de-duping, once the two non-artist-scoped sources have been
+      // filtered to relevance. mapLimit/artistIsRelevant both handle an
+      // empty `artists` list safely (resolves to [] / matches nothing), so
+      // no separate zero-artists branch is needed here.
       return Promise.all([
         mapLimit(artists, SWEEP_CONCURRENCY, function (artist) {
           return fetch('/api/tour-dates?artist=' + encodeURIComponent(artist))
@@ -2263,14 +2370,25 @@
             .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
             .catch(function () { return []; });
         }),
-        venueShowsPromise
+        venueShowsPromise,
+        jambaseShowsPromise
       ]).then(function (results) {
         var perArtistShows = results[0];
         var venueShows = results[1];
+        var jambaseShows = results[2];
         var relevantVenueShows = normalizeVenueShows(venueShows).filter(function (s) {
           return artistIsRelevant(s.artist, artists);
         });
-        var all = relevantVenueShows;
+        // v21: same null-artist defensive guard venue-shows.mjs needed at
+        // v16 — jambase-shows.mjs's own primaryPerformerName() can in
+        // theory return null (a malformed/support-only performer array),
+        // and normalizeVenueShows()'s logic (default artist to title) is
+        // generic enough to reuse as-is rather than writing a near-
+        // identical third copy.
+        var relevantJambaseShows = normalizeVenueShows(jambaseShows).filter(function (s) {
+          return artistIsRelevant(s.artist, artists);
+        });
+        var all = relevantVenueShows.concat(relevantJambaseShows);
         perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and
