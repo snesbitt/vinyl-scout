@@ -1,5 +1,6 @@
 // netlify/functions/artists-playing.mjs
-// version: 1
+// version: 2 (2026-08-12: parallelized store reads + outbound fetches,
+// SeatGeek capped at 4.5s -- see PROJECT.md's v42 entry)
 // Phase 10 — Travel Intelligence hooks (2026-08-05). The Vinyl Scout half of
 // the bidirectional Concert Radar <-> Travel Intelligence integration Susan
 // asked for 2026-08-04 ("if i'm watching a fare like Chicago you check the
@@ -288,45 +289,59 @@ export default async (req) => {
 
   // Artist universe: direct Blobs reads (fast, in-process — no HTTP
   // round-trip to this site's own /api/records etc).
-  var catalogItems = [];
-  var wishlistItems = [];
-  var watchingItems = [];
-  try {
-    var recordsStore = getStore("records");
-    var recordsList = await recordsStore.list();
-    for (const blob of recordsList.blobs) {
-      var raw = await recordsStore.get(blob.key);
-      if (raw) { try { catalogItems.push(JSON.parse(raw)); } catch (e) {} }
-    }
-  } catch (e) { console.error("artists-playing.mjs: could not read records store:", e.message); }
-  try {
-    var wishlistStore = getStore("wishlist");
-    var wishlistList = await wishlistStore.list();
-    for (const blob of wishlistList.blobs) {
-      var raw2 = await wishlistStore.get(blob.key);
-      if (raw2) { try { wishlistItems.push(JSON.parse(raw2)); } catch (e) {} }
-    }
-  } catch (e) { console.error("artists-playing.mjs: could not read wishlist store:", e.message); }
-  try {
-    var watchingStore = getStore("watching");
-    var watchingList = await watchingStore.list();
-    for (const blob of watchingList.blobs) {
-      if (blob.key.indexOf("_meta_") === 0) continue; // sentinel record, see watching.mjs
-      var raw3 = await watchingStore.get(blob.key);
-      if (raw3) { try { watchingItems.push(JSON.parse(raw3)); } catch (e) {} }
-    }
-  } catch (e) { console.error("artists-playing.mjs: could not read watching store:", e.message); }
+  // 2026-08-12 (perf fix, Susan: SeatGeek cross-fetch from Travel
+  // Intelligence occasionally hitting checkConcertMatches()'s 6s
+  // AbortSignal.timeout, seen as 499s in Netlify's request log). The
+  // three stores are independent, and each store's per-key blob.get()
+  // calls are independent too, so a sequential for-await loop over ~170
+  // records (94 catalog + 76 wishlist, see PROJECT.md) was pure wasted
+  // latency. Both levels parallelized with Promise.all; behavior
+  // (skip _meta_ sentinels in watching, swallow per-key parse errors,
+  // log and degrade to [] on a whole-store failure) is unchanged.
+  async function readStore(name, skipMeta) {
+    var items = [];
+    try {
+      var store = getStore(name);
+      var list = await store.list();
+      var keys = list.blobs
+        .map((b) => b.key)
+        .filter((k) => !skipMeta || k.indexOf("_meta_") !== 0);
+      var raws = await Promise.all(keys.map((k) => store.get(k)));
+      for (const raw of raws) {
+        if (raw) { try { items.push(JSON.parse(raw)); } catch (e) {} }
+      }
+    } catch (e) { console.error("artists-playing.mjs: could not read " + name + " store:", e.message); }
+    return items;
+  }
+  var storeResults = await Promise.all([
+    readStore("records", false),
+    readStore("wishlist", false),
+    readStore("watching", true),
+  ]);
+  var catalogItems = storeResults[0];
+  var wishlistItems = storeResults[1];
+  var watchingItems = storeResults[2];
 
   var artistIndex = buildArtistIndex(catalogItems, wishlistItems, watchingItems);
 
-  // Source 1: SeatGeek, location + date window, no performer filter.
-  var seatgeekMatches = [];
-  var seatgeekError = null;
+  // Sources 1 and 2 also now run concurrently (same 2026-08-12 fix):
+  // SeatGeek and this site's own venue-shows endpoint are independent
+  // reads, no reason to wait on one before starting the other. SeatGeek's
+  // fetch also now carries its own 4.5s AbortController timeout, shorter
+  // than the client's 6s ceiling, so a slow SeatGeek response degrades to
+  // seatgeekError (venue-scrape source still checked, exactly as the
+  // existing "missing SEATGEEK_CLIENT_ID" path already degrades) instead
+  // of silently eating the whole client-side timeout budget by itself.
   var clientId = process.env.SEATGEEK_CLIENT_ID;
-  if (!clientId) {
-    seatgeekError = "SEATGEEK_CLIENT_ID is not set on the server — SeatGeek source skipped, venue-scrape source still checked below";
-  } else {
+
+  // Source 1: SeatGeek, location + date window, no performer filter.
+  async function fetchSeatGeek() {
+    if (!clientId) {
+      return { matches: [], error: "SEATGEEK_CLIENT_ID is not set on the server — SeatGeek source skipped, venue-scrape source still checked below" };
+    }
     var clientSecret = process.env.SEATGEEK_CLIENT_SECRET || "";
+    var controller = new AbortController();
+    var timer = setTimeout(() => controller.abort(), 4500);
     try {
       var evParams = new URLSearchParams();
       evParams.set("client_id", clientId);
@@ -338,38 +353,45 @@ export default async (req) => {
       evParams.set("datetime_utc.lte", dateEnd + "T23:59:59");
       evParams.set("sort", "datetime_utc.asc");
       evParams.set("per_page", "100"); // day-one cap — see header comment; a single page keeps this fast
-      var evRes = await fetch("https://api.seatgeek.com/2/events?" + evParams.toString());
+      var evRes = await fetch("https://api.seatgeek.com/2/events?" + evParams.toString(), { signal: controller.signal });
       if (!evRes.ok) {
         var detail = "";
         try { detail = (await evRes.json()).message || ""; } catch (e) {}
-        seatgeekError = "SeatGeek returned HTTP " + evRes.status + (detail ? " — " + detail : "");
-      } else {
-        var evData = await evRes.json();
-        var rawEvents = Array.isArray(evData.events) ? evData.events : [];
-        seatgeekMatches = matchSeatGeekEvents(rawEvents, artistIndex, lat, lon);
+        return { matches: [], error: "SeatGeek returned HTTP " + evRes.status + (detail ? " — " + detail : "") };
       }
+      var evData = await evRes.json();
+      var rawEvents = Array.isArray(evData.events) ? evData.events : [];
+      return { matches: matchSeatGeekEvents(rawEvents, artistIndex, lat, lon), error: null };
     } catch (err) {
-      seatgeekError = "Could not reach SeatGeek: " + err.message;
+      var msg = err.name === "AbortError" ? "SeatGeek timed out after 4.5s" : "Could not reach SeatGeek: " + err.message;
+      return { matches: [], error: msg };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
   // Source 2: this site's own venue scrape (7 Bay Area venues + manual
   // entries) — reused via its own endpoint rather than re-implementing the
   // scrape/parse logic here.
-  var venueMatches = [];
-  var venueError = null;
-  try {
-    var venueRes = await fetch(new URL("/api/venue-shows", req.url).toString());
-    if (venueRes.ok) {
+  async function fetchVenueShows() {
+    try {
+      var venueRes = await fetch(new URL("/api/venue-shows", req.url).toString());
+      if (!venueRes.ok) {
+        return { matches: [], error: "venue-shows returned HTTP " + venueRes.status };
+      }
       var venueData = await venueRes.json();
       var venueShows = Array.isArray(venueData.shows) ? venueData.shows : [];
-      venueMatches = matchVenueShows(venueShows, artistIndex, lat, lon, dateStart, dateEnd);
-    } else {
-      venueError = "venue-shows returned HTTP " + venueRes.status;
+      return { matches: matchVenueShows(venueShows, artistIndex, lat, lon, dateStart, dateEnd), error: null };
+    } catch (err) {
+      return { matches: [], error: "Could not reach venue-shows: " + err.message };
     }
-  } catch (err) {
-    venueError = "Could not reach venue-shows: " + err.message;
   }
+
+  var fetchResults = await Promise.all([fetchSeatGeek(), fetchVenueShows()]);
+  var seatgeekMatches = fetchResults[0].matches;
+  var seatgeekError = fetchResults[0].error;
+  var venueMatches = fetchResults[1].matches;
+  var venueError = fetchResults[1].error;
 
   var matches = seatgeekMatches.concat(venueMatches);
   // De-dupe: the same real show can appear from both sources (e.g. a
