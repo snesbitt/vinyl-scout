@@ -1732,3 +1732,23 @@ Three real items closed off the punch list in one pass.
 **Verified:** full `npm test` passes clean. New regression coverage for item 3: a "Riverside" fixture (two real venues, `goingShowId` pre-set to one) confirms the going venue's block drops both controls while the still-not-going venue keeps both — sliced strictly between the two venues' own markup so a check can't accidentally read the wrong venue's controls. Item 2 has no new automated fixture yet (`runLiveSearch()` isn't covered by the jsdom harness at all — it's driven by a live button click, same standing gap `initDeepLink()` was flagged with back on 2026-08-06) — worth a real live-browser spot-check once deployed: search for an artist JamBase has a show for that SeatGeek/venue-shows don't, confirm it now surfaces instead of "not found."
 
 **Delivered:** `.github/workflows/test.yml`, `concert-radar.html`, `scripts/e2e-concert-radar.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later — retired the old Netlify-scheduled `backup-watching.mjs` now that the Actions equivalent is confirmed matching
+
+Punch-list item, closing a loop opened by the `backup-watching.yml` Actions migration (see its own entry above): that entry deliberately left the old Netlify-side scheduled function running alongside the new Actions job "until Susan confirms a real Actions run's output matches" — done earlier this session by diffing real backup commits from both paths, no code needed for that part.
+
+**What was actually retired, and what wasn't.** Only `netlify/functions/backup-watching.mjs` — the Netlify Scheduled Function that ran `5 9 * * *`, now fully redundant with `backup-watching.yml`'s `09:10 UTC` Actions run. `netlify/lib/run-watching-backup.mjs` (the shared backup logic) and `netlify/functions/backup-watching-http.mjs` (the manual `X-Backup-Key`-gated HTTP trigger at `/api/backup-watching`) were deliberately kept — deleting the lib would have broken the still-live manual trigger, and the records side of this same pattern (`backup.mjs`/`backup-http.mjs`/`run-backup.mjs`) still has all three in place too, despite `backup-catalog.yml` having replaced its scheduled duplicate much earlier. Retiring only the redundant scheduled half keeps this consistent with that existing precedent rather than inventing a new one. Whether the manual HTTP triggers (records and watching both) are worth retiring too is a separate call Susan hasn't made — not done here.
+
+**Verified:** confirmed no other file imports `netlify/functions/backup-watching.mjs` specifically (the two remaining hits for the filename were both comments referencing it for context, in `watching.mjs` and `backup-catalog.yml`) before deleting. `netlify.toml`'s `[functions]` block just points at the directory (`node_bundler = "esbuild"`, auto-discovery) — no explicit function list to update. Full `npm test` passes clean.
+
+**Delivered:** deletion of `netlify/functions/backup-watching.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — fixed a stale smoke-test assertion (false "title text missing" failure)
+
+Susan ran `npm run smoke` against production for the first time in a while and got a real-looking failure: `FAIL home page — title text missing`. Investigated before assuming the live site was actually broken, since everything else in the same run passed (records API, wishlist, write protection, audio preview, security headers, robots.txt — 8 of 9 checks green).
+
+**Root cause: the test was checking for copy that hasn't existed since July.** `scripts/smoke.mjs` asserted `html.includes('The Vinyl Scout')` — but commit `5a23f79` (2026-07-29, Susan's own change, "Drop redundant 'The' from the wordmark/title/aria-labels") renamed the site's own copy to just "Vinyl Scout" everywhere, and never touched this assertion. The live site has been correctly titled "Vinyl Scout" (no "The") for over two weeks; the smoke test just never ran against production in that window to catch its own staleness.
+
+**Fixed:** assertion now checks for `'Vinyl Scout'` (matches what's actually on the page, and would have passed against every deploy since 5a23f79). Not a site bug — confirmed by the other 8 checks in the same run passing clean, and by reading the actual live copy's own rename commit.
+
+**Delivered:** `scripts/smoke.mjs`, this file. Bundled with the other 2026-08-14 fixes, not pushed directly.
