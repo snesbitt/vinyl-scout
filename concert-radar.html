@@ -805,6 +805,12 @@
     .cr-watch-going--active { background: var(--good); border-color: var(--good); color: var(--bg); }
     .cr-watch-going--active:hover { opacity: 0.85; border-color: var(--good); color: var(--bg); }
     .cr-watch-going:disabled { opacity: 0.6; cursor: default; }
+    /* 2026-08-14: per-venue "not interested in this specific booking"
+       dismiss — same visual language as .cr-item-del (Coming Soon's own
+       per-card remove), sized down slightly since it sits inline in a
+       flex row rather than a card corner, but still >=44px tap target. */
+    .cr-watch-dismiss { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; margin-left: -6px; }
+    .cr-watch-dismiss:hover { color: var(--accent); }
     /* 2026-08-05, Phase 10 — Travel Intelligence match note. Appended (JS,
        best-effort, never blocks the row's own render) when a cross-site
        check against travelintelligence.org's /api/watched-trips finds this
@@ -1344,27 +1350,45 @@
             ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
             : '';
           var ticketUrl = group.map(function (m) { return m.url; }).filter(Boolean)[0];
+          var groupIds = group.map(function (m) { return m.id; }).join(',');
+          // 2026-08-14: Susan live-caught the follow-on problem the
+          // per-artist "going" flag created the moment two real venues
+          // could render separately — Thievery Corporation has real shows
+          // at both The Fox (Oakland, hers) and The Masonic (SF, not
+          // hers), but "going" had nowhere to say WHICH one. Went from a
+          // single per-artist toggle to a per-venue-group one:
+          // w.goingShowId now holds the specific matched show's id she
+          // confirmed, and only that group's button renders active.
+          // Same persistence path as before (POST the full record,
+          // watching.mjs stores whatever it's given) — one new field,
+          // no schema change. w.going stays a plain boolean derived from
+          // "is goingShowId set to anything", so the artist-name badge
+          // above doesn't need its own separate source of truth.
+          var isGoingThisShow = !!(w.goingShowId && group.some(function (m) { return m.id === w.goingShowId; }));
+          var goingBtn = '<button type="button" class="cr-watch-going' + (isGoingThisShow ? ' cr-watch-going--active' : '') +
+            '" data-watch-going="' + esc(w.id || '') + '" data-watch-going-show="' + esc(group[0].id || '') + '">' +
+            (isGoingThisShow ? '🎟 Going ✓' : 'I’m going') +
+          '</button>';
+          // Same real bug report, second half: "i don't want the other
+          // show included." An artist can be genuinely watched while only
+          // one specific real booking is actually hers — this dismiss
+          // reuses the EXACT same mechanism Coming Soon's own per-card ×
+          // already uses (adds the show's id(s) to the `hidden` array,
+          // same localStorage key, same renderList() re-render), rather
+          // than a new one-off path — findWatchMatches() already reads
+          // through comingSoonShows(), which already filters by `hidden`,
+          // so dismissing a venue here removes it from this row for the
+          // same reason it'd remove a card from Coming Soon.
+          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">&times;</button>';
           return venueHtml +
           '<div class="cr-watch-info">' +
             '<div class="cr-watch-date">' + esc(fmtDateRange(group)) + '</div>' +
             (gHasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, gLows), Math.max.apply(null, gHighs))) + '</div>' : '') +
             (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+            goingBtn + dismissBtn +
           '</div>';
         }).join('');
-        // 2026-08-07 (Susan: "i just got tix to the easy star show but i
-        // want to change the status to GOING") — only offered once there's
-        // a real matched show to be going to; toggled via the delegated
-        // data-watch-going handler below, persisted to the same /api/
-        // watching record (POST accepts any extra field, see that file's
-        // handler — no schema change needed). Stays per-artist, not
-        // per-venue, even now that venue groups render separately — which
-        // specific booking she's going to isn't tracked at that level of
-        // detail yet.
-        var goingBtn = '<button type="button" class="cr-watch-going' + (w.going ? ' cr-watch-going--active' : '') +
-          '" data-watch-going="' + esc(w.id || '') + '">' +
-          (w.going ? '🎟 Going ✓' : 'I’m going') +
-        '</button>';
-        statusHtml = venueBlocksHtml + '<div class="cr-watch-info">' + goingBtn + '</div>';
+        statusHtml = venueBlocksHtml;
       } else {
         // v18.1: live-caught by Susan (screenshot, 2:54pm) — Black Uhuru,
         // Easy Star All-Stars, and Burning Spear were all still stuck on
@@ -1645,6 +1669,24 @@
   }
 
   els.watchList.addEventListener('click', function (e) {
+    // 2026-08-14: "not going to this one" — a per-venue dismiss on a
+    // watched artist's row, added alongside the per-venue "going" toggle
+    // above. Deliberately the EXACT same data-del/hidden mechanism the
+    // Coming Soon list's own per-card × already uses (see els.list's
+    // click handler below) rather than a new one-off path — this
+    // listener is on a different element (els.watchList, not els.list),
+    // so it needs its own copy of this branch to catch the click, but
+    // the underlying `hidden` array/localStorage key/re-render are
+    // identical, and findWatchMatches() already reads through the same
+    // hidden-filtered comingSoonShows() either way.
+    var dismissBtn = e.target.closest('[data-del]');
+    if (dismissBtn) {
+      var dismissIds = dismissBtn.getAttribute('data-del').split(',');
+      dismissIds.forEach(function (id) { if (hidden.indexOf(id) === -1) hidden.push(id); });
+      saveJSON(LS_HIDDEN, hidden);
+      renderList();
+      return;
+    }
     var delBtn = e.target.closest('[data-watch-del]');
     if (delBtn) {
       var id = delBtn.getAttribute('data-watch-del');
@@ -1688,12 +1730,21 @@
     // delete handler above already do (POST the full record to
     // /api/watching; that handler stores whatever body it's given, no
     // schema change needed for the new `going` field).
+    // 2026-08-14: now per-venue-group, not per-artist — see the
+    // goingBtn-building comment above (renderWatchList) for why. Clicking
+    // the button for the show already marked going un-sets it; clicking
+    // any other show's button (including one for a different watched
+    // artist) switches goingShowId to that show instead.
     var goingBtn = e.target.closest('[data-watch-going]');
     if (goingBtn) {
       var gid = goingBtn.getAttribute('data-watch-going');
+      var showId = goingBtn.getAttribute('data-watch-going-show') || '';
       var gw = watching.filter(function (x) { return x.id === gid; })[0];
       if (!gw) return;
-      var updated = Object.assign({}, gw, { going: !gw.going });
+      var alreadyGoingThisShow = !!gw.going && gw.goingShowId === showId;
+      var updated = Object.assign({}, gw, alreadyGoingThisShow
+        ? { going: false, goingShowId: '' }
+        : { going: true, goingShowId: showId });
       goingBtn.disabled = true;
       fetch('/api/watching', {
         method: 'POST',

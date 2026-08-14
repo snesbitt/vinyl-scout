@@ -426,6 +426,19 @@ async function run(label, watchingList, travelOpts) {
     // that composite phrasing should never appear anywhere in this row.
     const hasFabricatedRange = /\d dates/.test(poolsideHtml);
     report("  Poolside row should NOT show a merged multi-date range across different venues: " + (hasFabricatedRange ? "FAIL (found a fabricated N-dates range)" : "pass"));
+
+    // 2026-08-14, same-day follow-up: Susan's real Thievery Corporation
+    // case exposed that "going" was per-ARTIST, not per-venue — she was
+    // only going to the Fox Oakland show but the single going toggle had
+    // no way to say that, and no way to say "not interested in the other
+    // one" either. Both are now per-venue-group controls; confirm each
+    // of Poolside's two venue blocks renders its OWN going button (with a
+    // distinct data-watch-going-show id) and its own dismiss control,
+    // rather than one shared pair for the whole row.
+    const goingBtnCount = (poolsideHtml.match(/data-watch-going-show="[^"]+"/g) || []).length;
+    report("  Poolside row SHOULD have its own \"I'm going\" button per venue (2 expected): " + (goingBtnCount === 2 ? "pass" : "FAIL (found " + goingBtnCount + ", expected 2 — going may still be merged per-artist)"));
+    const dismissBtnCount = (poolsideHtml.match(/class="cr-watch-dismiss"/g) || []).length;
+    report("  Poolside row SHOULD have its own dismiss (\"not going to this one\") control per venue (2 expected): " + (dismissBtnCount === 2 ? "pass" : "FAIL (found " + dismissBtnCount + ", expected 2)"));
   }
 
   // Phase 10: checkTravelMatches() is fire-and-forget, appended after the
