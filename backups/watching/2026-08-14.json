@@ -1,0 +1,18 @@
+{
+  "snapshot_at": "2026-08-14T09:05:08.123Z",
+  "item_count": 2,
+  "items": [
+    {
+      "id": "watch_08e5e12f9f7f04cb",
+      "artist": "Easy Star All-Stars",
+      "city": "Berkeley, CA",
+      "going": true
+    },
+    {
+      "id": "watch_45acfd4406c3dc74",
+      "artist": "Thievery Corporation",
+      "city": "Oakland, CA",
+      "going": true
+    }
+  ]
+}
