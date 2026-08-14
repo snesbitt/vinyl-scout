@@ -818,8 +818,19 @@
        dismiss — same visual language as .cr-item-del (Coming Soon's own
        per-card remove), sized down slightly since it sits inline in a
        flex row rather than a card corner, but still >=44px tap target. */
-    .cr-watch-dismiss { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; margin: -10px -10px -10px 0; }
-    .cr-watch-dismiss:hover { color: var(--accent); }
+    /* 2026-08-14, third pass: this was a bare "x" glyph, same character as
+       .cr-watch-del (the artist-level "stop watching entirely" control)
+       right above it on the same card — Susan caught it reading as two
+       identical, redundant delete buttons ("why do you have 2 deletion
+       x's per concert??"), which is a fair question when they look
+       identical regardless of where they sit. Switched to a small text
+       pill matching .cr-watch-going's own footprint/convention in this
+       exact row (Get tickets / I'm going are both small mono-uppercase
+       pills, not bare icons) so intent reads without relying on position
+       or a tooltip to disambiguate two different actions that happen to
+       both remove something. */
+    .cr-watch-dismiss { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; background: transparent; border: 1px solid var(--rule); color: var(--ink-faint); border-radius: 2px; padding: 4px 10px; white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
+    .cr-watch-dismiss:hover { border-color: var(--accent); color: var(--accent); }
     /* 2026-08-05, Phase 10 — Travel Intelligence match note. Appended (JS,
        best-effort, never blocks the row's own render) when a cross-site
        check against travelintelligence.org's /api/watched-trips finds this
@@ -1375,7 +1386,7 @@
           // hidden-filtered comingSoonShows(), so dismissing a venue here
           // removes it from this row for the same reason it'd remove a
           // card from Coming Soon.
-          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">&times;</button>';
+          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Hide this show — not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">Hide this show</button>';
           var venueHtml = venueShow && (venueShow.venue || venueShow.city)
             ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
             : '<div class="cr-watch-venue-row"><span></span>' + dismissBtn + '</div>';

@@ -1708,3 +1708,13 @@ Susan caught this within minutes of the per-venue "Going"/dismiss fix going live
 **Verified:** the existing Poolside render assertions (both venues get their own going button and dismiss control) still pass — this was a layout-only change, the underlying data-attributes and click handling from the prior commit are untouched. `npm test` passes clean.
 
 **Delivered:** `concert-radar.html`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — the per-venue dismiss stopped looking like a second, redundant delete button
+
+Susan's next catch, same session: "why do you have 2 deletion x's per concert??" Fair question — the per-venue dismiss button (previous entry, just fixed for layout) was still rendering as a bare `×`, the identical glyph `.cr-watch-del` (the artist-level "stop watching entirely" control) already uses one row above it. Fixing where it sat fixed the stray-line problem; it didn't fix that two identical-looking icons doing two different things is confusing regardless of position.
+
+**Fixed by making it read as what it does, not another delete icon.** Switched from a bare `×` to a small text pill, "Hide this show," matching the exact visual convention the row's other controls already use (Get tickets / I'm going are both small mono-uppercase pills, not icon-only) — so this reads as its own distinct action instead of a second copy of the artist-level delete.
+
+**Verified:** existing render assertions (each of Poolside's two venues gets its own dismiss control) still pass — selector unchanged (`class="cr-watch-dismiss"`), only the button's visible content and styling changed. `npm test` passes clean.
+
+**Delivered:** `concert-radar.html`, this file. Opened as a PR/bundle, not pushed directly.
