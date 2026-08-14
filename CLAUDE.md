@@ -1742,3 +1742,13 @@ Punch-list item, closing a loop opened by the `backup-watching.yml` Actions migr
 **Verified:** confirmed no other file imports `netlify/functions/backup-watching.mjs` specifically (the two remaining hits for the filename were both comments referencing it for context, in `watching.mjs` and `backup-catalog.yml`) before deleting. `netlify.toml`'s `[functions]` block just points at the directory (`node_bundler = "esbuild"`, auto-discovery) — no explicit function list to update. Full `npm test` passes clean.
 
 **Delivered:** deletion of `netlify/functions/backup-watching.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — fixed a stale smoke-test assertion (false "title text missing" failure)
+
+Susan ran `npm run smoke` against production for the first time in a while and got a real-looking failure: `FAIL home page — title text missing`. Investigated before assuming the live site was actually broken, since everything else in the same run passed (records API, wishlist, write protection, audio preview, security headers, robots.txt — 8 of 9 checks green).
+
+**Root cause: the test was checking for copy that hasn't existed since July.** `scripts/smoke.mjs` asserted `html.includes('The Vinyl Scout')` — but commit `5a23f79` (2026-07-29, Susan's own change, "Drop redundant 'The' from the wordmark/title/aria-labels") renamed the site's own copy to just "Vinyl Scout" everywhere, and never touched this assertion. The live site has been correctly titled "Vinyl Scout" (no "The") for over two weeks; the smoke test just never ran against production in that window to catch its own staleness.
+
+**Fixed:** assertion now checks for `'Vinyl Scout'` (matches what's actually on the page, and would have passed against every deploy since 5a23f79). Not a site bug — confirmed by the other 8 checks in the same run passing clean, and by reading the actual live copy's own rename commit.
+
+**Delivered:** `scripts/smoke.mjs`, this file. Bundled with the other 2026-08-14 fixes, not pushed directly.

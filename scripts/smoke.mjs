@@ -31,7 +31,7 @@ await check('home page', async () => {
   assert(res.ok, 'GET / returned ' + res.status);
   assert((res.headers.get('content-type') || '').includes('text/html'), 'not text/html');
   const html = await res.text();
-  assert(html.includes('The Vinyl Scout'), 'title text missing');
+  assert(html.includes('Vinyl Scout'), 'title text missing');
   assert(/\/app\.js\?v=\d+/.test(html), 'app.js?v=N not referenced');
   ok('home page loads and references app.js?v=N');
 });
