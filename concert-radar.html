@@ -19,7 +19,27 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Concert Radar — version: 21.2 (2026-08-14).
+    /* Concert Radar — version: 21.3 (2026-08-15).
+       v21.3: three punch-list items closed. (1) JamBase wired into
+       runLiveSearch() (the manual Search panel / a Watching row's "Check
+       live" button) — previously only SeatGeek + the venue scrape, a gap
+       flagged in jambase-shows.mjs's own TODO since 2026-08-13. Follows a
+       location override the same way SeatGeek's own query does; can't
+       follow a typed city (no city param on that endpoint, same
+       geocoder-free constraint this app holds to elsewhere). The combined
+       result now also runs through dedupeSameShow() — a manual search
+       combining JamBase and SeatGeek is exactly as exposed to the
+       same-show-different-venue-name class of duplicate as the automated
+       sweep was. (2) Going-state UI simplified per direct request: once a
+       specific venue booking is confirmed going, that block now omits
+       both "Hide this show" (actively dangerous once confirmed) and "Get
+       tickets" (dead weight — going means she already has them); a
+       not-going venue on the same watched artist is untouched. New
+       "Riverside" e2e fixture confirms this doesn't leak onto the wrong
+       venue. (3) netlify-ignore.sh parity for the Actions deploy job —
+       .github/workflows/test.yml only, no concert-radar.html change for
+       that one, noted here for the same-day record.
+
        v21.2: two real, live-caught cross-source bugs fixed, both about
        the same underlying gap — multiple feeds (SeatGeek, JamBase, the
        venue scrape) can each name the same real thing slightly
@@ -1368,28 +1388,6 @@
           var venueShow = group[0];
           var ticketUrl = group.map(function (m) { return m.url; }).filter(Boolean)[0];
           var groupIds = group.map(function (m) { return m.id; }).join(',');
-          // 2026-08-14, second pass: the dismiss × below first shipped
-          // inside .cr-watch-info alongside date/price/ticket/going —
-          // Susan caught it rendering as a stray, disconnected control
-          // when that row wrapped ("stray x i think for both"). Moved
-          // into its own row with the venue name instead (name left, ×
-          // right) so it's visually anchored to what it actually
-          // dismisses, and a two-item row has much less to wrap around
-          // than a four/five-item one did.
-          // Same real bug report, second half: "i don't want the other
-          // show included." An artist can be genuinely watched while only
-          // one specific real booking is actually hers — this reuses the
-          // EXACT same mechanism Coming Soon's own per-card × already
-          // uses (adds the show's id(s) to the `hidden` array, same
-          // localStorage key, same renderList() re-render) rather than a
-          // new one-off path — findWatchMatches() already reads through
-          // hidden-filtered comingSoonShows(), so dismissing a venue here
-          // removes it from this row for the same reason it'd remove a
-          // card from Coming Soon.
-          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Hide this show — not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">Hide this show</button>';
-          var venueHtml = venueShow && (venueShow.venue || venueShow.city)
-            ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
-            : '<div class="cr-watch-venue-row"><span></span>' + dismissBtn + '</div>';
           // 2026-08-14: Susan live-caught the follow-on problem the
           // per-artist "going" flag created the moment two real venues
           // could render separately — Thievery Corporation has real shows
@@ -1402,8 +1400,37 @@
           // watching.mjs stores whatever it's given) — one new field,
           // no schema change. w.going stays a plain boolean derived from
           // "is goingShowId set to anything", so the artist-name badge
-          // above doesn't need its own separate source of truth.
+          // above doesn't need its own separate source of truth. Computed
+          // BEFORE dismissBtn/ticketUrl below, since both now depend on it.
           var isGoingThisShow = !!(w.goingShowId && group.some(function (m) { return m.id === w.goingShowId; }));
+          // 2026-08-15 (Susan, direct: "if i'm going to a show, remove
+          // hide this show and get tickets / be way smarter"): once a
+          // booking is confirmed going, "Hide this show" is actively
+          // dangerous (the one show she's least likely to want to lose is
+          // the one she'd be one misclick away from hiding) and "Get
+          // tickets" is dead weight — she already has them, that's what
+          // going means. Both are simply omitted once isGoingThisShow is
+          // true; the "I'm going" button itself stays as the one control,
+          // still toggleable if she was wrong or plans change.
+          //
+          // 2026-08-14, second pass, still relevant when NOT going: the
+          // dismiss control below first shipped inside .cr-watch-info
+          // alongside date/price/ticket/going — Susan caught it rendering
+          // as a stray, disconnected control when that row wrapped
+          // ("stray x i think for both"). Moved into its own row with the
+          // venue name instead (name left, control right) so it's
+          // visually anchored to what it actually dismisses. Reuses the
+          // EXACT same mechanism Coming Soon's own per-card × already
+          // uses (adds the show's id(s) to the `hidden` array, same
+          // localStorage key, same renderList() re-render) rather than a
+          // new one-off path — findWatchMatches() already reads through
+          // hidden-filtered comingSoonShows(), so dismissing a venue here
+          // removes it from this row for the same reason it'd remove a
+          // card from Coming Soon.
+          var dismissBtn = isGoingThisShow ? '' : '<button type="button" class="cr-watch-dismiss" aria-label="Hide this show — not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">Hide this show</button>';
+          var venueHtml = venueShow && (venueShow.venue || venueShow.city)
+            ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
+            : '<div class="cr-watch-venue-row"><span></span>' + dismissBtn + '</div>';
           var goingBtn = '<button type="button" class="cr-watch-going' + (isGoingThisShow ? ' cr-watch-going--active' : '') +
             '" data-watch-going="' + esc(w.id || '') + '" data-watch-going-show="' + esc(group[0].id || '') + '">' +
             (isGoingThisShow ? '🎟 Going ✓' : 'I’m going') +
@@ -1412,7 +1439,7 @@
           '<div class="cr-watch-info">' +
             '<div class="cr-watch-date">' + esc(fmtDateRange(group)) + '</div>' +
             (gHasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, gLows), Math.max.apply(null, gHighs))) + '</div>' : '') +
-            (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+            (ticketUrl && !isGoingThisShow ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
             goingBtn +
           '</div>';
         }).join('');
@@ -2065,6 +2092,30 @@
       tourDatesUrl += '&city=' + encodeURIComponent(cityQuery);
     }
 
+    // 2026-08-15: JamBase (jambase-shows.mjs) is the third Concert Radar
+    // feed as of v21 (2026-08-13) and has had venue-shows.mjs-style parity
+    // in the Coming Soon sweep since that same day — but this manual
+    // search / "Check live →" path was never updated to query it, a gap
+    // flagged explicitly in jambase-shows.mjs's own TODO block. An artist
+    // JamBase has a real show for but SeatGeek and the 7 scraped venues
+    // don't would report "not found" here even though Coming Soon (via
+    // sweepCatalog()) would have surfaced it. Unlike venue-shows.mjs
+    // (fixed 7-venue list, Bay Area only, always skipped once geo-scoped
+    // elsewhere), JamBase resolves a real lat/lon anywhere — so it follows
+    // a location OVERRIDE (deep-link lat/lon) the same way SeatGeek's own
+    // tourDatesUrl does above, but still can't follow a typed CITY (no
+    // city param on jambase-shows.mjs, same geocoder-free constraint the
+    // rest of this codebase holds to — see tour-dates.mjs's own city
+    // param, which SeatGeek resolves server-side, unavailable here).
+    var jambaseUrl = '/api/jambase-shows';
+    if (hasLocationOverride) {
+      jambaseUrl += '?lat=' + encodeURIComponent(overrideLat) + '&lon=' + encodeURIComponent(overrideLon);
+    }
+    var jambasePromise = hasCityQuery ? Promise.resolve([]) : fetch(jambaseUrl)
+      .then(function (res) { return res.ok ? res.json() : { shows: [] }; })
+      .then(function (data) { return Array.isArray(data.shows) ? data.shows : []; })
+      .catch(function () { return []; });
+
     Promise.all([
       fetch(tourDatesUrl)
         .then(function (res) {
@@ -2074,10 +2125,12 @@
       // The venue scrape only ever covers known Bay Area venues — never a
       // real match once the search is geo-scoped somewhere else, so skip
       // the request entirely rather than fetch it just to filter it away.
-      isGeoScoped ? Promise.resolve([]) : fetchVenueShows()
+      isGeoScoped ? Promise.resolve([]) : fetchVenueShows(),
+      jambasePromise
     ]).then(function (results) {
       var tourDatesResult = results[0];
       var venueShowsAll = results[1];
+      var jambaseShowsAll = results[2];
       // v18.5: now goes through artistIsRelevant() (the same normalized
       // match findWatchMatches()/isShowWatched()/sweepCatalog() all use)
       // instead of a raw lowercase substring compare, so a search for
@@ -2087,29 +2140,38 @@
       var venueMatches = normalizeVenueShows(venueShowsAll).filter(function (s) {
         return artistIsRelevant(s.artist, [artist]);
       });
+      var jambaseMatches = normalizeVenueShows(jambaseShowsAll).filter(function (s) {
+        return artistIsRelevant(s.artist, [artist]);
+      });
 
       var seatgeekOk = tourDatesResult.ok;
       var seatgeekShows = (seatgeekOk && Array.isArray(tourDatesResult.data.shows)) ? tourDatesResult.data.shows : [];
       var meta = (seatgeekOk && tourDatesResult.data.meta) ? tourDatesResult.data.meta : {};
 
-      if (!seatgeekOk && !venueMatches.length) {
-        // SeatGeek itself errored (not just "no performer found") and the
-        // venue scrape found nothing either — this is the one case worth
-        // surfacing as a real failure rather than "no results."
+      if (!seatgeekOk && !venueMatches.length && !jambaseMatches.length) {
+        // SeatGeek itself errored (not just "no performer found") and
+        // neither the venue scrape nor JamBase found anything either —
+        // this is the one case worth surfacing as a real failure rather
+        // than "no results."
         showLiveStatus((tourDatesResult.data && tourDatesResult.data.error) ? tourDatesResult.data.error : ('Search failed (HTTP ' + tourDatesResult.status + ').'), true);
         return;
       }
 
-      if (!meta.matched_performer && !venueMatches.length) {
-        showLiveStatus('No SeatGeek performer or watched-venue show found matching “' + artist + '.” Try the exact act name (as billed, not a nickname).', true);
+      if (!meta.matched_performer && !venueMatches.length && !jambaseMatches.length) {
+        showLiveStatus('No SeatGeek performer, watched-venue, or JamBase show found matching “' + artist + '.” Try the exact act name (as billed, not a nickname).', true);
         return;
       }
 
-      var combined = seatgeekShows.concat(venueMatches);
-      combined = dedupeById(combined);
-      // If SeatGeek didn't resolve a performer but a venue show matched,
-      // still render with the typed name as the display/watch target —
-      // "no SeatGeek performer" shouldn't hide a real venue-sourced match.
+      // dedupeSameShow() (2026-08-14, added for the Coming Soon merge —
+      // see that fix's own comment) applies here too: JamBase and SeatGeek
+      // can each name the same real show's venue slightly differently, and
+      // a manual search combining both sources is exactly as exposed to
+      // that as the automated sweep was.
+      var combined = dedupeSameShow(dedupeById(seatgeekShows.concat(venueMatches).concat(jambaseMatches)));
+      // If SeatGeek didn't resolve a performer but a venue/JamBase show
+      // matched, still render with the typed name as the display/watch
+      // target — "no SeatGeek performer" shouldn't hide a real match from
+      // either other source.
       var effectiveMeta = meta.matched_performer ? meta : Object.assign({}, meta, { matched_performer: artist });
       renderLiveResults(combined, effectiveMeta, artist, isGeoScoped ? locationLabel : null);
     })

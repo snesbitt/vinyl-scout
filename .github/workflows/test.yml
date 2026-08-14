@@ -96,11 +96,41 @@ jobs:
       NETLIFY_SITE_ID: 605623dc-208f-42c0-a13f-3db9dfa5662b
     steps:
       - uses: actions/checkout@v4
+        with:
+          # netlify-ignore.sh diffs CACHED_COMMIT_REF..COMMIT_REF -- needs
+          # real history, not the default single-commit shallow clone.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
+      # 2026-08-15: Netlify's own build skips a deploy for docs-only pushes
+      # via scripts/netlify-ignore.sh (wired as netlify.toml's [build]
+      # ignore); this Actions-driven deploy never had the equivalent, so a
+      # docs-only push still ran a real (wasted) `netlify deploy` here even
+      # though Netlify's own build correctly skipped itself for the same
+      # push. Reuses the actual script rather than a second copy of its
+      # path list, so the two can't drift out of sync -- CACHED_COMMIT_REF/
+      # COMMIT_REF are the script's own expected inputs (Netlify's build
+      # env var names); github.event.before is the direct equivalent for a
+      # push event (the SHA before this push), always present here since
+      # this job only ever runs on an actual push (see the job's own if:
+      # above). netlify-ignore.sh's contract: exit 0 = skip, exit != 0 =
+      # deploy.
+      - name: Check whether this push needs a real deploy
+        id: ignore-check
+        env:
+          CACHED_COMMIT_REF: ${{ github.event.before }}
+          COMMIT_REF: ${{ github.sha }}
+        run: |
+          if bash scripts/netlify-ignore.sh; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to Netlify (production)
+        if: steps.ignore-check.outputs.should_deploy == 'true'
         run: npx --yes netlify-cli@21 deploy --prod --dir=. --site="$NETLIFY_SITE_ID"

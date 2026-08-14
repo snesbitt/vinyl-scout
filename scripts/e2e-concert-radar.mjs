@@ -70,6 +70,17 @@ const watching = [
   // two real matches at two genuinely DIFFERENT venues (see
   // poolsideVenueShows below) — the fix must render each as its own
   // venue line, never blended into one range.
+  // 2026-08-15 (Susan, direct: "if i'm going to a show, remove hide this
+  // show and get tickets / be way smarter"): a separate watched artist
+  // (not Poolside, so its existing not-going assertions stay meaningful)
+  // with goingShowId pre-set to one of its two real venue matches — see
+  // riversideVenueShows below. Lets the assertions confirm the going
+  // venue's block drops "Hide this show" and "Get tickets" while the
+  // still-not-going venue keeps both. Placed BEFORE Poolside so Poolside
+  // stays the last row — its own assertions below slice watchHtml from
+  // Poolside's name to the end of the list, which only stays valid if
+  // nothing else follows it.
+  { id: "w5", artist: "Riverside", going: true, goingShowId: "venue-crest-riverside-2026-08-20" },
   { id: "w4", artist: "Poolside" },
 ];
 
@@ -222,6 +233,41 @@ const hancockSeatGeekShow = {
   url: "https://seatgeek.com/herbie-hancock-tickets",
 };
 
+// 2026-08-15 regression fixture — same two-genuinely-different-real-venues
+// shape as poolsideVenueShows above, for a watched artist ("Riverside")
+// whose watching[] entry (above) already has going/goingShowId pre-set to
+// the first of these two. Confirms the going venue's block hides "Hide
+// this show"/"Get tickets" while the second, still-not-going venue keeps
+// both — see the assertions below.
+const riversideVenueShows = [
+  {
+    id: "venue-crest-riverside-2026-08-20",
+    artist: "Riverside",
+    title: "Riverside",
+    venue: "The Crest Theatre",
+    city: "Sacramento, CA",
+    date: "2026-08-20",
+    dateLabel: "Thu, Aug 20, 2026",
+    source: "Venue: Another Planet Entertainment",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://apeconcerts.com/events/riverside-crest",
+  },
+  {
+    id: "venue-warfield-riverside-2026-10-03",
+    artist: "Riverside",
+    title: "Riverside",
+    venue: "The Warfield",
+    city: "San Francisco, CA",
+    date: "2026-10-03",
+    dateLabel: "Sat, Oct 3, 2026",
+    source: "Venue: Another Planet Entertainment",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://apeconcerts.com/events/riverside-warfield",
+  },
+];
+
 const manualShows = [
   {
     id: "manual-black-uhuru-2026-09-13",
@@ -289,7 +335,7 @@ async function run(label, watchingList, travelOpts) {
     if (u.startsWith("/api/wishlist")) return ok(wishlist);
     if (u.startsWith("/api/watching")) return ok(watchingList);
     if (u.startsWith("/api/venue-shows")) {
-      return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]).concat(poolsideVenueShows), meta: { venues: [] } });
+      return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]).concat(poolsideVenueShows).concat(riversideVenueShows), meta: { venues: [] } });
     }
     // v21: jambase-shows.mjs, third source — same shape/filtering contract
     // as venue-shows.mjs above, deliberately mirrored fixtures.
@@ -398,6 +444,51 @@ async function run(label, watchingList, travelOpts) {
   const hancockPricePresent = hancockCardCount === 1 && /Herbie Hancock[\s\S]{0,400}\$60.{0,3}\$150/.test(soonHtml);
   report("  Herbie Hancock's merged card should show the backfilled $60 – $150 price: " +
     (hancockPricePresent ? "pass" : "FAIL (price missing or not backfilled from the lower-priority source)"));
+
+  // 2026-08-15 (Susan, direct: "if i'm going to a show, remove hide this
+  // show and get tickets / be way smarter"): "Riverside" is watched with
+  // going/goingShowId pre-set to its Crest Theatre (Sacramento) match, and
+  // has a second, still-not-going match at The Warfield (SF) — see
+  // riversideVenueShows above. The going venue's block should drop "Hide
+  // this show" and "Get tickets"; the not-going venue should keep both.
+  // Sliced strictly between "Riverside" and "Poolside" (the next row in
+  // watching[]) so a check here can never accidentally read past its own
+  // row into another artist's markup.
+  const expectsRiverside = watchingList.some((w) => w.artist === "Riverside");
+  const riversideIdx = watchHtml.indexOf("Riverside");
+  const poolsideBoundaryIdx = watchHtml.indexOf("Poolside");
+  if (!expectsRiverside) {
+    // Not every scenario's watchingList includes the Riverside fixture
+    // (e.g. the spelling-drift scenario uses its own separate list) —
+    // nothing to check here for those, same guard Poolside's own block
+    // uses below.
+  } else if (riversideIdx === -1) {
+    report("  Riverside row: FAIL (not rendered at all)");
+  } else {
+    const riversideHtml = watchHtml.slice(riversideIdx, poolsideBoundaryIdx === -1 ? undefined : poolsideBoundaryIdx);
+    const crestIdx = riversideHtml.indexOf("The Crest Theatre");
+    const warfieldIdx = riversideHtml.indexOf("The Warfield");
+    report("  Riverside's going (Crest Theatre) block should show the GOING state: " +
+      (/cr-watch-going--active/.test(riversideHtml) ? "pass" : "FAIL (no active going button found anywhere in the row)"));
+    if (crestIdx === -1 || warfieldIdx === -1) {
+      report("  Riverside row: FAIL (missing an expected venue block — Crest at " + crestIdx + ", Warfield at " + warfieldIdx + ")");
+    } else {
+      // Each venue's own slice runs to the start of the next venue block
+      // (or the end of the row for the last one), so a check here can't
+      // accidentally read the OTHER venue's controls.
+      const crestFirst = crestIdx < warfieldIdx;
+      const crestBlock = crestFirst ? riversideHtml.slice(crestIdx, warfieldIdx) : riversideHtml.slice(crestIdx);
+      const warfieldBlock = crestFirst ? riversideHtml.slice(warfieldIdx) : riversideHtml.slice(warfieldIdx, crestIdx);
+      report("  Going venue (Crest Theatre) should NOT show \"Hide this show\": " +
+        (crestBlock.includes("Hide this show") ? "FAIL (still shown for a confirmed-going venue)" : "pass"));
+      report("  Going venue (Crest Theatre) should NOT show \"Get tickets\": " +
+        (crestBlock.includes("Get tickets") ? "FAIL (still shown for a confirmed-going venue)" : "pass"));
+      report("  Not-going venue (The Warfield) should STILL show \"Hide this show\": " +
+        (warfieldBlock.includes("Hide this show") ? "pass" : "FAIL (missing — over-suppressed onto the wrong venue?)"));
+      report("  Not-going venue (The Warfield) should STILL show \"Get tickets\": " +
+        (warfieldBlock.includes("Get tickets") ? "pass" : "FAIL (missing — over-suppressed onto the wrong venue?)"));
+    }
+  }
 
   // 2026-08-14: Watching-panel per-venue grouping regression — "Poolside"
   // has two matches at two genuinely DIFFERENT real venues (The Fox
