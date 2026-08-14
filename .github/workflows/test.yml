@@ -16,6 +16,16 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # has_netlify_token feeds the deploy job's `if:` below. GitHub Actions
+    # does not reliably support referencing `secrets` directly inside a
+    # job-level `if:` (this is what actually broke the 2026-08-14 attempt
+    # at this exact fix -- the whole workflow failed to even start any
+    # jobs, "No jobs were run", not just the deploy job). Secrets ARE
+    # always readable inside a step's `env:`, so the check runs there and
+    # is exposed as a job output instead -- job outputs are a fully
+    # supported, ordinary value in another job's `if:` condition.
+    outputs:
+      has_netlify_token: ${{ steps.check-netlify-token.outputs.has_token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +40,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Check whether NETLIFY_AUTH_TOKEN is set
+        id: check-netlify-token
+        env:
+          TOKEN_IS_SET: ${{ secrets.NETLIFY_AUTH_TOKEN != '' }}
+        run: echo "has_token=$TOKEN_IS_SET" >> "$GITHUB_OUTPUT"
 
   # Added alongside the branch-protection/PR workflow change (see CLAUDE.md's
   # matching entry): deploys via the Netlify CLI, driven explicitly by
@@ -51,24 +67,29 @@ jobs:
   # else. NETLIFY_SITE_ID below is this site's id, not a secret (same
   # value visible in this site's own Netlify dashboard URL).
   #
-  # 2026-08-14 fix: this job failed its first three real runs (12/13, then
-  # two more the morning of 8/14) because NETLIFY_AUTH_TOKEN was never
-  # actually added as a repo secret -- each failure sent Susan a "some
-  # jobs were not successful" email for a job that could never have
-  # succeeded, three times in a row, with nothing anyone could act on
-  # from the email alone. The `secrets.NETLIFY_AUTH_TOKEN != ''` clause
-  # below makes this job report SKIPPED instead of FAILED whenever the
-  # secret is unset, so a real missing-config state stops looking like a
-  # broken pipeline. The moment the secret is added in GitHub repo
-  # Settings -> Secrets and variables -> Actions, this condition is true
-  # and the job runs for real on the very next push -- no other change
-  # needed.
+  # 2026-08-14 fix, corrected same day: this job failed its first three
+  # real runs (8/13, then two more the morning of 8/14) because
+  # NETLIFY_AUTH_TOKEN was never actually added as a repo secret -- each
+  # failure sent Susan a "some jobs were not successful" email for a job
+  # that could never have succeeded. A first attempt at fixing this by
+  # putting `secrets.NETLIFY_AUTH_TOKEN != ''` directly in this job's
+  # own `if:` broke the entire workflow instead (GitHub Actions doesn't
+  # reliably support `secrets` in a job-level `if:` -- the whole run
+  # failed with "No jobs were run", meaning even the `test` job never
+  # started). Fixed for real by checking the secret inside a `test` step
+  # (secrets ARE always readable in a step's `env:`) and exposing the
+  # result as `needs.test.outputs.has_netlify_token` instead -- job
+  # outputs are always safe to use in another job's `if:`. Unset secret
+  # -> this job reports SKIPPED, not failed, no more noisy email. The
+  # moment the secret is added in GitHub repo Settings -> Secrets and
+  # variables -> Actions, this condition is true and the job deploys for
+  # real on the very next push -- no other change needed.
   deploy:
     needs: test
     if: >-
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
-      secrets.NETLIFY_AUTH_TOKEN != ''
+      needs.test.outputs.has_netlify_token == 'true'
     runs-on: ubuntu-latest
     env:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
