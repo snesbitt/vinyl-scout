@@ -50,9 +50,25 @@ jobs:
   # Token, User settings -> Applications -> New access token) -- nothing
   # else. NETLIFY_SITE_ID below is this site's id, not a secret (same
   # value visible in this site's own Netlify dashboard URL).
+  #
+  # 2026-08-14 fix: this job failed its first three real runs (12/13, then
+  # two more the morning of 8/14) because NETLIFY_AUTH_TOKEN was never
+  # actually added as a repo secret -- each failure sent Susan a "some
+  # jobs were not successful" email for a job that could never have
+  # succeeded, three times in a row, with nothing anyone could act on
+  # from the email alone. The `secrets.NETLIFY_AUTH_TOKEN != ''` clause
+  # below makes this job report SKIPPED instead of FAILED whenever the
+  # secret is unset, so a real missing-config state stops looking like a
+  # broken pipeline. The moment the secret is added in GitHub repo
+  # Settings -> Secrets and variables -> Actions, this condition is true
+  # and the job runs for real on the very next push -- no other change
+  # needed.
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      secrets.NETLIFY_AUTH_TOKEN != ''
     runs-on: ubuntu-latest
     env:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
