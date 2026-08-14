@@ -50,7 +50,7 @@ function report(message) {
 const html = fs.readFileSync(new URL("../concert-radar.html", import.meta.url), "utf8");
 
 // --- Fixture data -----------------------------------------------------
-const records = [{ artist: "Kruder & Dorfmeister" }, { artist: "Thievery Corporation" }];
+const records = [{ artist: "Kruder & Dorfmeister" }, { artist: "Thievery Corporation" }, { artist: "Herbie Hancock" }];
 const wishlist = [{ artist: "Fleetwood Mac" }];
 
 // Susan's actual watching list is server-side (Netlify Blobs) and not
@@ -61,6 +61,16 @@ const watching = [
   { id: "w1", artist: "Black Uhuru" },
   { id: "w2", artist: "Easy Star All-Stars" }, // exact MANUAL_SHOWS spelling
   { id: "w3", artist: "Burning Spear" },
+  // 2026-08-14 regression fixture — Susan live-caught this exact shape:
+  // Thievery Corporation's Watching-panel summary named the wrong venue
+  // (The Masonic, SF) and a fabricated-looking "2 dates" range when she
+  // actually holds a ticket to a single date at The Fox in Oakland — two
+  // genuinely different real bookings silently merged into one composite.
+  // "Poolside" here is a fictional stand-in artist with the same shape:
+  // two real matches at two genuinely DIFFERENT venues (see
+  // poolsideVenueShows below) — the fix must render each as its own
+  // venue line, never blended into one range.
+  { id: "w4", artist: "Poolside" },
 ];
 
 // v18.5 regression fixtures: two shows that should NEVER reach Coming Soon
@@ -144,6 +154,74 @@ const relevantUnwatchedJambaseShow = {
   url: "https://www.jambase.com/show/kruder-dorfmeister-77771",
 };
 
+// 2026-08-14 regression fixtures for the two bugs Susan live-caught the
+// same day — see the watching[]/hancockJambaseShow/hancockSeatGeekShow
+// comments alongside each for the specific real-world shape each mirrors.
+const poolsideVenueShows = [
+  {
+    id: "venue-fox-poolside-2026-08-15",
+    artist: "Poolside",
+    title: "Poolside",
+    venue: "The Fox Theater",
+    city: "Oakland, CA",
+    date: "2026-08-15",
+    dateLabel: "Sat, Aug 15, 2026",
+    source: "Venue: Another Planet Entertainment",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://apeconcerts.com/events/poolside-fox",
+  },
+  {
+    id: "venue-masonic-poolside-2026-09-12",
+    artist: "Poolside",
+    title: "Poolside",
+    venue: "The Masonic",
+    city: "San Francisco, CA",
+    date: "2026-09-12",
+    dateLabel: "Sat, Sep 12, 2026",
+    source: "Venue: Another Planet Entertainment",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://apeconcerts.com/events/poolside-masonic",
+  },
+];
+
+// dedupeSameShow() regression fixture — Susan live-caught Herbie Hancock
+// at Davies Symphony Hall, Aug 17 2026, rendering as two separate Coming
+// Soon cards: one via JamBase naming the venue "Davies Symphony Hall",
+// one via SeatGeek naming it "Louise M. Davies Symphony Hall" — literally
+// the same real show, same date, same building, dedupeById() can't catch
+// it since each source mints its own id. SeatGeek's fixture deliberately
+// has no price so this also exercises dedupeSameShow()'s price-backfill
+// path (SeatGeek wins on source priority but should inherit JamBase's
+// price since its own is null).
+const hancockJambaseShow = {
+  id: "jambase-hancock-1",
+  artist: "Herbie Hancock",
+  title: "Herbie Hancock at Davies Symphony Hall",
+  venue: "Davies Symphony Hall",
+  city: "San Francisco, CA",
+  date: "2026-08-17",
+  dateLabel: "Mon, Aug 17, 2026",
+  source: "JamBase",
+  priceLow: 60,
+  priceHigh: 150,
+  url: "https://www.jambase.com/show/herbie-hancock-1",
+};
+const hancockSeatGeekShow = {
+  id: "seatgeek-hancock-1",
+  artist: "Herbie Hancock",
+  title: "Herbie Hancock",
+  venue: "Louise M. Davies Symphony Hall",
+  city: "San Francisco, CA",
+  date: "2026-08-17",
+  dateLabel: "Mon, Aug 17, 2026",
+  source: "SeatGeek",
+  priceLow: null,
+  priceHigh: null,
+  url: "https://seatgeek.com/herbie-hancock-tickets",
+};
+
 const manualShows = [
   {
     id: "manual-black-uhuru-2026-09-13",
@@ -211,15 +289,21 @@ async function run(label, watchingList, travelOpts) {
     if (u.startsWith("/api/wishlist")) return ok(wishlist);
     if (u.startsWith("/api/watching")) return ok(watchingList);
     if (u.startsWith("/api/venue-shows")) {
-      return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]), meta: { venues: [] } });
+      return ok({ shows: manualShows.concat(irrelevantVenueShows).concat([relevantUnwatchedVenueShow]).concat(poolsideVenueShows), meta: { venues: [] } });
     }
     // v21: jambase-shows.mjs, third source — same shape/filtering contract
     // as venue-shows.mjs above, deliberately mirrored fixtures.
     if (u.startsWith("/api/jambase-shows")) {
-      return ok({ shows: irrelevantJambaseShows.concat([relevantUnwatchedJambaseShow]), meta: {} });
+      return ok({ shows: irrelevantJambaseShows.concat([relevantUnwatchedJambaseShow, hancockJambaseShow]), meta: {} });
     }
     if (u.startsWith("/api/catalog-cache")) return ok({ shows: [], artistCount: 0, at: null });
-    if (u.startsWith("/api/tour-dates")) return ok({ shows: [] });
+    if (u.startsWith("/api/tour-dates")) {
+      // 2026-08-14 dedup fixture: only "Herbie Hancock" gets a real
+      // SeatGeek match here — every other per-artist query stays empty,
+      // same as before this fixture was added.
+      if (u.includes("Herbie")) return ok({ shows: [hancockSeatGeekShow] });
+      return ok({ shows: [] });
+    }
     // Phase 10 — checkTravelMatches()'s two cross-site calls. Absolute URL
     // for Travel Intelligence's endpoint (hardcoded in concert-radar.html,
     // same as production); this site's own /api/artists-playing resolves
@@ -298,6 +382,51 @@ async function run(label, watchingList, travelOpts) {
   // could otherwise produce a false pass).
   const jambaseLinkPresent = /<a class="cr-source" href="https:\/\/www\.jambase\.com\/"[^>]*>via JamBase<\/a>/.test(soonHtml);
   report("  JamBase card's source tag SHOULD be a real link to jambase.com: " + (jambaseLinkPresent ? "pass" : "FAIL (missing or not a link — check sourceCreditHtml())"));
+
+  // 2026-08-14: dedupeSameShow() regression — the same real Herbie Hancock
+  // show, reported by both JamBase ("Davies Symphony Hall") and SeatGeek
+  // ("Louise M. Davies Symphony Hall"), must collapse into exactly ONE
+  // Coming Soon card, not two. Counts literal <div class="cr-artist">
+  // occurrences rather than a plain substring count, since the artist name
+  // could otherwise also match inside a venue/city string coincidentally.
+  const hancockCardCount = (soonHtml.match(/<div class="cr-artist">Herbie Hancock<\/div>/g) || []).length;
+  report("  Herbie Hancock (JamBase + SeatGeek, same real show) should render as exactly ONE Coming Soon card: " +
+    (hancockCardCount === 1 ? "pass" : "FAIL (rendered " + hancockCardCount + " cards, expected 1)"));
+  // The merged card should also carry a real price — SeatGeek wins on
+  // source priority but its own fixture has no price, so this only
+  // passes if dedupeSameShow() actually backfills JamBase's $60 – $150.
+  const hancockPricePresent = hancockCardCount === 1 && /Herbie Hancock[\s\S]{0,400}\$60.{0,3}\$150/.test(soonHtml);
+  report("  Herbie Hancock's merged card should show the backfilled $60 – $150 price: " +
+    (hancockPricePresent ? "pass" : "FAIL (price missing or not backfilled from the lower-priority source)"));
+
+  // 2026-08-14: Watching-panel per-venue grouping regression — "Poolside"
+  // has two matches at two genuinely DIFFERENT real venues (The Fox
+  // Theater, Oakland; The Masonic, San Francisco). The fix must render
+  // both venue lines separately within Poolside's row, never blend them
+  // into one composite date range the way Thievery Corporation's real
+  // bug did (wrong venue shown, a fabricated-looking multi-date span).
+  const expectsPoolside = watchingList.some((w) => w.artist === "Poolside");
+  const poolsideIdx = watchHtml.indexOf("Poolside");
+  if (!expectsPoolside) {
+    // Not every scenario's watchingList includes the Poolside fixture
+    // (e.g. the spelling-drift scenario uses its own separate list) —
+    // nothing to check here for those.
+  } else if (poolsideIdx === -1) {
+    report("  Poolside row: FAIL (not rendered at all)");
+  } else {
+    // Poolside is the last row in `watching`, so its own markup runs to
+    // the end of #cr-watch-list — safe to slice from its name to the end.
+    const poolsideHtml = watchHtml.slice(poolsideIdx);
+    const hasFox = /The Fox Theater.{0,20}Oakland, CA/.test(poolsideHtml);
+    const hasMasonic = /The Masonic.{0,20}San Francisco, CA/.test(poolsideHtml);
+    report("  Poolside row SHOULD show The Fox Theater — Oakland, CA as its own venue line: " + (hasFox ? "pass" : "FAIL (missing)"));
+    report("  Poolside row SHOULD ALSO show The Masonic — San Francisco, CA as its own venue line: " + (hasMasonic ? "pass" : "FAIL (missing — likely merged/lost instead of shown separately)"));
+    // The real bug rendered a fabricated "2 dates" range spanning both
+    // venues — with the fix, neither venue has more than one date, so
+    // that composite phrasing should never appear anywhere in this row.
+    const hasFabricatedRange = /\d dates/.test(poolsideHtml);
+    report("  Poolside row should NOT show a merged multi-date range across different venues: " + (hasFabricatedRange ? "FAIL (found a fabricated N-dates range)" : "pass"));
+  }
 
   // Phase 10: checkTravelMatches() is fire-and-forget, appended after the
   // watch list's own render — give its two chained fetches (watched-trips,

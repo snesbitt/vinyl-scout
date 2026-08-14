@@ -134,6 +134,71 @@ function dedupeById(list) {
   });
 }
 
+// Deliberate duplicate of concert-radar.html's normalizeVenueKey()/
+// dedupeSameShow() — see that file's 2026-08-14 comment for the full
+// story (Susan live-caught Herbie Hancock at Davies Symphony Hall, Aug 17
+// 2026, showing up twice: once via JamBase naming the venue "Davies
+// Symphony Hall", once via SeatGeek naming it "Louise M. Davies Symphony
+// Hall" — same real show, same date, dedupeById() above can't catch it
+// since each source mints its own id independently). This weekly job
+// feeds catalog-cache.mjs, which concert-radar.html reads as its
+// first-paint fallback before its own live sweep (which has the matching
+// client-side fix) replaces it — without this fix here too, a browser
+// with no local cache yet would flash the same duplicate on first paint.
+function normalizeVenueKey(v) {
+  return String(v || '')
+    .toLowerCase()
+    .replace(/['’.]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function sourceRank(source) {
+  if (source === 'SeatGeek') return 0;
+  if (source === 'JamBase') return 1;
+  return 2;
+}
+
+function dedupeSameShow(list) {
+  var groups = [];
+  list.forEach(function (s) {
+    if (!s) return;
+    if (String(s.source || '').indexOf('Manual entry') === 0) {
+      groups.push([s]);
+      return;
+    }
+    var aKey = normalizeArtistKey(s.artist);
+    var vKey = normalizeVenueKey(s.venue);
+    var dKey = s.date || '';
+    var target = null;
+    for (var i = 0; i < groups.length; i++) {
+      var rep = groups[i][0];
+      if (String(rep.source || '').indexOf('Manual entry') === 0) continue;
+      if (normalizeArtistKey(rep.artist) !== aKey || (rep.date || '') !== dKey) continue;
+      var repVKey = normalizeVenueKey(rep.venue);
+      if (vKey && repVKey && (vKey.indexOf(repVKey) !== -1 || repVKey.indexOf(vKey) !== -1)) {
+        target = groups[i];
+        break;
+      }
+    }
+    if (target) { target.push(s); } else { groups.push([s]); }
+  });
+  return groups.map(function (g) {
+    if (g.length === 1) return g[0];
+    var sorted = g.slice().sort(function (a, b) { return sourceRank(a.source) - sourceRank(b.source); });
+    var winner = Object.assign({}, sorted[0]);
+    if (typeof winner.priceLow !== 'number' || typeof winner.priceHigh !== 'number') {
+      var withPrice = sorted.filter(function (s) { return typeof s.priceLow === 'number' && typeof s.priceHigh === 'number'; })[0];
+      if (withPrice) { winner.priceLow = withPrice.priceLow; winner.priceHigh = withPrice.priceHigh; }
+    }
+    if (!winner.url) {
+      var withUrl = sorted.filter(function (s) { return s.url; })[0];
+      if (withUrl) winner.url = withUrl.url;
+    }
+    return winner;
+  });
+}
+
 // Same bounded-concurrency worker-pool shape as concert-radar.html's own
 // mapLimit(), minus the progress callback (nothing renders this server-side).
 async function mapLimit(items, limit, iterator) {
@@ -221,7 +286,7 @@ export default async () => {
 
     var all = relevantVenueShows.concat(relevantJambaseShows);
     perArtistShows.forEach(function (list) { if (list) all = all.concat(list); });
-    var shows = dedupeById(all);
+    var shows = dedupeSameShow(dedupeById(all));
 
     await store.set('latest', JSON.stringify({
       shows: shows,

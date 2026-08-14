@@ -19,7 +19,32 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Concert Radar — version: 21.1 (2026-08-13).
+    /* Concert Radar — version: 21.2 (2026-08-14).
+       v21.2: two real, live-caught cross-source bugs fixed, both about
+       the same underlying gap — multiple feeds (SeatGeek, JamBase, the
+       venue scrape) can each name the same real thing slightly
+       differently, and nothing before this normalized that. (1) Susan
+       caught Herbie Hancock's Aug 17, 2026 show at Davies Symphony Hall
+       rendering as two separate Coming Soon cards — one via JamBase
+       ("Davies Symphony Hall"), one via SeatGeek ("Louise M. Davies
+       Symphony Hall") — same real show, different venue-name strings,
+       so dedupeById()'s exact-id check couldn't catch it. New
+       normalizeVenueKey()/dedupeSameShow() collapse same-artist,
+       same-date, substring-matching-venue duplicates into one card,
+       preferring SeatGeek > JamBase > the venue scrape but backfilling
+       a price from any duplicate that has one. (2) Susan caught the
+       Watching panel showing Thievery Corporation's summary as "The
+       Masonic — San Francisco, CA / Aug 15 – Sep 12, 2026 · 2 dates"
+       when she actually holds a ticket to one date at The Fox in
+       Oakland — two genuinely different real bookings (an artist
+       playing more than one Bay Area venue in a season) got flattened
+       into one misleading composite, naming the wrong venue. Fixed by
+       reusing groupCatalogShows() (upgraded to the same normalized key)
+       so the Watching panel now renders each distinct real venue as its
+       own line, same as Coming Soon cards already do. Both fixes have
+       real regression coverage in scripts/e2e-concert-radar.mjs, not
+       just a patch-and-hope; `npm test` passes clean.
+
        v21.1: JamBase attribution — partial. Tried to pull the exact
        required credit-line wording from JamBase's own Attribution doc
        page (https://data.jambase.com/api/docs/attribution, linked from
@@ -1101,7 +1126,15 @@
     var order = [];
     var byKey = {};
     items.forEach(function (s) {
-      var key = (s.artist || '').toLowerCase() + '|' + (s.venue || '').toLowerCase();
+      // 2026-08-14: was a raw lowercase compare on artist+venue, no
+      // normalization -- switched to the same normalizeArtistKey()/
+      // normalizeVenueKey() functions dedupeSameShow() uses (defined
+      // below; hoisted, so callable here despite the textual order), so
+      // this grouping can't be fooled by the same class of venue-name
+      // drift dedupeSameShow() exists to fix (belt and suspenders, not a
+      // single point of failure, matching this file's own established
+      // pattern -- see the v16/isWatching/isShowWatched null-guard note).
+      var key = normalizeArtistKey(s.artist) + '|' + normalizeVenueKey(s.venue);
       if (!byKey[key]) { byKey[key] = []; order.push(key); }
       byKey[key].push(s);
     });
@@ -1280,40 +1313,58 @@
       // yet," so offer a real live check instead of a static guess.
       var statusHtml;
       if (matches.length) {
-        var lows = matches.map(function (m) { return m.priceLow; }).filter(function (n) { return typeof n === 'number'; });
-        var highs = matches.map(function (m) { return m.priceHigh; }).filter(function (n) { return typeof n === 'number'; });
-        var hasPrice = lows.length && highs.length;
-        // Ticket link points at the earliest matched date (matches is
-        // already sorted ascending), same convention as a grouped Coming
-        // Soon card's own ticket link. Venue/city line uses that same
-        // earliest match and the exact same "Venue — City, State" format
-        // renderCard() already uses on Coming Soon, so a watched artist's
-        // row reads consistently with everywhere else on the page — added
-        // 2026-08-04 (v18) per Susan: the matched-show branch here showed
-        // date/price/tickets but never WHERE, which is exactly the detail
-        // that makes "Black Uhuru has a confirmed match" actionable.
-        var venueShow = matches[0];
-        var venueHtml = venueShow && (venueShow.venue || venueShow.city)
-          ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
-          : '';
-        var ticketUrl = matches.map(function (m) { return m.url; }).filter(Boolean)[0];
+        // 2026-08-14: previously flattened EVERY matched show for this
+        // artist into one composite date range, using only the earliest
+        // match's venue (`matches[0]`) for the venue/city line — Susan
+        // live-caught this: Thievery Corporation showed "The Masonic —
+        // San Francisco, CA / Aug 15 – Sep 12, 2026 · 2 dates" when she
+        // actually holds a ticket to a single date at The Fox in Oakland.
+        // The two matches were two genuinely DIFFERENT real bookings
+        // (an artist playing more than one Bay Area venue in a season is
+        // ordinary), silently merged into one misleading summary that
+        // named the wrong venue and implied a 2-night stand that never
+        // existed. Fixed by reusing groupCatalogShows() — the same
+        // artist+venue grouping Coming Soon cards already use (and now,
+        // as of the same date, cross-source-dedup-aware — see
+        // dedupeSameShow()'s comment) — so each distinct real venue this
+        // watched artist has a match at gets its own venue line and date
+        // range instead of one blended composite.
+        var venueGroups = groupCatalogShows(matches);
+        var venueBlocksHtml = venueGroups.map(function (group) {
+          var gLows = group.map(function (m) { return m.priceLow; }).filter(function (n) { return typeof n === 'number'; });
+          var gHighs = group.map(function (m) { return m.priceHigh; }).filter(function (n) { return typeof n === 'number'; });
+          var gHasPrice = gLows.length && gHighs.length;
+          // Venue/city line uses the earliest date within THIS venue's own
+          // group (not across all of the artist's matches) — same "Venue —
+          // City, State" format renderCard() uses on Coming Soon, added
+          // 2026-08-04 (v18) per Susan so a confirmed match is actionable,
+          // not just a badge.
+          var venueShow = group[0];
+          var venueHtml = venueShow && (venueShow.venue || venueShow.city)
+            ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
+            : '';
+          var ticketUrl = group.map(function (m) { return m.url; }).filter(Boolean)[0];
+          return venueHtml +
+          '<div class="cr-watch-info">' +
+            '<div class="cr-watch-date">' + esc(fmtDateRange(group)) + '</div>' +
+            (gHasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, gLows), Math.max.apply(null, gHighs))) + '</div>' : '') +
+            (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
+          '</div>';
+        }).join('');
         // 2026-08-07 (Susan: "i just got tix to the easy star show but i
         // want to change the status to GOING") — only offered once there's
         // a real matched show to be going to; toggled via the delegated
         // data-watch-going handler below, persisted to the same /api/
         // watching record (POST accepts any extra field, see that file's
-        // handler — no schema change needed).
+        // handler — no schema change needed). Stays per-artist, not
+        // per-venue, even now that venue groups render separately — which
+        // specific booking she's going to isn't tracked at that level of
+        // detail yet.
         var goingBtn = '<button type="button" class="cr-watch-going' + (w.going ? ' cr-watch-going--active' : '') +
           '" data-watch-going="' + esc(w.id || '') + '">' +
           (w.going ? '🎟 Going ✓' : 'I’m going') +
         '</button>';
-        statusHtml = venueHtml +
-        '<div class="cr-watch-info">' +
-          '<div class="cr-watch-date">' + esc(fmtDateRange(matches)) + '</div>' +
-          (hasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, lows), Math.max.apply(null, highs))) + '</div>' : '') +
-          (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
-          goingBtn +
-        '</div>';
+        statusHtml = venueBlocksHtml + '<div class="cr-watch-info">' + goingBtn + '</div>';
       } else {
         // v18.1: live-caught by Susan (screenshot, 2:54pm) — Black Uhuru,
         // Easy Star All-Stars, and Burning Spear were all still stuck on
@@ -2311,6 +2362,91 @@
     });
   }
 
+  // 2026-08-14: dedupeById() above only catches an EXACT id collision --
+  // useless across sources, since tour-dates.mjs/venue-shows.mjs/
+  // jambase-shows.mjs each mint their own id independently for the same
+  // real-world event. Susan live-caught the result directly: Herbie
+  // Hancock at Davies Symphony Hall, Aug 17 2026, rendered as two separate
+  // Coming Soon cards -- one tagged "via JamBase" naming the venue "Davies
+  // Symphony Hall", one tagged "via SeatGeek" naming it "Louise M. Davies
+  // Symphony Hall" -- literally the same show, same date, same building,
+  // just a different venue-name string per source. normalizeVenueKey()
+  // strips punctuation and collapses whitespace the same way
+  // normalizeArtistKey() already does for artist names; the actual match
+  // is a substring check (same technique findWatchMatches() already uses
+  // for artist-name drift) rather than exact equality, since "davies
+  // symphony hall" is a literal substring of "louise m davies symphony
+  // hall" once normalized -- confirmed against this exact real pair, not
+  // a guess.
+  function normalizeVenueKey(v) {
+    return (v || '')
+      .toLowerCase()
+      .replace(/['’.]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  // SeatGeek and JamBase both carry real, checkable pricing/ticket data;
+  // the venue scrape (source: "Venue: ...") never has pricing at all (see
+  // venue-shows.mjs's own header) -- prefer SeatGeek, then JamBase, then
+  // the venue scrape when the same real show is found more than once.
+  // Manual entries are Susan's own hand-verified pins and are never
+  // touched by this dedup -- each keeps its own identity even if an
+  // automated source later finds the same show.
+  function sourceRank(source) {
+    if (source === 'SeatGeek') return 0;
+    if (source === 'JamBase') return 1;
+    return 2;
+  }
+
+  // Collapses the SAME real-world show reported by more than one source
+  // into a single entry (see normalizeVenueKey()'s comment above for the
+  // real bug this fixes). Groups by normalized artist + exact date, then
+  // within that, treats two shows as the same event if one's normalized
+  // venue is a substring of the other's. When a group has more than one
+  // real source, keeps the highest-priority source's own fields (name
+  // casing, url) but backfills a price from any duplicate that has one,
+  // so a merge is never worse off than picking a source arbitrarily.
+  function dedupeSameShow(list) {
+    var groups = [];
+    list.forEach(function (s) {
+      if (!s) return;
+      if ((s.source || '').indexOf('Manual entry') === 0) {
+        groups.push([s]);
+        return;
+      }
+      var aKey = normalizeArtistKey(s.artist);
+      var vKey = normalizeVenueKey(s.venue);
+      var dKey = s.date || '';
+      var target = null;
+      for (var i = 0; i < groups.length; i++) {
+        var rep = groups[i][0];
+        if ((rep.source || '').indexOf('Manual entry') === 0) continue;
+        if (normalizeArtistKey(rep.artist) !== aKey || (rep.date || '') !== dKey) continue;
+        var repVKey = normalizeVenueKey(rep.venue);
+        if (vKey && repVKey && (vKey.indexOf(repVKey) !== -1 || repVKey.indexOf(vKey) !== -1)) {
+          target = groups[i];
+          break;
+        }
+      }
+      if (target) { target.push(s); } else { groups.push([s]); }
+    });
+    return groups.map(function (g) {
+      if (g.length === 1) return g[0];
+      var sorted = g.slice().sort(function (a, b) { return sourceRank(a.source) - sourceRank(b.source); });
+      var winner = Object.assign({}, sorted[0]);
+      if (typeof winner.priceLow !== 'number' || typeof winner.priceHigh !== 'number') {
+        var withPrice = sorted.filter(function (s) { return typeof s.priceLow === 'number' && typeof s.priceHigh === 'number'; })[0];
+        if (withPrice) { winner.priceLow = withPrice.priceLow; winner.priceHigh = withPrice.priceHigh; }
+      }
+      if (!winner.url) {
+        var withUrl = sorted.filter(function (s) { return s.url; })[0];
+        if (withUrl) winner.url = withUrl.url;
+      }
+      return winner;
+    });
+  }
+
   // v18: no more visible "Checking N of M artists…" status text (Susan
   // asked for the Refresh link, the "Checked N artists · ago" line, and
   // the manual "+ Add a show" form all removed from the Coming Soon
@@ -2393,7 +2529,7 @@
         // De-dupe by id in case the same show surfaced under two different
         // artist queries (e.g. a co-headline bill in both the catalog and
         // the wishlist).
-        catalogShows = dedupeById(all);
+        catalogShows = dedupeSameShow(dedupeById(all));
         saveCache(catalogShows, artists.length);
         renderList();
       });
@@ -2438,7 +2574,7 @@
     // anything newer than the last weekly run shows up too.
     fetchServerCatalogCache().then(function (serverCache) {
       if (serverCache && Array.isArray(serverCache.shows) && serverCache.shows.length) {
-        catalogShows = dedupeById(normalizeVenueShows(serverCache.shows));
+        catalogShows = dedupeSameShow(dedupeById(normalizeVenueShows(serverCache.shows)));
         renderList();
       }
       return sweepCatalog();
