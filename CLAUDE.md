@@ -1696,3 +1696,15 @@ Same-day follow-up to the Thievery Corporation venue-grouping fix above. Susan l
 **Verified:** two new render-level assertions in `scripts/e2e-concert-radar.mjs` (Poolside fixture, the same one covering the venue-grouping fix) confirm each of two distinct real venues gets its own "I'm going" button (distinct `data-watch-going-show` ids) and its own dismiss control, not one shared pair for the row. `npm test` passes clean. This harness doesn't simulate clicks (never has, for any of this file's handlers) — the click/POST behavior itself is unverified against a live browser, same standing caveat as every other interactive handler in this file.
 
 **Delivered:** `concert-radar.html`, `scripts/e2e-concert-radar.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — the new per-venue dismiss × was rendering as a stray, disconnected control
+
+Susan caught this within minutes of the per-venue "Going"/dismiss fix going live: on both Easy Star All-Stars and Thievery Corporation's Watching rows, a bare `×` was appearing alone on its own line below the ticket/going row — "stray x i think for both."
+
+**Root cause:** the new dismiss button lived inside `.cr-watch-info` alongside the date, price, ticket link, and going button — on the actual real render, that row had too much in it and the dismiss button wrapped onto its own line with nothing else beside it, reading as unattached debris rather than a control tied to anything.
+
+**Fixed by moving it, not just restyling it:** the dismiss `×` now sits inline with the venue name itself (`.cr-watch-venue-row`, a simple two-item flex row — name left, `×` right), not in the crowded action-button row. A two-item row has far less to wrap around, and even if it does wrap on a narrow screen, the `×` stays visually anchored to the specific venue it dismisses rather than floating near a Get Tickets/Going button pair for a different reason entirely.
+
+**Verified:** the existing Poolside render assertions (both venues get their own going button and dismiss control) still pass — this was a layout-only change, the underlying data-attributes and click handling from the prior commit are untouched. `npm test` passes clean.
+
+**Delivered:** `concert-radar.html`, this file. Opened as a PR/bundle, not pushed directly.

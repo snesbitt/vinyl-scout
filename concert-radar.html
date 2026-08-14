@@ -785,7 +785,16 @@
     .cr-watch-city { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); overflow-wrap: anywhere; }
     .cr-watch-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 32px; height: 32px; min-width: 32px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; margin: -4px -6px 0 0; }
     .cr-watch-del:hover { color: var(--accent); }
-    .cr-watch-venue { font-family: var(--sans); font-size: 12px; color: var(--ink-soft); margin-top: 6px; overflow-wrap: anywhere; }
+    .cr-watch-venue { font-family: var(--sans); font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+    /* 2026-08-14: the per-venue dismiss × was living inside .cr-watch-info
+       alongside date/price/ticket/going -- on a real narrow render it
+       wrapped onto its own line with nothing else on it, reading as a
+       stray, disconnected control (Susan flagged this directly). Moved
+       to sit inline with the venue name it actually dismisses instead --
+       a two-item row (name left, × right) squeezes rather than
+       orphaning, and stays visually anchored to what it's for. */
+    .cr-watch-venue-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 6px; }
+    .cr-watch-venue-row .cr-watch-venue { margin-top: 0; }
     .cr-watch-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
     .cr-watch-date { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
     .cr-watch-price { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
@@ -809,7 +818,7 @@
        dismiss — same visual language as .cr-item-del (Coming Soon's own
        per-card remove), sized down slightly since it sits inline in a
        flex row rather than a card corner, but still >=44px tap target. */
-    .cr-watch-dismiss { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; margin-left: -6px; }
+    .cr-watch-dismiss { background: transparent; border: 0; color: var(--ink-faint); font-size: 16px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; margin: -10px -10px -10px 0; }
     .cr-watch-dismiss:hover { color: var(--accent); }
     /* 2026-08-05, Phase 10 — Travel Intelligence match note. Appended (JS,
        best-effort, never blocks the row's own render) when a cross-site
@@ -1346,11 +1355,30 @@
           // 2026-08-04 (v18) per Susan so a confirmed match is actionable,
           // not just a badge.
           var venueShow = group[0];
-          var venueHtml = venueShow && (venueShow.venue || venueShow.city)
-            ? '<div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>'
-            : '';
           var ticketUrl = group.map(function (m) { return m.url; }).filter(Boolean)[0];
           var groupIds = group.map(function (m) { return m.id; }).join(',');
+          // 2026-08-14, second pass: the dismiss × below first shipped
+          // inside .cr-watch-info alongside date/price/ticket/going —
+          // Susan caught it rendering as a stray, disconnected control
+          // when that row wrapped ("stray x i think for both"). Moved
+          // into its own row with the venue name instead (name left, ×
+          // right) so it's visually anchored to what it actually
+          // dismisses, and a two-item row has much less to wrap around
+          // than a four/five-item one did.
+          // Same real bug report, second half: "i don't want the other
+          // show included." An artist can be genuinely watched while only
+          // one specific real booking is actually hers — this reuses the
+          // EXACT same mechanism Coming Soon's own per-card × already
+          // uses (adds the show's id(s) to the `hidden` array, same
+          // localStorage key, same renderList() re-render) rather than a
+          // new one-off path — findWatchMatches() already reads through
+          // hidden-filtered comingSoonShows(), so dismissing a venue here
+          // removes it from this row for the same reason it'd remove a
+          // card from Coming Soon.
+          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">&times;</button>';
+          var venueHtml = venueShow && (venueShow.venue || venueShow.city)
+            ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
+            : '<div class="cr-watch-venue-row"><span></span>' + dismissBtn + '</div>';
           // 2026-08-14: Susan live-caught the follow-on problem the
           // per-artist "going" flag created the moment two real venues
           // could render separately — Thievery Corporation has real shows
@@ -1369,23 +1397,12 @@
             '" data-watch-going="' + esc(w.id || '') + '" data-watch-going-show="' + esc(group[0].id || '') + '">' +
             (isGoingThisShow ? '🎟 Going ✓' : 'I’m going') +
           '</button>';
-          // Same real bug report, second half: "i don't want the other
-          // show included." An artist can be genuinely watched while only
-          // one specific real booking is actually hers — this dismiss
-          // reuses the EXACT same mechanism Coming Soon's own per-card ×
-          // already uses (adds the show's id(s) to the `hidden` array,
-          // same localStorage key, same renderList() re-render), rather
-          // than a new one-off path — findWatchMatches() already reads
-          // through comingSoonShows(), which already filters by `hidden`,
-          // so dismissing a venue here removes it from this row for the
-          // same reason it'd remove a card from Coming Soon.
-          var dismissBtn = '<button type="button" class="cr-watch-dismiss" aria-label="Not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">&times;</button>';
           return venueHtml +
           '<div class="cr-watch-info">' +
             '<div class="cr-watch-date">' + esc(fmtDateRange(group)) + '</div>' +
             (gHasPrice ? '<div class="cr-watch-price">' + esc(fmtPrice(Math.min.apply(null, gLows), Math.max.apply(null, gHighs))) + '</div>' : '') +
             (ticketUrl ? '<a class="cr-watch-cta" href="' + esc(ticketUrl) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
-            goingBtn + dismissBtn +
+            goingBtn +
           '</div>';
         }).join('');
         statusHtml = venueBlocksHtml;
