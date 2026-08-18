@@ -177,7 +177,7 @@
     return String(g).toLowerCase().trim();
   }
   function genreLabel(g) {
-    if (!g) return '—';
+    if (!g) return 'Unknown';
     return g.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
   // v20: the lead category — text before the first slash.
@@ -393,8 +393,8 @@ el.textContent = txt;
           + '<button type="button" class="row" '
           +   'data-id="' + escapeAttr(r.id) + '" '
           +   'aria-label="' + escapeAttr(label) + '. Open details.">'
-          +   '<span class="row__artist">' + escapeHtml(r.artist || '—') + '</span>'
-          +   '<span class="row__title">'  + escapeHtml(r.title  || '—') + '</span>'
+          +   '<span class="row__artist">' + escapeHtml(r.artist || 'Unknown artist') + '</span>'
+          +   '<span class="row__title">'  + escapeHtml(r.title  || 'Untitled') + '</span>'
           +   '<span class="row__year">'   + (r.year != null ? r.year : '') + '</span>'
           +   '<span class="row__genre">'  + escapeHtml(r.genre ? genreLabel(parentGenre(normalizeGenre(r.genre))) : '') + '</span>'
           +   '<span class="row__price">'  + escapeHtml(cardPriceParts(r).price) + '</span>'
@@ -414,8 +414,8 @@ el.textContent = txt;
           +   'aria-label="' + escapeAttr(label) + '. Open details.">'
           +   '<span class="tile__cover">' + cover + '</span>'
           +   '<span class="tile__text">'
-          +     '<span class="tile__artist">' + escapeHtml(r.artist || '—') + '</span>'
-          +     '<span class="tile__title">'  + escapeHtml(r.title  || '—') + '</span>'
+          +     '<span class="tile__artist">' + escapeHtml(r.artist || 'Unknown artist') + '</span>'
+          +     '<span class="tile__title">'  + escapeHtml(r.title  || 'Untitled') + '</span>'
           +   '</span>'
           + '</button>';
       }).join('');
