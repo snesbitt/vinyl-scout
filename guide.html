@@ -39,16 +39,17 @@
     <p class="article__kicker">Project guide · one template, any collection ·<br>August 2026</p>
     <h1>Six steps to an accurate collection inventory</h1>
     <p class="article__lede">
-      Know what you have. Check it's still accurate. Know how to recover it
-      when it's not. Build the six steps below in order. Each one works
-      alone, and the same steps hold for books, watches, wine, or shoes.
+      Know what you have, and know it's still accurate. When it isn't, know
+      how to get it back. Six steps, in order, each one useful on its own.
+      It's records here, but nothing below cares: the same steps hold just as
+      well for books, watches, wine, or shoes.
     </p>
 
     <p class="purpose-banner">
-      <strong>This page is the how-to:</strong> the method and the exact
-      prompt to build a catalog like this yourself, for any collection. For
-      what this specific catalog does today: its data model, its feature
-      set, its stack. Read <a href="/about.html">About</a> instead.
+      <strong>This page is the how-to:</strong> the method, and the exact
+      prompt to build a catalog like this yourself, for any collection.
+      <a href="/about.html">About</a> covers what this specific catalog does
+      today, down to the data model and the stack.
     </p>
 
     <ul class="stepper" aria-label="Jump to a step">
@@ -64,19 +65,16 @@
 
     <h2 id="step-01"><span class="article__num">01</span>Match the tool to the job</h2>
     <p>
-      Four modes, four jobs. Each one earns more accountability than the
+      Four modes, four jobs, each one carrying more accountability than the
       last. <strong>Chat</strong> decides: which fields to track, which
-      grading standard to apply, how to describe things in language a
-      reader can trust, this page included. <strong>The terminal</strong>
-      (Claude Code) builds: the API, the storage layer, and the backup
-      function were all written there, and every deploy gets reviewed
-      before it ships. <strong>Cowork</strong> maintains: it operates on
-      files and a browser, and it shipped this very page without a
-      terminal session ever opening. <strong>Scheduled tasks</strong>
-      repeat what no one should have to remember: the weekly price
-      refresh, the nightly backup, the daily integrity check. A feature
-      moves through all four in sequence, left to right, gaining a layer
-      of accountability at each stage.
+      grading standard to apply, how to describe things in language a reader
+      can trust, this page included. <strong>The terminal</strong> (Claude
+      Code) builds. The API, the storage layer, and the backup function were
+      all written there, and every deploy gets reviewed before it ships.
+      <strong>Cowork</strong> maintains, working on files and a browser; it
+      shipped this very page without a terminal session ever opening.
+      <strong>Scheduled tasks</strong> repeat what no one should have to
+      remember, like the weekly price refresh and the nightly backup.
     </p>
 
     <div class="mode-grid">
@@ -117,20 +115,16 @@
         </ul>
       </div>
     </div>
-    <p class="mode-caption">Left to right: decided in chat, built in the terminal, maintained in Cowork, then repeated on a schedule.</p>
 
     <p>
-      The four modes above answer <em>where</em> the work happens. A second,
-      separate decision is <em>which version of Claude does it</em>: Claude
-      comes in a few strengths, each priced differently, and the job is to
-      match strength to stakes, not default to the biggest one out of habit.
-      A scheduled, unsupervised job like the nightly backup gets the
-      fastest, cheapest version, since nothing is watching and nothing
-      needs extra judgment. Ordinary building work gets the standard
-      version. A problem where a wrong answer would actually cost
-      something, real data, real money, gets the strongest version
-      available. Writing meant for a real reader, this page included, gets
-      a version tuned for prose instead of code.
+      <em>Where</em> the work happens is one decision. <em>Which version of
+      Claude does it</em> is another. Claude comes in a few strengths at
+      different prices, and the point is to match strength to stakes. The
+      nightly backup runs unsupervised with nothing to judge, so it gets the
+      fastest and cheapest one. Ordinary building work gets the standard
+      version. Reach for the strongest available only when a wrong answer
+      costs real data or real money. Writing meant for a real reader, this
+      page included, goes to a version tuned for prose instead of code.
     </p>
 
     <div class="model-grid">
@@ -179,8 +173,8 @@
       real source for the category (Discogs here; eBay's sold listings
       do the same job for most other collecting categories) and logs a
       low, median, and high figure for every item. This catalog's running
-      total: about €2,200, a number that carries weight only because the
-      process behind it can be checked.
+      total is about €2,230 across 94 records, a number that carries weight
+      only because the process behind it can be checked.
     </p>
     <p>
       Expect a handful of early mismatches. Fix each one against the right
@@ -211,13 +205,13 @@
           <rect x="8" y="8" width="345" height="110" rx="8" fill="#f2f7f0" stroke="#a4bd9a"/>
           <circle cx="32" cy="35" r="8" fill="#5d8a4e"/>
           <text x="50" y="40" font-size="14" font-weight="600" fill="#2e4026" font-family="'IBM Plex Sans', sans-serif">Good day</text>
-          <text x="24" y="68" font-size="13.5" fill="#3d4f36">93 records, 92 priced,</text>
-          <text x="24" y="92" font-size="13.5" fill="#3d4f36">backup current, value €2,235.</text>
+          <text x="24" y="68" font-size="13.5" fill="#3d4f36">94 records, 94 priced,</text>
+          <text x="24" y="92" font-size="13.5" fill="#3d4f36">backup current, value €2,234.</text>
 
           <rect x="367" y="8" width="345" height="110" rx="8" fill="#faf0ec" stroke="#cf9a85"/>
           <circle cx="391" cy="35" r="8" fill="#b5541c"/>
           <text x="409" y="40" font-size="14" font-weight="600" fill="#4a2a1c" font-family="'IBM Plex Sans', sans-serif">Bad day</text>
-          <text x="383" y="68" font-size="13.5" fill="#5c4032">61 records, expected ~93.</text>
+          <text x="383" y="68" font-size="13.5" fill="#5c4032">61 records, expected ~94.</text>
           <text x="383" y="92" font-size="13.5" fill="#5c4032">Restore from backups/2026-06-29.json</text>
         </g>
       </svg>
@@ -232,7 +226,7 @@
       deploy. <strong>Netlify</strong> rebuilds in under a minute, hosts the
       data, and runs the background jobs: the Discogs price pull, the
       nightly backup. Every piece runs on a free tier. Nothing is
-      irreplaceable. The diagram below is the whole system.
+      irreplaceable.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
@@ -346,10 +340,10 @@ Please help me scope this into a first small version we can finish today, tell m
     <p class="article__closing-kicker" id="field-notes">Field notes</p>
     <h2 style="margin-top:0;">What building this taught us</h2>
     <p>
-      Build in order. Each step should stand on its own. The pitch is
-      never the slow part, debugging is: one fix breaks another, and
-      every fix needs its own deploy to prove it held. Both data-loss
-      incidents happened right there, mid-debug.
+      Build in order, and make each step stand on its own. Debugging is what
+      eats the time. One fix breaks another, and every fix needs its own
+      deploy to prove it held. Both data-loss incidents happened right there,
+      mid-debug.
     </p>
     <p>
       Change one thing at a time. That's the rule that matters, because

@@ -38,21 +38,22 @@
 </header>
 
 <article class="article">
-  <p class="article__kicker">How it works · v29 charter · August 2026</p>
+  <p class="article__kicker">How it works · v47 charter · August 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
-    The Vinyl Scout tracks one person's vinyl collection: what's owned, its
-    condition, what each pressing is worth, and which exact edition it is.
-    It pulls real pricing and pressing data from Discogs, and plays a short
-    preview of each album's most popular track. No accounts, no
-    third-party tracking, no automation that quietly deletes data.
+    Vinyl Scout is a catalog of 94 records. For each one it holds a condition
+    grade, the exact pressing, the current market price, the Discogs community
+    rating, and how many copies are for sale right now. Pricing and pressing
+    data come from Discogs. Tap a record and a short preview of its most
+    popular track plays. No accounts. Nothing on the page is tracked by a
+    third party, and no automated job here has permission to delete a record.
   </p>
 
   <p class="callout">
     <strong>This page is the reference:</strong>
-    what this catalog does today, its data model, and its stack. For the
-    method behind it, plus the prompt to build one for your own collection,
-    read the <a href="/guide.html">Guide</a> instead.
+    what the catalog does today, down to the data model and the stack. The
+    <a href="/guide.html">Guide</a> has the method behind it, and the prompt
+    to build one for your own collection.
   </p>
 
   <div class="stat-strip">
@@ -79,32 +80,31 @@
     never overwrites them.
   </p>
   <p>
-    The collection page itself, what you came from, is read-only: anyone with
-    the link can search and filter by genre, but not edit. Switch between a
-    gallery view (cover art, artist, and title) and a list view, which also
-    shows each record's low, median, and high price. The header names the
-    single highest-value record, just below the total collection value. Tap
-    any record to see the full detail: the complete Discogs snapshot, the
-    community rating, and, where available, a Play button for a preview of
-    the album's most popular track.
+    The collection page you came from is read-only. Anyone with the link can
+    search it and filter it by genre; nobody can edit it. Gallery view shows
+    cover art, artist, and title. List view adds each record's low, median,
+    and high price. Above both, the header names the single most valuable
+    record in the collection, just under what the whole thing is worth. Tap a
+    record for its full Discogs snapshot, its community rating, and, where one
+    exists, a Play button.
   </p>
 
   <div class="page-card-grid">
     <div class="page-card">
       <p class="page-card__title">Collection</p>
-      <p class="page-card__desc">The read-only home page: gallery or list view, genre filters, search, full record detail.</p>
+      <p class="page-card__desc">The read-only home page. Gallery or list, filter by genre, search, open any record for the full detail.</p>
     </div>
     <div class="page-card">
       <p class="page-card__title">Wishlist</p>
-      <p class="page-card__desc">Records not yet owned, priced weekly, gated by an edit key remembered per device.</p>
+      <p class="page-card__desc">Records not yet owned. Prices refresh every Monday. Adding or removing one needs the edit key.</p>
     </div>
     <div class="page-card">
       <p class="page-card__title">Concert Radar</p>
-      <p class="page-card__desc">Collection and wishlist artists matched against real upcoming tour dates near Berkeley, CA.</p>
+      <p class="page-card__desc">Your artists, matched against real upcoming tour dates near Berkeley, CA.</p>
     </div>
     <div class="page-card">
       <p class="page-card__title">Audit</p>
-      <p class="page-card__desc">The editable view: every field, every record, gated by an edit key.</p>
+      <p class="page-card__desc">Every field on every record, editable in place. Needs the edit key.</p>
     </div>
   </div>
 
@@ -122,14 +122,14 @@
     <div class="stack-item stack-item--wide">
       <p class="stack-item__label">API</p>
       <ul class="stack-item__list">
-        <li><strong>Records</strong> — GET (list), POST (upsert), DELETE. Gated by an edit key.</li>
-        <li><strong>Wishlist</strong> — same trio at <code>/api/wishlist</code>, its own store, isolated from the catalog. POST/DELETE are gated by the same edit key as the catalog (2026-08-06), remembered in the browser after it's entered once, so it costs one entry per device rather than one per visit.</li>
-        <li><strong>Enrichment</strong> — <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
-        <li><strong>Audio</strong> — <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
-        <li><strong>Concert Radar</strong> — <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed, resolves an artist to a real performer before querying events, near Berkeley, CA; also accepts an optional <code>city</code> override (2026-08-07) so the &ldquo;Traveling?&rdquo; panel can sweep a different destination.</li>
-        <li><strong>Concert Radar, JamBase feed</strong> — <code>/api/jambase-shows</code>, public, read-only, added 2026-08-13. A geo-scoped sweep of real ticketing data (not per-artist), resolved to the containing metro area; results are filtered client-side down to catalog/wishlist/watching artists before merging into Coming Soon.</li>
-        <li><strong>Concert Radar, reverse lookup</strong> — <code>/api/artists-playing</code>, public, read-only, CORS-enabled for <code>travelintelligence.org</code>. Given a destination and date window, returns real nearby events cross-referenced against this catalog/wishlist/watching, the query Travel Intelligence's watched trips run against.</li>
-        <li><strong>Watching</strong> — <code>/api/watching</code>, POST, ungated. Stores which artists you're tracking, including a <code>going</code> flag (2026-08-07) that persists a confirmed-ticket toggle across devices.</li>
+        <li><strong>Records.</strong> GET (list), POST (upsert), DELETE. Gated by an edit key.</li>
+        <li><strong>Wishlist.</strong> The same three verbs at <code>/api/wishlist</code>, in its own store, isolated from the catalog. POST and DELETE use the same edit key as the catalog (2026-08-06). The browser remembers it after one entry, so it costs one entry per device rather than one per visit.</li>
+        <li><strong>Enrichment.</strong> <code>/api/discogs/lookup</code> (public) and <code>/api/discogs-pricing</code> (gated).</li>
+        <li><strong>Audio.</strong> <code>/api/audio/preview</code>, public, read-only. Deezer first, a small override list for compilations, then YouTube last.</li>
+        <li><strong>Concert Radar.</strong> <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed; it resolves an artist to a real performer before querying events near Berkeley, CA. An optional <code>city</code> override (2026-08-07) lets the &ldquo;Traveling?&rdquo; panel sweep a different destination.</li>
+        <li><strong>Concert Radar, JamBase feed.</strong> <code>/api/jambase-shows</code>, public, read-only, added 2026-08-13. One geo-scoped sweep of real ticketing data, not per-artist, resolved to the containing metro area. The browser then filters it down to catalog, wishlist, and watching artists before anything merges into Coming Soon.</li>
+        <li><strong>Concert Radar, reverse lookup.</strong> <code>/api/artists-playing</code>, public, read-only, CORS-enabled for <code>travelintelligence.org</code>. Give it a destination and a date window and it returns real nearby events cross-referenced against this catalog, wishlist, and watching list. This is the query Travel Intelligence's watched trips run.</li>
+        <li><strong>Watching.</strong> <code>/api/watching</code>, POST, ungated. Stores which artists you're tracking, plus a <code>going</code> flag (2026-08-07) that carries a confirmed-ticket toggle across devices.</li>
       </ul>
     </div>
     <div class="stack-item">
@@ -182,70 +182,75 @@
 
   <h2><span class="article__num">05</span>Wishlist</h2>
   <p>
-    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>, kept apart from the collection. Records arrive three ways: added by hand (cover art and a Discogs reference are looked up automatically), imported from Spotify (a weekly sync reads the owner&rsquo;s most-played albums, keeps only the ones on vinyl, and skips anything already owned), or imported from the owner&rsquo;s Amazon cart (the same weekly sync reads it, and never changes it).
+    A separate hunt list at <a href="/wishlist.html">/wishlist.html</a>, kept apart from the collection. Add a record by hand; its cover art and Discogs reference get looked up for you. The rest arrive on their own: a weekly sync reads the owner&rsquo;s most-played Spotify albums, keeps only the ones that exist on vinyl, and skips anything already owned. That same sync reads the owner&rsquo;s Amazon cart, and never changes it.
   </p>
   <p>
     Each row shows the album art, the current asking price or Discogs&rsquo; median sale price, and a link to current listings. A brand-new item shows no price at all until the following Monday's scout run.
   </p>
   <p>
-    Adding and removing items needs the same edit key as the collection, remembered in the browser once it's entered so it costs one entry per device, not one per visit (2026-08-06). Until then this was left open entirely, since re-entering a key on mobile every session wasn't practical for a list used this casually — the device-remembered key closes that gap without reintroducing the friction that got it removed in the first place.
+    Adding and removing items needs the same edit key as the collection. The browser remembers it after one entry, so it costs one entry per device rather than one per visit (2026-08-06). Before that the list was open to anyone with the link, because re-typing a key on mobile every session wasn't worth it for a list used this casually. Remembering the key closed the gap without bringing the friction back.
   </p>
   <p>
     The weekly scout refreshes prices. Nothing is auto-removed, and anything deleted by hand is never auto-re-added.
   </p>
   <p>
-    A note on ordering, in the same spirit as the pricing data above: today the list sorts alphabetically by artist and nothing else. There is no ranking by value, rarity, or how long something has been on the list, and no hidden scoring behind it. A real priority system is on the roadmap; see <a href="/roadmap.html#phase-9">Phase 9</a> for what that would take.
+    Sorting is deliberately literal. The default puts the cheapest item first, a chip flips that to most expensive first, and a separate control sorts A to Z instead. Every row carries a discount badge whenever the current ask sits below the historical median, in any sort. An earlier version scored each item on a blend of discount and waiting time; it lasted a day. Two sorts that each do exactly what their label says turned out to be worth more. See <a href="/roadmap.html#phase-9">Phase 9</a>.
   </p>
 
   <h2><span class="article__num">06</span>Audio preview</h2>
   <p>
-    Every record's detail view has a Play button. It fetches the album's most
-    popular track and plays a short preview clip in place. It looks up the
-    track on Deezer first, no sign-up needed. A small hand-picked list covers
-    best-of and compilation albums that aren't on Deezer under their own
-    title, pointing to a representative single from the same artist instead.
-    YouTube is the last resort, for anything genuinely absent from Deezer. A
-    credit line under the player names the source. It's a pure lookup:
-    nothing is stored. If nothing anywhere has a match or a playable clip, it
+    Every record's detail view has a Play button. It finds the album's most
+    popular track and plays a short clip in place. Deezer is the first place
+    it looks, and no sign-up is needed. Best-of and compilation albums that
+    Deezer doesn't carry under their own title fall back to a small hand-picked
+    list pointing at a representative single by the same artist. YouTube is the
+    last resort. A credit line under the player names whichever source
+    answered.
+  </p>
+  <p>
+    Nothing is stored. If no source has a match or a playable clip, the page
     says so quietly.
   </p>
 
   <h2><span class="article__num">07</span>Concert Radar</h2>
   <p>
     A separate page, <a href="/concert-radar.html">/concert-radar.html</a>,
-    matches every artist in the collection and wishlist against real
-    upcoming tour dates near Berkeley, CA, via SeatGeek, JamBase Data, and a
-    direct scrape of hand-picked Bay Area venues. Coming Soon
-    refreshes automatically; same-artist, same-venue shows with several
-    dates group into one card with a date range instead of one row per
-    night. Watch an artist to track it before a confirmed date exists
-    &mdash; a watched artist's real date, price, and ticket link show up
-    right in the Watching panel, and its shows drop out of Coming Soon so
-    nothing appears twice. Price isn't always available: SeatGeek doesn't
-    publish it for every show, most often ones announced far enough in
-    advance that resale listings haven't opened yet. Ticketmaster and a
-    Spotify layer are parked for later, added only if a real coverage gap
-    shows up.
+    matches every artist in the collection and wishlist against real upcoming
+    tour dates near Berkeley, CA. Three sources feed it: SeatGeek, JamBase
+    Data, and a direct scrape of seven hand-picked Bay Area venue calendars.
+    Coming Soon refreshes on its own. When the same artist plays the same
+    venue on several nights, those group into one card with a date range
+    instead of one row per night.
+  </p>
+  <p>
+    Watch an artist to track it before a confirmed date exists. A watched
+    artist's real date, price, and ticket link then show up in the Watching
+    panel, and its shows drop out of Coming Soon so nothing appears twice.
+    Price isn't always available. SeatGeek doesn't publish it for every show,
+    most often ones announced far enough ahead that resale listings haven't
+    opened yet. Ticketmaster and a Spotify layer stay parked, and get added
+    only if a real coverage gap shows up.
   </p>
   <p>
     Two more pieces shipped 2026-08-07. A &ldquo;Traveling?&rdquo; panel takes
     a city and a date range and sweeps every distinct artist across the
-    collection, wishlist, and watching list against that destination
-    instead of Berkeley, so a trip elsewhere surfaces shows you'd otherwise
-    never see. And Watching rows now carry a &ldquo;Going&rdquo; toggle
-    &mdash; once you've actually got tickets, marking it persists across
-    devices, with a badge next to the artist name.
+    collection, wishlist, and watching list against that destination instead
+    of Berkeley, so a trip elsewhere surfaces shows you'd otherwise never see.
+    Watching rows also gained a &ldquo;Going&rdquo; toggle. Once you've
+    actually got tickets, marking it carries across devices and puts a badge
+    next to the artist name.
   </p>
   <p>
-    Since 2026-08-05 it also runs in reverse. <a href="https://travelintelligence.org/">Travel Intelligence</a>
-    (the owner's other project) checks its own watched trips &mdash;
-    destination and date range only, no fares or points data &mdash;
-    against this same catalog/wishlist/watching artist list, within about
-    25 miles of the destination. A real match shows up on both sides:
-    here in the Watching panel (with a link back to the trip), and
-    against the relevant trip over on travelintelligence.org. Best-effort
-    on both ends &mdash; if either site is briefly unreachable, the rest
-    of the page still works exactly as it always did.
+    Since 2026-08-05 it also runs in reverse.
+    <a href="https://travelintelligence.org/">Travel Intelligence</a> (the
+    owner's other project) checks its own watched trips against this same
+    catalog, wishlist, and watching list, within about 25 miles of the
+    destination. It sends the destination and the date range, nothing else. No
+    fares, no points data. A real match shows up on both sides: here in the
+    Watching panel with a link back to the trip, and against the relevant trip
+    over on travelintelligence.org. Both ends are best-effort. If either site
+    is briefly unreachable, the rest of the page works exactly as it always
+    did.
   </p>
 
   <h2><span class="article__num">08</span>Data & backups</h2>
@@ -261,10 +266,10 @@
 
   <h2><span class="article__num">09</span>What it won't do</h2>
   <ul class="wont-list">
-    <li>No user accounts or passwords: reading it requires nothing; edits need only an edit key, never a login.</li>
+    <li>Reading the catalog requires nothing at all. Edits need an edit key, never a login, and there are no user accounts or passwords anywhere in it.</li>
     <li>No analytics, advertising, or third-party tracking.</li>
-    <li>No automation that quietly deletes data: nothing on the wishlist is auto-removed, and anything deleted by hand is never auto-re-added.</li>
-    <li>No selling or sharing the data.</li>
+    <li>Nothing on the wishlist is auto-removed, and anything deleted by hand is never auto-re-added.</li>
+    <li>The data is never sold or shared.</li>
   </ul>
 
 </article>

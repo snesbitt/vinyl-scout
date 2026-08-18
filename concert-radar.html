@@ -940,7 +940,7 @@
       <h3 class="cr-panel__label">Watching</h3>
       <div id="cr-watch-list" class="cr-watch-list"></div>
       <form id="cr-watch-detail-form" class="cr-watch-detail-form" hidden>
-        <p class="cr-watch-detail-hint">Radar hasn't matched a real show for <strong id="cr-wd-artist-name"></strong> yet — add what you know by hand. Requires a date and a real ticket link; venue/city are optional.</p>
+        <p class="cr-watch-detail-hint">Radar hasn't matched a real show for <strong id="cr-wd-artist-name"></strong> yet. Add what you know by hand. A date and a real ticket link are required; venue and city are optional.</p>
         <div class="cr-fields">
           <div class="cr-field">
             <label for="cr-wd-date">Date</label>
@@ -972,7 +972,7 @@
 
   <section class="cr-panel cr-travel-panel">
     <h3 class="cr-panel__label">Traveling?</h3>
-    <p class="cr-watch-detail-hint">Enter a city and date range to check every artist you follow — catalog, wishlist, and watching — for shows while you're there. Matches can be added to Coming Soon or Watching right from the results.</p>
+    <p class="cr-watch-detail-hint">Enter a city and a date range to check every artist you follow, across your catalog, wishlist, and watching list, for shows while you're there. Anything that matches can go straight into Coming Soon or Watching from the results.</p>
     <div class="cr-fields cr-fields-3">
       <div class="cr-field">
         <label for="cr-f-travel-city">City</label>
@@ -993,7 +993,7 @@
   </section>
 
   <section id="cr-live" class="cr-live" hidden>
-    <h3 class="cr-section-label">Live Results</h3>
+    <h3 class="cr-section-label">Live results</h3>
     <div id="cr-live-body"></div>
   </section>
 
@@ -1234,7 +1234,7 @@
     return '<div class="cr-item" data-id="' + esc(ids.join(',')) + '" data-kind="' + esc(s._kind) + '">' +
       '<div class="cr-who">' +
         '<div class="cr-artist">' + esc(s.artist) + '</div>' +
-        '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+        '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ', ' + esc(s.city) : '') + '</div>' +
         '<div class="cr-tags">' + sourceCreditHtml(s.source) + '</div>' +
         '<div class="cr-live-actions">' + cta + watchBtn + '</div>' +
       '</div>' +
@@ -1261,8 +1261,8 @@
       els.list.innerHTML = (typeof initialLoadInFlight !== 'undefined' && initialLoadInFlight)
         ? '<div class="cr-empty">Loading…</div>'
         : (allShows.length
-          ? '<div class="cr-empty">Every upcoming show found is for an artist you\'re already watching — see the Watching panel above.</div>'
-          : '<div class="cr-empty">No upcoming shows found for your collection & wishlist near Berkeley yet.</div>');
+          ? '<div class="cr-empty">Every upcoming show found is for an artist you\'re already watching. See the Watching panel above.</div>'
+          : '<div class="cr-empty">Nothing near Berkeley yet for anyone in your collection or wishlist.</div>');
     } else {
       var catalogGroups = groupCatalogShows(shows.filter(function (s) { return s._kind === 'catalog'; }));
       var addedSingles = shows.filter(function (s) { return s._kind === 'added'; }).map(function (s) { return [s]; });
@@ -1427,9 +1427,9 @@
           // hidden-filtered comingSoonShows(), so dismissing a venue here
           // removes it from this row for the same reason it'd remove a
           // card from Coming Soon.
-          var dismissBtn = isGoingThisShow ? '' : '<button type="button" class="cr-watch-dismiss" aria-label="Hide this show — not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">Hide this show</button>';
+          var dismissBtn = isGoingThisShow ? '' : '<button type="button" class="cr-watch-dismiss" aria-label="Hide this show. Not going to ' + esc(w.artist) + ' at ' + esc(venueShow ? (venueShow.venue || 'this venue') : 'this venue') + '" data-del="' + esc(groupIds) + '" data-kind="catalog">Hide this show</button>';
           var venueHtml = venueShow && (venueShow.venue || venueShow.city)
-            ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ' — ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
+            ? '<div class="cr-watch-venue-row"><div class="cr-watch-venue">' + esc(venueShow.venue || 'Venue TBA') + (venueShow.city ? ', ' + esc(venueShow.city) : '') + '</div>' + dismissBtn + '</div>'
             : '<div class="cr-watch-venue-row"><span></span>' + dismissBtn + '</div>';
           var goingBtn = '<button type="button" class="cr-watch-going' + (isGoingThisShow ? ' cr-watch-going--active' : '') +
             '" data-watch-going="' + esc(w.id || '') + '" data-watch-going-show="' + esc(group[0].id || '') + '">' +
@@ -1546,7 +1546,7 @@
   }
   function buildTravelMatchHTML(artist, hit) {
     return '✈️ You’re watching a trip to ' + esc(hit.trip.destination || 'that area') +
-      ' (' + esc(fmtTripDateRange(hit.trip.dateStart, hit.trip.dateEnd)) + ') — ' +
+      ' (' + esc(fmtTripDateRange(hit.trip.dateStart, hit.trip.dateEnd)) + '): ' +
       esc(artist) + ' plays ' + esc(hit.match.venue || 'nearby') +
       (hit.match.dateLabel ? ' ' + esc(hit.match.dateLabel) : '') + '.';
   }
@@ -1938,7 +1938,7 @@
     // Only surface the "matched performer" line when the match was a fuzzy
     // fallback — an exact match doesn't need the caveat.
     var matchedLine = (meta.matched_performer && meta.match_tier === 'fuzzy')
-      ? '<div class="cr-live-matched">Closest match: ' + esc(meta.matched_performer) + ' — double-check before trusting</div>'
+      ? '<div class="cr-live-matched">Closest match: ' + esc(meta.matched_performer) + '. Double-check before trusting it.</div>'
       : '';
 
     if (!meta.matched_performer) {
@@ -1972,7 +1972,7 @@
       return '<div class="cr-live-item">' +
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist || meta.matched_performer) + '</div>' +
-          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ', ' + esc(s.city) : '') + '</div>' +
           '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           '<div class="cr-live-actions">' +
             (s.url ? '<a class="cr-live-cta" href="' + esc(s.url) + '" target="_blank" rel="noopener">Get tickets ↗</a>' : '') +
@@ -2275,7 +2275,7 @@
       return '<div class="cr-live-item">' +
         '<div class="cr-who">' +
           '<div class="cr-artist">' + esc(s.artist) + '</div>' +
-          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '') + '</div>' +
+          '<div class="cr-venue">' + esc(s.venue || 'Venue TBA') + (s.city ? ', ' + esc(s.city) : '') + '</div>' +
           '<div class="cr-tags"><span class="cr-live-tag">Live</span>' + sourceCreditHtml(s.source) + '</div>' +
           watchRowHtml(s.artist, s.city || cityLabel) +
           '<div class="cr-live-actions">' +
