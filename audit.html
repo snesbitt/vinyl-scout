@@ -494,7 +494,7 @@
     </nav>
 </header>
 
-<h2 class="collection-title">Audit · Full Collection</h2>
+<h2 class="collection-title">Audit · Full collection</h2>
 
 <section class="audit-toolbar">
   <input
@@ -504,7 +504,7 @@
     placeholder="Search artist, title, genre…"
     autocomplete="off"
     spellcheck="false" />
-  <span class="audit-toolbar__count" id="filter-count">—</span>
+  <span class="audit-toolbar__count" id="filter-count">…</span>
 </section>
 
 <div id="error-banner" class="error-banner" hidden role="alert"></div>
@@ -1060,7 +1060,7 @@ async function acceptPressing(idx) {
         existing.cover_url = coverRes.cover_url;
         coverMsg = ' + cover fetched';
       } catch (coverErr) {
-        coverMsg = ' (cover fetch failed: ' + coverErr.message + ' — upload one manually)';
+        coverMsg = ' (cover fetch failed: ' + coverErr.message + '. Upload one manually.)';
       }
     }
 

@@ -153,7 +153,7 @@
     var s = '';
     try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
     if (s) return s;
-    s = prompt('Enter edit passphrase (writes are protected):') || '';
+    s = prompt('Enter edit key (writes are protected):') || '';
     if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
     return s;
   }
@@ -663,7 +663,7 @@ el.textContent = txt;
       var secret = getEditSecret();
       if (!secret) {
         if (body) {
-          body.innerHTML = '<p class="detail__prices-error">Edit passphrase required to refresh pricing.</p>';
+          body.innerHTML = '<p class="detail__prices-error">Edit key required to refresh pricing.</p>';
         }
         btn.disabled = false;
         btn.textContent = origBtnText;
@@ -681,7 +681,7 @@ el.textContent = txt;
       if (res.status === 401) {
         clearEditSecret();
         if (body) {
-          body.innerHTML = '<p class="detail__prices-error">Unauthorized: wrong passphrase. Click Retry to try again.</p>';
+          body.innerHTML = '<p class="detail__prices-error">Unauthorized: wrong edit key. Click Retry to try again.</p>';
         }
         btn.disabled = false;
         btn.textContent = 'Retry';

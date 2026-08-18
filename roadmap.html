@@ -75,7 +75,7 @@
         <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Build the collection</p>
-      <p class="phase__covers">Browse the whole collection, and add records by photographing them and reviewing the draft before it&rsquo;s saved. Hand-edit details, replace covers, and remove records one at a time. Editing is private; viewing is open to anyone with the link; the collection is backed up automatically.</p>
+      <p class="phase__covers">Browse the whole collection, and add records by photographing them and reviewing the draft before it&rsquo;s saved. Hand-edit details, replace covers, and remove records one at a time. Anyone with the link can look. Only the owner can change anything, and the whole collection is backed up automatically overnight.</p>
     </div>
   </section>
 
@@ -122,8 +122,8 @@
         <h3 class="phase__name">2026 reliability &amp; polish</h3>
         <span class="phase__status phase__status--live">Live</span>
       </div>
-      <p class="phase__focus">Faster pages, a fixed cover, safer backups</p>
-      <p class="phase__covers">Three improvements, all shipped in 2026. Faster pages: the Fraunces and IBM Plex fonts now load from our own self-hosted files with a year-long cache, not from Google Fonts, so pages open without waiting on Google&rsquo;s servers. A fixed cover: the image for Steely Dan&rsquo;s Aja had gone missing when its Cover Art Archive link died, and it was replaced with an image verified to load. Safer backups: two days of automatic nightly backups had drifted apart from the fonts work, and because the two sets of changes touched entirely different files, the merge kept both sides intact rather than discarding either.</p>
+      <p class="phase__focus">Faster pages and safer backups</p>
+      <p class="phase__covers">Every font the site uses now loads from a self-hosted file with a year-long cache instead of from Google Fonts, so pages open without waiting on Google&rsquo;s servers. Steely Dan&rsquo;s Aja lost its cover when the Cover Art Archive link behind it died; the replacement was checked to make sure it actually loads. Two days of nightly backups had drifted apart from the fonts work at the same time. Because the two touched entirely different files, the merge kept both sides rather than quietly discarding either.</p>
     </div>
   </section>
 
@@ -134,8 +134,8 @@
         <h3 class="phase__name">Wishlist priority</h3>
         <span class="phase__status phase__status--live">Live</span>
       </div>
-      <p class="phase__focus">Rank the hunt list, not just alphabetize it</p>
-      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist now scores each item on the two signals that already existed: how far the current ask sits below the historical median, and how long the item has sat on the list. There is still no Discogs want/have scarcity data behind it, so v1 works with what actually exists rather than waiting on data that may never arrive. How much a discount should outweigh waiting time stays a taste call, not a data problem, so it is a control on the page itself (Discount first / Balanced / Longest waiting), not a hardcoded constant.</p>
+      <p class="phase__focus">Sort the hunt list by price</p>
+      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist opens cheapest first. One chip flips it to most expensive first, and a separate toggle goes back to A to Z. Whichever sort is on, every row shows how far below the historical median the current ask sits. The first version scored each item on a blend of discount and waiting time, with three presets for weighting one against the other. It was replaced the next day. Two sorts that each do exactly what their label says turned out to be worth more than one that needed explaining.</p>
     </div>
   </section>
 
@@ -147,7 +147,7 @@
         <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">See who&rsquo;s touring, and who&rsquo;s touring near you</p>
-      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA. Coming Soon sweeps every artist in your collection and wishlist automatically through three sources in parallel: SeatGeek (by artist), JamBase Data (a geo-scoped sweep of the metro area, added 2026-08-13, filtered down to catalog/wishlist/watching artists before it merges in), and a direct scrape of seven hand-picked Bay Area venues (by venue) for the box-office-only shows the other two don't carry. Same-artist, same-venue shows with several dates group into one card with a date range instead of one row per night. Watch an artist to track it even before a confirmed date exists &mdash; a watched artist&rsquo;s shows show up in the Watching panel with a real date, price, and ticket link, not duplicated in Coming Soon too. A manual "+ Add a show" fallback covers anything none of the three sources find. Ticketmaster signup is still blocked on an account issue with their support; Bandsintown, Songkick, Eventbrite, Dice.fm, and PredictHQ were all researched and are tracked but not viable right now (see PROJECT.md's Feeds roadmap for why); a Spotify layer stays parked, added only if a real coverage gap shows up, the same discipline that added YouTube as a last-resort tier to audio preview. Two more pieces shipped 2026-08-07: a &ldquo;Traveling?&rdquo; panel sweeps every artist in your collection, wishlist, and watching against a destination city and date range, so a trip elsewhere surfaces shows you'd otherwise never see; and Watching rows now carry a &ldquo;Going&rdquo; toggle that persists across devices once you've actually got tickets. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
+      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA. Coming Soon sweeps them automatically through three sources at once: SeatGeek by artist, JamBase Data as a geo-scoped sweep of the metro area (added 2026-08-13, filtered down to your own artists before it merges in), and a direct scrape of seven hand-picked Bay Area venue calendars for the box-office-only shows the other two never carry. When the same artist plays the same venue on several nights, those group into one card with a date range instead of one row per night. Watch an artist to track it before a confirmed date exists. Its shows then appear in the Watching panel with a real date, price, and ticket link, and drop out of Coming Soon rather than showing up twice. A manual &ldquo;+ Add a show&rdquo; fallback covers whatever none of the three sources find. Ticketmaster signup is still stuck on an account issue with their support. Bandsintown, Songkick, Eventbrite, Dice.fm, and PredictHQ were all researched and are tracked but not viable right now (see PROJECT.md&rsquo;s Feeds roadmap for why). A Spotify layer stays parked, and gets added only if a real coverage gap shows up, the same discipline that put YouTube last in audio preview. Two more pieces shipped 2026-08-07. A &ldquo;Traveling?&rdquo; panel sweeps every artist in your collection, wishlist, and watching list against a destination city and date range, so a trip elsewhere surfaces shows you&rsquo;d otherwise never see. Watching rows also gained a &ldquo;Going&rdquo; toggle that carries across devices once you&rsquo;ve actually got tickets. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
     </div>
   </section>
 
@@ -159,7 +159,7 @@
         <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Easy-start mobile cataloguing</p>
-      <p class="phase__covers">Home-screen icons launch Vinyl Scout (and each of the owner&rsquo;s four other Claude-built projects) directly, no browser chrome, no typing a URL &mdash; live today via iOS&rsquo;s own &ldquo;Add to Home Screen.&rdquo; What&rsquo;s still ahead: a native, camera-first record-adding flow that replaces the current Safari-based photo-upload workflow. That part hasn&rsquo;t been built and stays parked until scoped.</p>
+      <p class="phase__covers">Home-screen icons launch Vinyl Scout and each of the owner&rsquo;s four other Claude-built projects directly, with no browser chrome and no URL to type. That part is live today, through iOS&rsquo;s own &ldquo;Add to Home Screen.&rdquo; Still ahead is a native, camera-first record-adding flow to replace the current Safari photo upload. It hasn&rsquo;t been built, and stays parked until it&rsquo;s scoped.</p>
     </div>
   </section>
 
@@ -170,8 +170,8 @@
         <h3 class="phase__name">Editorial polish pass</h3>
         <span class="phase__status phase__status--live">Live</span>
       </div>
-      <p class="phase__focus">Sharpen the voice, not the palette</p>
-      <p class="phase__covers">An outside design review confirmed the type, color, and spacing rules are holding, so this pass left them alone. Shipped 2026-08-07: navigation spacing tightened (22px&rarr;18px), the Audit page got darker row rules and 5px tighter padding so it reads as a working table rather than a magazine spread, and wishlist prices now stand taller than the rest of each row (11px&rarr;16px, bold). A small recurring catalog-index stamp (&ldquo;&#8470;001&rdquo;) and an inline instructional note were also tried on the Audit page as part of this pass, then removed at the owner&rsquo;s request the same week: both read as unnecessary clutter once live, not the mark this pass settles on. The Guide&rsquo;s prose was trimmed as a first step, earlier in the process.</p>
+      <p class="phase__focus">Sharpen the voice; leave the palette alone</p>
+      <p class="phase__covers">An outside design review confirmed the type, color, and spacing rules are holding, so this pass left them alone. Shipped 2026-08-07: navigation spacing tightened (22px&rarr;18px), the Audit page got darker row rules and 5px tighter padding so it reads as a working table rather than a magazine spread, and wishlist prices now stand taller than the rest of each row (11px&rarr;16px, bold). A small recurring catalog-index stamp (&ldquo;&#8470;001&rdquo;) and an inline instructional note were also tried on the Audit page, then pulled at the owner&rsquo;s request the same week. Both read as clutter once they were live. The Guide&rsquo;s prose was trimmed earlier in the same pass.</p>
     </div>
   </section>
 
@@ -183,7 +183,7 @@
         <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Edit key on wishlist writes, remembered per device</p>
-      <p class="phase__covers">The catalog&rsquo;s own add/delete/edit has required an edit key since Phase 1: viewing is open to anyone with the link, editing isn&rsquo;t. The Wishlist never got the same protection: its add/delete was deliberately opened up in July 2026 because re-entering it on mobile every session wasn&rsquo;t practical for a casual hunting list. Built 2026-08-06: the same edit key that already protects the catalog now also gates wishlist writes, but the browser remembers it in <code>localStorage</code> after it&rsquo;s entered once &mdash; the catalog&rsquo;s own key prompt only remembers for the current tab (<code>sessionStorage</code>) &mdash; so it costs one entry per device instead of one per visit, closing the gap without reintroducing the friction that got it removed in the first place.</p>
+      <p class="phase__covers">The catalog has required an edit key to add, delete, or edit since Phase 1. Anyone with the link can look; only the owner can change anything. The Wishlist never got the same protection, because re-typing a key on mobile every session wasn&rsquo;t practical for a casual hunting list, so its writes were deliberately opened up in July 2026. Built 2026-08-06: the same edit key now gates wishlist writes too, but the browser remembers it in <code>localStorage</code> after one entry, so it costs one entry per device instead of one per visit. The catalog&rsquo;s own prompt still uses <code>sessionStorage</code> and only remembers for the current tab. The gap closed without the friction coming back.</p>
     </div>
   </section>
 
@@ -195,7 +195,7 @@
         <span class="phase__status phase__status--live">Live</span>
       </div>
       <p class="phase__focus">Cross-reference your trips with your music</p>
-      <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a> (the owner&rsquo;s other project). Travel Intelligence&rsquo;s watched trips &mdash; destination city and date range only, no fares or points data &mdash; get checked against artists you like here (your collection, your wishlist, and everyone you&rsquo;re watching), within about 25 miles of the destination. A real match surfaces on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; here on the Watching panel, and a note against the relevant watched trip over on Travel Intelligence. Built 2026-08-05, the day after the technical plan (see PROJECT.md for the full design, including one deliberate deviation from that plan for scalability). Best-effort on both ends &mdash; if either site is briefly unreachable, the rest of the page still works exactly as it always did.</p>
+      <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a>, the owner&rsquo;s other project. Travel Intelligence&rsquo;s watched trips get checked against the artists you like here, within about 25 miles of the destination. That means your collection, your wishlist, and everyone you&rsquo;re watching. Only the destination city and the date range cross over. No fares, no points data. A real match surfaces on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; here on the Watching panel, and a note against the relevant watched trip over on Travel Intelligence. Built 2026-08-05, the day after the technical plan (see PROJECT.md for the full design, including one deliberate deviation from it for scalability). Both ends are best-effort. If either site is briefly unreachable, the rest of the page works exactly as it always did.</p>
     </div>
   </section>
 
