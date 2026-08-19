@@ -235,7 +235,7 @@ export default async (req, context) => {
   // same store /api/records protects — so it must reject unauthenticated
   // callers the same way. See checkWriteAuth() above.
   if (!checkWriteAuth(req)) {
-    return jsonResponse({ error: 'unauthorized — wrong or missing edit passphrase' }, 401);
+    return jsonResponse({ error: 'unauthorized: wrong or missing edit key' }, 401);
   }
 
   // Read env var. Trim. Strip accidental wrapping quotes.

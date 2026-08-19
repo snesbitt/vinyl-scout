@@ -298,7 +298,9 @@
     </p>
 
     <div class="prompt-box">
-      <button class="prompt-copy" id="vsCopyBtn" onclick="vsCopyPrompt()">Copy</button>
+      <div class="prompt-box__bar">
+        <button class="prompt-copy" id="vsCopyBtn" onclick="vsCopyPrompt()">Copy</button>
+      </div>
       <pre id="vsPromptText">I want to build a personal catalog for my collection (records, books, watches, wine, sneakers, or whatever I actually track), with a running estimate of what it's worth.
 
 Here's the pattern I want it to follow:
@@ -364,7 +366,7 @@ Please help me scope this into a first small version we can finish today, tell m
       var btn = document.getElementById('vsCopyBtn');
       function done(ok) {
         if (!btn) return;
-        btn.textContent = ok ? 'Copied' : 'Select & copy manually';
+        btn.textContent = ok ? 'Copied' : 'Select the text and copy';
         setTimeout(function () { btn.textContent = 'Copy'; }, 2200);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {

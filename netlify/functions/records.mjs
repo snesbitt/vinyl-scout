@@ -20,7 +20,7 @@ export default async (req, context) => {
     // Gate writes. Reads stay public.
     if (method === 'POST' || method === 'DELETE') {
       if (!checkWriteAuth(req)) {
-        return new Response(JSON.stringify({ error: 'unauthorized — wrong or missing edit passphrase' }), {
+        return new Response(JSON.stringify({ error: 'unauthorized: wrong or missing edit key' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
         });

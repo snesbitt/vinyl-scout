@@ -402,9 +402,16 @@
           added++;
         } else {
           failed++;
-          var bodyTxt = '';
-          try { bodyTxt = await res.text(); } catch (_) {}
-          lastError = 'HTTP ' + res.status + (bodyTxt ? ': ' + bodyTxt.slice(0, 80) : '');
+          // Every Function in this repo answers with {error: "..."} JSON, so
+          // read that field rather than slicing raw response text into the
+          // status line. A non-JSON body (a platform error page) falls back
+          // to the bare status code instead of 80 characters of markup.
+          var detail = '';
+          try {
+            var payload = await res.json();
+            if (payload && typeof payload.error === 'string') detail = payload.error;
+          } catch (_) {}
+          lastError = 'HTTP ' + res.status + (detail ? ': ' + detail : '');
         }
       } catch (err) {
         failed++;

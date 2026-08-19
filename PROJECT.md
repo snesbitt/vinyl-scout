@@ -608,19 +608,31 @@ surface from the now-fixed pipeline rather than pinned in by hand.
 
 ---
 
-## Phase 5+ (excluding 9 and 11) — Future / Parked
+## Phases 5 through 10: LIVE
 
-Phases 5 and 9 are live — see roadmap.html for their descriptions (this
-charter documents Phases 1–4 and 11 in full; 5 and 9 are lighter-touch
-additions documented primarily in roadmap.html and CLAUDE.md's dated
-notes). Phase 10 (Travel Intelligence hooks) depended on Phase 11 existing
-first — now that Phase 11 is live, Phase 10 is technically unblocked. A
-concrete technical plan for it was written 2026-08-04 (below), at Susan's
-direct request ("plan for our big feature tomorrow... connect the concert
-radar to the travel intelligence project and vice versa"), so the next
-session can start building rather than re-scoping from scratch — nothing in
-Phase 10 has actually been built yet. Phases 6, 7, and 8 remain not in
-scope. When asked about any of them: "that's Phase N, parked" and stop.
+All 11 phases are live. This charter documents Phases 1 through 4 and Phase
+11 in full. Phases 5 through 10 are lighter-touch additions, documented
+primarily in roadmap.html and in this file's own changelog entries above,
+which is why they share one section here instead of each getting their own.
+
+Phase 5 (2026 reliability and polish) and Phase 9 (wishlist priority
+sorting, shipped 2026-07-29) went live first. Phase 7 (iOS app) flipped to
+Live on 2026-08-03 after Susan flagged the roadmap as wrong (v29). Read that
+one carefully before repeating it. The home-screen launch icons are real and
+in daily use, but the native camera-first record-adding flow meant to
+replace the Safari photo upload is still unbuilt and still unscoped, so
+Phase 7 is the one phase where "live" covers part of it rather than all of
+it. Phase 8, "Close the wishlist gap," shipped 2026-08-06 and put the edit
+key back in front of wishlist writes, remembered per device (v39). Phase 6,
+"Editorial polish pass," shipped the next day (v40).
+
+Phase 10 (Travel Intelligence hooks) depended on Phase 11 existing first.
+Its technical plan was written 2026-08-04, at Susan's direct request ("plan
+for our big feature tomorrow... connect the concert radar to the travel
+intelligence project and vice versa"), and it was built the following day.
+Both the plan and the build are kept below, in that order, because the build
+deviated from the plan in one place that matters and the reasoning is worth
+keeping.
 
 ### Phase 10 — Travel Intelligence hooks: technical plan (drafted 2026-08-04)
 

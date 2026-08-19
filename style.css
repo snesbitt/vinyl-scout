@@ -562,20 +562,6 @@ main {
   white-space: nowrap;
   min-width: 0;
 }
-.gallery .tile__meta.tile__price { color: var(--ink-soft); white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5; }
-.gallery .tile__meta {
-  display: block;
-  margin-top: 4px;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 
 /* ---------- Detail modal ---------- */
 .detail {
@@ -951,7 +937,6 @@ main {
   border-color: var(--ink);
   color: var(--ink);
 }
-.btn--sm { padding: 8px 12px; min-height: 36px; font-size: 10px; }
 
 .collection-title {
   font-family: var(--serif);
@@ -1046,52 +1031,6 @@ main {
   left: 4px;
   color: var(--accent);
   font-weight: 700;
-}
-.article__grades {
-  margin: 12px 0 24px;
-  border-top: 1px solid var(--rule);
-}
-.article__grades dl {
-  display: grid;
-  grid-template-columns: 60px 1fr auto;
-  gap: 0 18px;
-  margin: 0;
-  align-items: baseline;
-}
-.article__grades dt {
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--ink);
-  padding: 12px 0;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.article__grades dd {
-  margin: 0;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--rule-soft);
-  color: var(--ink-soft);
-  font-size: 14px;
-}
-.article__grades dd.article__mult {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-faint);
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-.article__footer {
-  margin-top: 56px;
-  padding-top: 22px;
-  border-top: 1px solid var(--rule);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
 }
 
 /* ---------- Reduced motion ---------- */
@@ -1200,8 +1139,6 @@ main {
   .article h1 { font-size: clamp(32px, 9vw, 40px); }
   .article__lede { font-size: 17px; margin-bottom: 26px; padding-bottom: 20px; }
   .article h2 { font-size: 20px; margin-top: 32px; }
-  .article__grades dl { grid-template-columns: 52px 1fr auto; gap: 0 12px; }
-  .article__grades dd { font-size: 13px; }
 
   .collection-title { margin: 24px 18px 14px; }
   .error-banner { margin: 12px 18px 0; }
@@ -1253,7 +1190,7 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
 
    Everything below was either promoted out of about.html's/guide.html's
    own page-scoped <style> blocks (stack-grid, stepper, purpose-banner,
-   model-grid, model-rule, mode-grid, mode-caption, article__closing-kicker,
+   model-grid, model-rule, mode-grid, article__closing-kicker,
    article__divider, prompt-box, prompt-copy, next-grid, field-note — all
    pre-existing, just centralized here and normalized to the mobile-first
    breakpoint), or is new, adopted from Travel Intelligence/Streaming
@@ -1327,14 +1264,20 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
 .mode-card--terminal .mode-card__role  { color: #6b5f49; }
 .mode-card--cowork .mode-card__role    { color: #5a6e50; }
 .mode-card--scheduled .mode-card__role { color: #4d6377; }
-.mode-caption { font-family: var(--mono); font-size: 13px; font-style: italic; color: var(--ink-faint); text-align: center; margin: 6px 0 20px; }
 
 .article__closing-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 8px; }
 .article__divider { margin: 52px 0 34px; border-top: 1px solid var(--rule); }
 
-.prompt-box { position: relative; margin: 16px 0 24px; padding: 20px 22px; background: #22201b; border: 1px solid #4a4438; border-radius: 6px; }
-.prompt-box pre { margin: 0; padding-right: 68px; white-space: pre-wrap; word-wrap: break-word; font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: #efe9dc; }
-.prompt-copy { position: absolute; top: 12px; right: 12px; background: var(--bg); color: var(--ink); border: none; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; padding: 7px 12px; cursor: pointer; }
+/* The copy button sits in its own row above the prompt text, not absolutely
+   positioned over it. vsCopyPrompt() swaps the label between "Copy",
+   "Copied" and a longer clipboard-failure message, and an absolutely
+   positioned button can only clear the text by reserving padding sized to
+   the widest label it will ever hold. Normal flow makes any label length
+   safe, so no state can overlap the prompt. */
+.prompt-box { position: relative; margin: 16px 0 24px; padding: 14px 22px 20px; background: #22201b; border: 1px solid #4a4438; border-radius: 6px; }
+.prompt-box__bar { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.prompt-box pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: #efe9dc; }
+.prompt-copy { max-width: 100%; background: var(--bg); color: var(--ink); border: none; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; line-height: 1.4; padding: 7px 12px; cursor: pointer; white-space: normal; text-align: center; }
 .prompt-copy:hover { background: #fff; }
 
 .next-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 8px 0 32px; }

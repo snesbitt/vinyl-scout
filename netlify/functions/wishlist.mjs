@@ -138,7 +138,7 @@ export default async (req, context) => {
     // check ran after store creation -- caught by scripts/test-wishlist.mjs
     // during Phase 8 review, fixed before it ever shipped this way).
     if ((method === 'POST' || method === 'DELETE') && !checkWriteAuth(req)) {
-      return new Response(JSON.stringify({ error: 'unauthorized — wrong or missing edit passphrase' }), {
+      return new Response(JSON.stringify({ error: 'unauthorized: wrong or missing edit key' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
