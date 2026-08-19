@@ -1,0 +1,84 @@
+name: Concert Radar health check
+
+# Added 2026-08-19, replacing the Claude scheduled task "Vinyl Scout —
+# Concert Radar feed health check". That task was confirmed structurally
+# broken three consecutive weeks (2026-08-10, 08-13, 08-17 — see
+# claude/concert-radar-health-check-*.md in the "Personal Vinyl Collection"
+# Claude project): a cloud-fired Claude scheduled task never has a
+# connected desktop, so it could never reach Claude-in-Chrome/the device
+# bridge that both the live checks and any repair commit depended on. This
+# follows the exact same migration precedent as backup-catalog.yml
+# (2026-08-09) and scheduled-sweep.yml (2026-08-14) — runs entirely inside
+# Actions, no Netlify compute, no device bridge, no human's computer needs
+# to be on.
+#
+# Unlike those two (pure data writes, committed straight to main), this
+# workflow can propose CODE changes to netlify/functions/venue-shows.mjs —
+# a different risk class. Per scheduled-sweep.yml's own comment calling for
+# a "hybrid gating convention" for exactly this case: this workflow NEVER
+# pushes to main directly. A verified repair or a disabled-venue fallback
+# both land as a pull request for Susan to review and merge herself.
+#
+# Scheduled Mondays 11:00 UTC — an hour after scheduled-sweep.yml's Sunday
+# 10:00 UTC run and well clear of the daily 09:00/09:05 UTC backups, so
+# this check runs against data the weekly catalog sweep has already
+# refreshed rather than racing it.
+#
+# Secret required: ANTHROPIC_API_KEY (Settings → Secrets and variables →
+# Actions), used only when a venue's parser is genuinely broken, to
+# request a corrected parser. Without it set, a broken venue still gets
+# detected and disabled (with a clear error), just not auto-repaired —
+# see scripts/concert-radar-health-check.mjs's own header for the full
+# behavior and limitations.
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  concert-radar-health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run health check + attempt repair
+        id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/concert-radar-health-check.mjs
+        continue-on-error: true
+
+      - name: Open pull request if a repair or a venue disable was made
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="concert-radar-autofix/${{ github.run_number }}"
+          git checkout -b "$BRANCH"
+          git add netlify/functions/venue-shows.mjs CLAUDE.md
+          git commit -m "${{ steps.check.outputs.commit_message }}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "${{ steps.check.outputs.pr_title }}" \
+            --body-file "${{ steps.check.outputs.pr_body_path }}" \
+            --label "concert-radar,automated"
+
+      - name: Fail the run if something needs human attention
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "Health check found something it could not resolve on its own (a disabled venue, a stale catalog-cache, or a SeatGeek spot-check failure). See the job summary above and, if one was opened, the auto-repair PR." >&2
+          exit 1
