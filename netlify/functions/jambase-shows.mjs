@@ -5,9 +5,7 @@
 // wired into both concert-radar.html's client-side sweepCatalog() (v21) and
 // scheduled-sweep.mjs's weekly server-side sweep (v2) — see both files' own
 // headers for the wiring details. What's still open, flagged rather than
-// guessed at: JamBase's required attribution credit-line wording hasn't been
-// pulled from their Attribution doc page yet (TODO 3 below), and
-// runLiveSearch() (the manual Search panel / Watching row's "Check live"
+// guessed at: runLiveSearch() (the manual Search panel / Watching row's "Check live"
 // button) doesn't query this endpoint yet, unlike venue-shows.mjs which
 // already got that treatment back at v17 (TODO 2 below, now partly done —
 // the sweepCatalog() half is complete, the runLiveSearch() half isn't).
@@ -355,14 +353,24 @@ export default async (req) => {
 //      Search panel / Watching row's "Check live" button) still only
 //      queries tour-dates.mjs + venue-shows.mjs, not this endpoint — parity
 //      with venue-shows.mjs's own v17 treatment is still open.
-//   3. Still open: check JamBase's "Attribution" doc page (seen in the
-//      reference sidebar, not yet opened) — the free tier likely requires
-//      visible attribution when displaying their data publicly; add
-//      whatever's required to concert-radar.html's footer/credit line, same
-//      spirit as this repo's existing Deezer/YouTube "via {Provider}"
-//      credit pattern in app.js's buildAudioBlock(). Nothing has been
-//      added yet — do not assume attribution is satisfied just because the
-//      data is flowing.
+//   3. DONE 2026-08-19 — the Attribution & Linking doc was finally read
+//      (it is client-side rendered, which is why three earlier sessions'
+//      fetch attempts got only page metadata; opened in a real browser
+//      instead). Requirements: a visible credit near the data or at page
+//      bottom, linking to JamBase.com with rel="nofollow", using one of
+//      their official marks or the explicitly-permitted plain-text
+//      "Powered by JamBase"; plus rel="nofollow" on all ticket/event
+//      links, which must use the primary Ticket Link URL from the API
+//      response unmodified, falling back to the JamBase event URL.
+//      concert-radar.html v21.4 implements the credit side (v21.1's "via
+//      JamBase" placeholder was non-compliant on both wording and
+//      nofollow) and adds nofollow to the ticket CTAs. The URL side of
+//      the rule was already satisfied by this file — see the offers
+//      handling below: the ticketingLinkPrimary offer wins, e.url is the
+//      fallback, and neither is rewritten. Do not "tidy" that into a
+//      redirect or tracking wrapper; modifying ticket URLs is explicitly
+//      a compliance violation, and their doc notes non-compliance may
+//      result in API access revocation.
 //   4. DONE 2026-08-13 — real pagination added (fetchAllEvents(),
 //      MAX_PAGES=25, `?allPages=true`). scheduled-sweep.mjs's weekly job
 //      uses allPages=true for a full sweep; concert-radar.html's live

@@ -419,15 +419,32 @@ async function run(label, watchingList, travelOpts) {
   const jambaseRelevantShown = soonHtml.toLowerCase().includes(relevantUnwatchedJambaseShow.artist.toLowerCase()) || soonHtml.toLowerCase().includes(jambaseArtistEscaped);
   report("  Coming Soon SHOULD show \"" + relevantUnwatchedJambaseShow.artist + "\" (JamBase, relevant, unwatched): " + (jambaseRelevantShown ? "pass" : "FAIL (relevant JamBase match missing)"));
 
-  // v21.1: JamBase's card should carry a real attribution link to
-  // jambase.com (sourceCreditHtml() in concert-radar.html), unlike every
-  // other source's plain-text "via {source}" tag — see that file's own
-  // v21.1 header note for why. Checks both that the link exists and that
-  // it's actually anchored to the JamBase card, not just present anywhere
-  // on the page (a Watching-panel .travel-match note or unrelated markup
-  // could otherwise produce a false pass).
-  const jambaseLinkPresent = /<a class="cr-source" href="https:\/\/www\.jambase\.com\/"[^>]*>via JamBase<\/a>/.test(soonHtml);
+  // v21.4: JamBase's card must carry an attribution credit that actually
+  // satisfies their published Attribution & Linking rules (doc read in a
+  // real browser 2026-08-19; see concert-radar.html's v21.4 header note).
+  // Three separate things are asserted rather than one loose "is it a
+  // link" check, because v21.1 passed a loose check while being
+  // non-compliant on two of the three counts:
+  //   (a) it is a real anchor to jambase.com, on the JamBase card;
+  //   (b) the visible text is the permitted plain-text form "Powered by
+  //       JamBase" — NOT the old "via JamBase", which is not one of their
+  //       accepted formats;
+  //   (c) the link carries rel="nofollow", which they require explicitly.
+  const jambaseCredit = soonHtml.match(/<a class="cr-source" href="https:\/\/www\.jambase\.com\/"([^>]*)>([^<]*)<\/a>/);
+  const jambaseLinkPresent = !!jambaseCredit;
   report("  JamBase card's source tag SHOULD be a real link to jambase.com: " + (jambaseLinkPresent ? "pass" : "FAIL (missing or not a link — check sourceCreditHtml())"));
+  const jambaseWordingOk = jambaseLinkPresent && jambaseCredit[2].trim() === "Powered by JamBase";
+  report("  JamBase credit SHOULD read \"Powered by JamBase\" (their permitted plain-text form): " + (jambaseWordingOk ? "pass" : "FAIL (got " + JSON.stringify(jambaseLinkPresent ? jambaseCredit[2] : null) + " — \"via JamBase\" is NOT an accepted format)"));
+  const jambaseNofollowOk = jambaseLinkPresent && /\brel="[^"]*\bnofollow\b/.test(jambaseCredit[1]);
+  report("  JamBase credit link SHOULD carry rel=nofollow (required by their doc): " + (jambaseNofollowOk ? "pass" : "FAIL (missing nofollow — check sourceCreditHtml())"));
+
+  // v21.4: their linking rules also require rel="nofollow" on the ticket /
+  // event links themselves, not just the credit. Every "Get tickets" CTA
+  // rendered on the page is checked, since a JamBase-sourced show can be
+  // rendered by any of the four CTA sites in concert-radar.html.
+  const ticketCtas = soonHtml.match(/<a class="cr-(?:live|watch)-cta"[^>]*>/g) || [];
+  const ticketNofollowOk = ticketCtas.length > 0 && ticketCtas.every((a) => /\brel="[^"]*\bnofollow\b/.test(a));
+  report("  Ticket CTAs SHOULD all carry rel=nofollow (" + ticketCtas.length + " checked): " + (ticketNofollowOk ? "pass" : "FAIL (at least one ticket link is missing nofollow)"));
 
   // 2026-08-14: dedupeSameShow() regression — the same real Herbie Hancock
   // show, reported by both JamBase ("Davies Symphony Hall") and SeatGeek
