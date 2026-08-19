@@ -86,7 +86,9 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          `catalog-cache` Blobs store; see 2026-08-04 v18
                          note)
       catalog-cache.mjs  /api/catalog-cache  GET ungated · pure read
-                         (serves scheduled-sweep.mjs's weekly output; used
+                         (v2, 2026-08-19: serves data/catalog-cache.json,
+                         committed weekly by the Actions job, NOT the
+                         Blobs store any more; used
                          by concert-radar.html only as a first-paint
                          fallback for a browser with no local cache yet —
                          see 2026-08-04 v18 note)
@@ -1752,3 +1754,75 @@ Susan ran `npm run smoke` against production for the first time in a while and g
 **Fixed:** assertion now checks for `'Vinyl Scout'` (matches what's actually on the page, and would have passed against every deploy since 5a23f79). Not a site bug — confirmed by the other 8 checks in the same run passing clean, and by reading the actual live copy's own rename commit.
 
 **Delivered:** `scripts/smoke.mjs`, this file. Bundled with the other 2026-08-14 fixes, not pushed directly.
+
+## 2026-08-19, later still: the scheduled-sweep migration was blocked on a question that had already been answered
+
+Picked this up as the hardest open item, framed the way it has been framed
+since 2026-08-13: `scheduled-sweep.mjs` writes to the `catalog-cache`
+Netlify Blobs store, Actions has no public write path for that, so pick
+one of two bad options. Either hand GitHub Actions a Netlify Blobs API
+token, which trades Netlify compute for a Netlify credential living in
+GitHub and is not actually less Netlify, or build a new `EDIT_SECRET`-gated
+write endpoint for Actions to POST to, which is real new surface area. The
+2026-08-13 entry above calls the second one "the right option if this gets
+built."
+
+Neither is needed. The premise stopped being true on 2026-08-14, in this
+repo, and nobody went back and re-read the item afterward.
+`scripts/scheduled-sweep.mjs` and `.github/workflows/scheduled-sweep.yml`
+shipped that day. That job runs entirely in Actions, reads the same public
+endpoints, and commits its merged output to `data/catalog-cache.json` using
+nothing but the workflow's own built-in `GITHUB_TOKEN`. It writes a git
+file, not a blob. It has been running on its Sunday 10:00 UTC cron and the
+committed file is real: `source: "github-actions"`, 36 shows across 132
+artists, `at` 2026-08-16 10:30 UTC, which is that cron firing.
+
+So the write side was migrated five days ago and the item stayed open
+because the *read* side was never moved. `netlify/functions/catalog-cache.mjs`
+was still calling `getStore('catalog-cache')`. That is a read change, and
+it adds zero secrets, which is strictly better than either option the
+decision was framed around. Its own workflow file had said exactly this
+since 2026-08-14, in the "TRANSITION PERIOD" comment, which named the
+follow-up precisely and was then not read again.
+
+**What shipped.** `catalog-cache.mjs` v2 serves the committed JSON via a
+static import, which esbuild inlines into the function bundle at build
+time. `publish = "."` already puts the repo root in the deploy, so there is
+no `included_files` config to keep in sync and a missing or malformed file
+fails the build rather than every request. Response shape is unchanged
+apart from an additive `source`. `scripts/test-catalog-cache.mjs` (new, 21
+assertions, wired into `npm test`) pins the contract, including two things
+that would otherwise fail silently: that `at` stays a number, because
+`concert-radar-health-check.mjs`'s 9-day freshness check reads it and a
+reshaped value would disable that check rather than trip it, and that no
+`@netlify/blobs` import survives in the file, which is the actual point of
+the change. Verified by mutation: dropping `at`, weakening the 405, and
+truncating the shows array each fail the suite.
+
+**Deliberately left alone.** `netlify/functions/scheduled-sweep.mjs` still
+exists and still writes the Blobs store, now with no reader. Harmless, and
+a working fallback while the read side is unverified. Retire it, and the
+store, in a follow-up.
+
+**The one thing local tests cannot prove.** This is a bundler-boundary
+change, and the standing rule at the top of this file says an import across
+a deployment boundary can pass everything locally and still fail in the
+real bundle. Node resolves the JSON from disk here; Netlify inlines it at
+build. After deploy, hit `https://vinylscout.org/api/catalog-cache` and
+confirm a non-empty `shows` array with `source: "github-actions"`. The
+empty placeholder means the JSON did not make the bundle, and the fix is
+`included_files` plus a runtime read, not a revert.
+
+**Worth generalising.** This item sat open for six days as an architecture
+decision, and it was never an architecture decision, it was a stale
+premise. Two other punch-list items closed today the same way: Babylon
+Berlin's missing art had been sourced on 2026-08-14, and MGM+/Paramount+'s
+missing Coming Soon source had been found on 2026-08-16. Three of the
+hardest-looking items were all already done. Re-deriving whether an item is
+still true costs minutes; the two options debated here would have cost a
+day and added a credential.
+
+**Delivered:** `netlify/functions/catalog-cache.mjs`,
+`scripts/test-catalog-cache.mjs`, `package.json`,
+`.github/workflows/scheduled-sweep.yml`, `PROJECT.md`, this file.
+Committed locally, not pushed.

@@ -9,17 +9,17 @@ name: Weekly catalog sweep
 # sweep.mjs already uses, and commits the merged result straight to this
 # repo, using only Actions' own built-in GITHUB_TOKEN.
 #
-# TRANSITION PERIOD: this is additive alongside the existing Netlify-
-# scheduled scheduled-sweep.mjs, not a replacement yet -- both will run for
-# a period so Susan can compare a real run's output (data/catalog-cache.json)
-# against what /api/catalog-cache currently serves from Blobs before
-# retiring the old one. Once confident this is working (check the Actions
-# tab, or trigger it manually via "Run workflow" below), netlify/functions/
-# scheduled-sweep.mjs can be removed AND netlify/functions/catalog-cache.mjs
-# needs to be updated to read data/catalog-cache.json instead of the Blobs
-# store -- see the accompanying migration note for that second half of the
-# cutover, which touches function logic and should go through a PR per the
-# repo's own hybrid gating convention, not a direct commit.
+# CUTOVER STATUS, updated 2026-08-19. The read half is DONE:
+# netlify/functions/catalog-cache.mjs v2 now serves data/catalog-cache.json,
+# the file this job commits, instead of the Blobs store. So /api/catalog-cache
+# is fed by this workflow now, not by the Netlify scheduled function.
+#
+# What is still outstanding is the other half: netlify/functions/
+# scheduled-sweep.mjs still exists and still writes the 'catalog-cache' Blobs
+# store on its own Netlify schedule, with nothing reading it. Harmless, and
+# left in place on purpose as a fallback until /api/catalog-cache has been
+# checked against production. Retire it, and the Blobs store, once that check
+# is done.
 #
 # Scheduled Sundays 10:00 UTC -- an hour clear of backup-catalog.yml's daily
 # 09:05 UTC run and the old Netlify job's own weekly cadence, so the two

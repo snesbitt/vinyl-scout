@@ -11,8 +11,9 @@
     "test:concert-radar-e2e": "node scripts/e2e-concert-radar.mjs",
     "test:wishlist": "node scripts/test-wishlist.mjs",
     "test:jambase-shows": "node scripts/test-jambase-shows.mjs",
+    "test:catalog-cache": "node scripts/test-catalog-cache.mjs",
     "test:concert-radar-health-check": "node scripts/test-concert-radar-health-check.mjs",
-    "test": "npm run check && npm run test:audio-preview && npm run test:artists-playing && npm run test:concert-radar-e2e && npm run test:wishlist && npm run test:jambase-shows && npm run test:concert-radar-health-check && node scripts/check-content-drift.mjs",
+    "test": "npm run check && npm run test:audio-preview && npm run test:artists-playing && npm run test:concert-radar-e2e && npm run test:wishlist && npm run test:jambase-shows && npm run test:catalog-cache && npm run test:concert-radar-health-check && node scripts/check-content-drift.mjs",
     "smoke": "node scripts/smoke.mjs",
     "smoke:local": "node scripts/smoke.mjs http://localhost:8888"
   },
