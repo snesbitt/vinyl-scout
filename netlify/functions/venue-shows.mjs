@@ -1,5 +1,7 @@
 // netlify/functions/venue-shows.mjs
-// version: 4
+// version: 5
+// // v5 (2026-08-19): Freight & Salvage disabled — broken parser, automated
+// repair not confident enough, needs manual follow-up.
 // v4 (2026-08-04, same day as v3): Susan flagged directly that Easy Star
 // All-Stars also plays Cornerstone Berkeley, Oct 22, 2026 — v3 had checked
 // this specific date/venue combo (it appeared on Songkick's artist
@@ -391,7 +393,7 @@ function parseUcTheatre(html) {
 var VENUES = [
   { key: "cornerstone", label: "Cornerstone", url: "https://cornerstoneberkeley.com/events", parse: parseCornerstone },
   { key: "ape", label: "Another Planet Entertainment (Fox, Greek, Bill Graham Civic, Castro, Bimbo's, Independent)", url: "https://apeconcerts.com/event-listing/", parse: parseApe },
-  { key: "freight", label: "Freight & Salvage", url: "https://thefreight.org/shows/", parse: parseFreight },
+  { key: "freight", label: "Freight & Salvage", url: "https://thefreight.org/shows/", parse: function (html) { throw new Error("Disabled by Concert Radar health check (2026-08-19): Freight & Salvage HTML structure changed and an automated fix could not be confidently verified. Needs a live session to diagnose — see CLAUDE.md changelog for this date."); } },
   { key: "sweetwater", label: "Sweetwater Music Hall", url: "https://sweetwatermusichall.org/events/", parse: parseSweetwater },
   { key: "gamh", label: "Great American Music Hall", url: "https://gamh.com/calendar/", parse: function (html) { return parseSeeTickets(html, "Great American Music Hall", "San Francisco, CA"); } },
   { key: "chapel", label: "The Chapel", url: "https://thechapelsf.com/calendar/", parse: function (html) { return parseSeeTickets(html, "The Chapel", "San Francisco, CA"); } },

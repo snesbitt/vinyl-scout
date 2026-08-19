@@ -1752,3 +1752,11 @@ Susan ran `npm run smoke` against production for the first time in a while and g
 **Fixed:** assertion now checks for `'Vinyl Scout'` (matches what's actually on the page, and would have passed against every deploy since 5a23f79). Not a site bug — confirmed by the other 8 checks in the same run passing clean, and by reading the actual live copy's own rename commit.
 
 **Delivered:** `scripts/smoke.mjs`, this file. Bundled with the other 2026-08-14 fixes, not pushed directly.
+
+## 2026-08-19 — Concert Radar health check (automated, GitHub Actions)
+
+Weekly `scripts/concert-radar-health-check.mjs` run found and acted on the following in `netlify/functions/venue-shows.mjs`:
+
+- Disabled `freight` (Freight & Salvage): automated repair not confident enough, needs a human look.
+
+See this PR for the full diff and verification evidence. Repaired parsers were functionally verified against the live HTML that triggered this run (non-empty results, valid future dates) but not semantically reviewed by a human yet — worth a quick sanity check against the venue's own page.
