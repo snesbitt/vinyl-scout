@@ -489,6 +489,18 @@ var MANUAL_SHOWS = [
     priceHigh: null,
     url: "https://www.songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley",
   },
+  {
+    id: "manual-the-meditations-2026-09-22",
+    artist: "The Meditations",
+    title: "The Meditations",
+    venue: "Freight & Salvage",
+    city: "Berkeley, CA",
+    date: "2026-09-22",
+    source: "Manual entry — verified 2026-08-19 (added while Freight & Salvage's own scraper is disabled, see CLAUDE.md's 2026-08-19 entry)",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://secure.thefreight.org/16042/16043",
+  },
 ];
 
 // EXCLUDED_VENUES — Susan asked for these too, but as of 2026-08-04 neither
