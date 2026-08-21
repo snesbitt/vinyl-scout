@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guide · Vinyl Scout</title>
-  <meta name="description" content="How to build a self-governing catalog with Claude: which mode and model for each step, pricing, backups, a daily health check, and the exact prompt to build your own. Works for any collection." />
+  <meta name="description" content="How to build a self-governing catalog with Claude: which mode and model for each step, pricing, backups, a weekly health check, and the exact prompt to build your own. Works for any collection." />
 <link rel="preload" href="/fonts/lora-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>/* Self-hosted fonts (latin) — was Google Fonts; files from the official Fontsource/IBM npm releases, 2026-07-26. Extended to this page 2026-07-27 to match index.html. */
 @font-face{font-family:"Lora";font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/lora-latin-400-normal.woff2) format("woff2")}
@@ -74,7 +74,9 @@
       <strong>Cowork</strong> maintains, working on files and a browser; it
       shipped this very page without a terminal session ever opening.
       <strong>Scheduled tasks</strong> repeat what no one should have to
-      remember, like the weekly price refresh and the nightly backup.
+      remember, like the weekly price refresh. The jobs that need no browser
+      moved on to GitHub Actions, so they don't wait on a machine being
+      awake: the nightly backup, the Monday health check.
     </p>
 
     <div class="mode-grid">
@@ -110,8 +112,8 @@
         <p class="mode-card__role">Repeat</p>
         <ul>
           <li>Weekly price refresh</li>
-          <li>Nightly backup</li>
-          <li>Daily health check</li>
+          <li>Nightly backup, in Actions</li>
+          <li>Monday health check, in Actions</li>
         </ul>
       </div>
     </div>
@@ -119,19 +121,20 @@
     <p>
       <em>Where</em> the work happens is one decision. <em>Which version of
       Claude does it</em> is another. Claude comes in a few strengths at
-      different prices, and the point is to match strength to stakes. The
-      nightly backup runs unsupervised with nothing to judge, so it gets the
-      fastest and cheapest one. Ordinary building work gets the standard
+      different prices, and the point is to match strength to stakes. Some
+      jobs need no model at all: the nightly backup is plain code on a timer
+      with nothing to judge. Ordinary building work gets the standard
       version. Reach for the strongest available only when a wrong answer
-      costs real data or real money. Writing meant for a real reader, this
-      page included, goes to a version tuned for prose instead of code.
+      costs real data or real money, which is why the Monday health check
+      uses it to rewrite a broken parser. Writing meant for a real reader,
+      this page included, goes to a version tuned for prose instead of code.
     </p>
 
     <div class="model-grid">
       <div class="model-card model-card--haiku">
         <p class="model-card__name">Fast &amp; cheap</p>
         <p class="model-card__tag">Routine · unsupervised</p>
-        <p class="model-card__desc">The nightly backup, the daily integrity check.</p>
+        <p class="model-card__desc">Bulk sorting and tidying, where the right answer is obvious.</p>
       </div>
       <div class="model-card model-card--sonnet">
         <p class="model-card__name">Standard</p>
@@ -141,7 +144,7 @@
       <div class="model-card model-card--opus">
         <p class="model-card__name">Strongest available</p>
         <p class="model-card__tag">High stakes</p>
-        <p class="model-card__desc">Problems where a mistake carries real cost.</p>
+        <p class="model-card__desc">Problems where a mistake carries real cost. The health check's parser rewrites run here.</p>
       </div>
       <div class="model-card model-card--fable">
         <p class="model-card__name">Built for prose</p>
@@ -151,10 +154,10 @@
     </div>
 
     <p class="model-rule">
-      <strong>The rule:</strong> default to standard. Step down for anything
-      scheduled or read-only, since nobody's watching in real time. Step up
-      only when a mistake would actually
-      cost you.
+      <strong>The rule:</strong> default to standard. Step down for bulk work
+      with an obvious right answer. Step up when a mistake would actually
+      cost you, scheduled work included: nobody watching in real time is a
+      reason to be careful, not a reason to go cheap.
     </p>
 
     <h2 id="step-02"><span class="article__num">02</span>Define the data first</h2>
@@ -169,12 +172,18 @@
 
     <h2 id="step-03"><span class="article__num">03</span>Pull real market prices, on a schedule</h2>
     <p>
-      A scheduled task runs weekly, unattended. It pulls prices from a
+      A scheduled task runs weekly, on Mondays. It pulls prices from a
       real source for the category (Discogs here; eBay's sold listings
       do the same job for most other collecting categories) and logs a
-      low, median, and high figure for every item. This catalog's running
-      total is about €2,230 across 94 records, a number that carries weight
-      only because the process behind it can be checked.
+      low, median, and high figure. It is not unattended, and it is the one
+      job here that lives outside the repository: Discogs blocks automated
+      requests for sale history, so the median and high come through a real
+      browser session on a real machine, and a run only happens when that
+      machine is awake. Only the low price is something a server can fetch
+      on its own. Coverage is honest rather than complete: all 94 records
+      have a low, 93 have a median. This catalog's
+      running total is about €2,220 across those 94 records, a number that
+      carries weight only because the process behind it can be checked.
     </p>
     <p>
       Expect a handful of early mismatches. Fix each one against the right
@@ -183,30 +192,44 @@
 
     <h2 id="step-04"><span class="article__num">04</span>Back it up automatically, every night</h2>
     <p>
-      A scheduled task saves the complete catalog as a dated file, into
-      the same GitHub repository that holds the code. This isn't
+      A GitHub Actions workflow saves the complete catalog as a dated file,
+      into the same GitHub repository that holds the code. This isn't
       theoretical: after the second data-loss incident, recovery meant
       pasting the previous day's file back in. Ten minutes. Done.
     </p>
 
-    <h2 id="step-05"><span class="article__num">05</span>Check it daily: read-only, always</h2>
+    <h2 id="step-05"><span class="article__num">05</span>Check it on a schedule, and gate what it can change</h2>
     <p>
-      The final safeguard is a daily check that <strong>reads and never
-      writes</strong>, a distinction that matters more than it sounds. It
-      counts the records, confirms prices are present, verifies the prior
-      night's backup landed, and reconciles the live catalog against it.
-      It has no authority to change anything itself; fixing it stays a
-      human decision.
+      The final safeguard is a health check that runs every Monday morning.
+      It reads the live site: are the seven venue feeds still parsing, is
+      the cached show list fresh, does the ticketing lookup still answer.
+      When it finds a broken venue parser it does more than report it. It
+      fetches that venue's page, writes a corrected parser, confirms the
+      rewrite actually extracts real shows, and <strong>opens a pull
+      request</strong> with the result. What it never does is write to
+      <code>main</code>. That gate is the distinction that matters more
+      than it sounds: a checker that can silently change live data isn't a
+      safeguard, and a checker that can only complain doesn't fix anything.
+      A pull request is both at once, and the decision stays human.
+    </p>
+    <p>
+      The catalog's own integrity is checked a level down and on different
+      terms. A content-drift check inside the test suite counts the records,
+      reads the newest committed backup, and fails the build if what these
+      pages claim has drifted from it; it runs on every push and once a week
+      on its own. Reconciling the live catalog against that backup record by
+      record is still a manual step, done by hand when something looks off.
+      Worth knowing which of your safeguards is a job and which is a habit.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
-      <svg viewBox="0 0 720 132" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Two example reports from the daily check: a healthy one-liner and a data-loss alert">
+      <svg viewBox="0 0 720 132" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Two example reports from the content-drift check: a healthy one-liner and a data-loss alert">
         <g font-family="'IBM Plex Mono', monospace">
           <rect x="8" y="8" width="345" height="110" rx="8" fill="#f2f7f0" stroke="#a4bd9a"/>
           <circle cx="32" cy="35" r="8" fill="#5d8a4e"/>
           <text x="50" y="40" font-size="14" font-weight="600" fill="#2e4026" font-family="'IBM Plex Sans', sans-serif">Good day</text>
           <text x="24" y="68" font-size="13.5" fill="#3d4f36">94 records, 94 priced,</text>
-          <text x="24" y="92" font-size="13.5" fill="#3d4f36">backup current, value €2,234.</text>
+          <text x="24" y="92" font-size="13.5" fill="#3d4f36">backup current, value €2,220.</text>
 
           <rect x="367" y="8" width="345" height="110" rx="8" fill="#faf0ec" stroke="#cf9a85"/>
           <circle cx="391" cy="35" r="8" fill="#b5541c"/>
@@ -216,7 +239,7 @@
         </g>
       </svg>
       <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
-        The two outcomes the daily check produces. Nothing in between.
+        The two outcomes the drift check produces. Nothing in between.
       </figcaption>
     </figure>
 
@@ -224,13 +247,20 @@
     <p>
       Ordinary <strong>GitHub</strong> repository. Push triggers the whole
       deploy. <strong>Netlify</strong> rebuilds in under a minute, hosts the
-      data, and runs the background jobs: the Discogs price pull, the
-      nightly backup. Every piece runs on a free tier. Nothing is
-      irreplaceable.
+      site, and serves the API the pages read from. The background jobs run
+      in <strong>GitHub Actions</strong> instead: the nightly catalog and
+      watching-list backups, the Sunday sweep that caches upcoming shows,
+      the Monday health check. None of them holds a credential of its own,
+      and none waits on anyone's computer being switched on. Only the weekly
+      price pull stays outside all of it, because it needs a real browser
+      session. One Netlify-scheduled backup from the older arrangement still
+      runs alongside the Actions one, deliberately, until enough real runs
+      have been compared to retire it. Every piece runs on a free tier.
+      Nothing is irreplaceable.
     </p>
 
     <figure style="margin: 28px 0; text-align: center;">
-      <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Architecture: Claude pushes to GitHub, Netlify deploys to vinylscout.org; Discogs feeds prices in, backups flow back to GitHub, and the daily check reads the live site">
+      <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" style="max-width:100%" role="img" aria-label="Architecture: Claude pushes to GitHub, Netlify deploys to vinylscout.org; Discogs feeds prices in, backups flow back to GitHub, and the Monday health check reads the live site and opens a pull request when it finds a broken parser">
         <defs>
           <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" fill="#a89f8f"/>
@@ -268,20 +298,22 @@
           <text x="271" y="202" text-anchor="middle" font-size="14" font-weight="600" fill="#4a2a1c">Discogs</text>
           <text x="271" y="221" text-anchor="middle" font-size="13" fill="#7a4f3c">market prices</text>
 
-          <rect x="470" y="180" width="242" height="56" rx="8" fill="#f6e8e3" stroke="#cf9a85"/>
-          <text x="591" y="202" text-anchor="middle" font-size="14" font-weight="600" fill="#4a2a1c">Claude scheduled tasks</text>
-          <text x="591" y="221" text-anchor="middle" font-size="13" fill="#7a4f3c">weekly prices · daily read-only check</text>
+          <rect x="470" y="166" width="242" height="70" rx="8" fill="#f6e8e3" stroke="#cf9a85"/>
+          <text x="591" y="189" text-anchor="middle" font-size="14" font-weight="600" fill="#4a2a1c">GitHub Actions</text>
+          <text x="591" y="208" text-anchor="middle" font-size="13" fill="#7a4f3c">backup · sweep · Monday check</text>
+          <text x="591" y="227" text-anchor="middle" font-size="13" fill="#7a4f3c">fixes go out as pull requests</text>
 
           <path d="M350 198 Q420 198 448 117" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
           <path d="M410 128 Q340 172 300 178" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
           <text x="352" y="150" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">nightly backup → GitHub</text>
 
-          <path d="M620 178 Q628 147 632 117" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
-          <text x="664" y="145" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">reads only</text>
+          <path d="M620 164 Q628 141 632 117" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
+          <text x="662" y="140" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">reads the site</text>
         </g>
       </svg>
       <figcaption style="font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#8a8172; margin-top:8px;">
         The full system. Solid arrows carry code; dashed arrows move or verify data.
+        The weekly price pull is the one job still run by a Claude scheduled task.
       </figcaption>
     </figure>
 
@@ -291,7 +323,7 @@
     <h2 style="margin-top:0;">Copy this prompt to start</h2>
     <p>
       This system started from one written request to Claude, then grew in
-      stages: a live pricing feed, nightly backups, a daily integrity
+      stages: a live pricing feed, nightly backups, a weekly health
       check, every irreversible step held for approval along the way.
       Below is a version of that starting request. Copy it, adapt it to
       your own collection, and paste it into a new Claude conversation.
@@ -318,7 +350,7 @@ Please help me scope this into a first small version we can finish today, tell m
       <div class="next-card"><div class="next-card__n">01</div><h4>Claude asks first</h4><p>Expect questions about what's actually worth tracking before anything gets built.</p></div>
       <div class="next-card"><div class="next-card__n">02</div><h4>A first version, same session</h4><p>A working, if small, catalog is realistic to see before the conversation ends.</p></div>
       <div class="next-card"><div class="next-card__n">03</div><h4>You approve real-world steps</h4><p>Connecting an account, spending money, or publishing something public always waits for your yes.</p></div>
-      <div class="next-card"><div class="next-card__n">04</div><h4>It grows in later passes</h4><p>The domain, the nightly backups, the daily check: all arrived after the first version, not in it. See the <a href="/roadmap.html">Roadmap</a> for the real order.</p></div>
+      <div class="next-card"><div class="next-card__n">04</div><h4>It grows in later passes</h4><p>The domain, the nightly backups, the weekly check: all arrived after the first version, not in it. See the <a href="/roadmap.html">Roadmap</a> for the real order.</p></div>
     </div>
 
     <p class="article__kicker" style="margin-top:8px;">How this actually gets maintained</p>
@@ -334,7 +366,7 @@ Please help me scope this into a first small version we can finish today, tell m
 
     <div class="field-note">
       <p class="field-note__kicker">Worth knowing before you start</p>
-      <p>Build in nightly backups and a daily health check from day one. They're the cheapest insurance you can add to a project like this, and far easier to set up before you need them than after. This exact catalog's own backup and check have already turned what could have been a real loss into a ten-minute fix.</p>
+      <p>Build in nightly backups and a scheduled health check from day one. They're the cheapest insurance you can add to a project like this, and far easier to set up before you need them than after. This exact catalog's own backup and check have already turned what could have been a real loss into a ten-minute fix.</p>
     </div>
 
     <div class="article__divider"></div>
@@ -355,7 +387,7 @@ Please help me scope this into a first small version we can finish today, tell m
       <a href="/about.html">About</a> stays current here.
     </p>
     <p>
-      Expect version one to be wrong: that's what backups and the daily
+      Expect version one to be wrong: that's what backups and the weekly
       check exist for. A mistake should cost a day. Never the collection.
     </p>
   </article>

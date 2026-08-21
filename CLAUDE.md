@@ -1918,3 +1918,73 @@ Nothing executable changed. `npm test` clean.
 warn that `git status`/`git diff` via device_bash reliably strand a
 `.git/index.lock`. That happened again today, in travel-intelligence, before the
 rule was read. Read the standing rules before running git here.
+
+## 2026-08-21, later — the Guide had been describing a system that stopped existing in early August
+
+Yesterday's audit follow-up fixed what a reader of the public sites could see
+was missing. This pass went the other way: what the sites still assert that the
+repo no longer does. `guide.html` was the worse of the two, and every one of its
+wrong claims was true when it was written.
+
+The load-bearing one. Step 05 said the daily check "reads and never writes" and
+"has no authority to change anything itself," and the architecture SVG labelled
+it "reads only." `concert-radar-health-check.yml` holds `contents: write` and
+`pull-requests: write`, creates a branch, commits `venue-shows.mjs` and this
+file, pushes, and opens a PR — and `concert-radar-health-check.mjs` writes the
+replacement parser with the Claude API. None of that is a violation of anything;
+it is exactly the hybrid gate yesterday's entry recorded in PROJECT.md. But the
+Guide was teaching a principle ("a checker shouldn't silently mutate live data")
+with a mechanism the repo had replaced with a better one. `about.html:135`
+already said it correctly. The page teaching the method was the page describing
+it wrong. Step 05 now names the PR gate as the thing that keeps it honest,
+rather than a read-only rule that hasn't held since 2026-08-19.
+
+The rest were straightforward staleness, listed because the count is the point:
+
+- The architecture SVG credited "Claude scheduled tasks" with "weekly prices ·
+  daily read-only check" and the nightly backup. Backups, sweep and health check
+  are all Actions now. Only the price pull is still a Claude scheduled task, and
+  the SVG caption now says so, since that distinction is the interesting part.
+- Step 06 had Netlify running "the Discogs price pull, the nightly backup."
+  Netlify runs neither. It still has one legacy scheduled `backup.mjs` alongside
+  the Actions one during the comparison window — said plainly now rather than
+  omitted.
+- Step 03 claimed the weekly price pull runs "unattended" and prices "every
+  item." It needs a live browser session (Discogs 403s server-side scrapes for
+  sale history), and 93 of 94 records have a median, not 94.
+- The "fast & cheap" model tier was illustrated with the nightly backup, which
+  passes no `ANTHROPIC_API_KEY` and calls no model at all. The only scheduled job
+  that uses a model uses the strongest one, to rewrite a parser. The tier rule
+  said "step down for anything scheduled," which is precisely backwards here.
+- Cadence: the "daily health check" is Mondays only, and the sweep is Sundays,
+  not Mondays. Fixed in eight places across both pages.
+- Three different collection values — `≈€2,232`, "about €2,230", `€2,234` inside
+  an SVG label — against a real €2,219.77. All three now read €2,220.
+- `about.html` said "v47 charter." PROJECT.md is v52.
+
+**The number is the reason this needed automating rather than fixing.** Three
+figures, three values, none more than 0.7% off. Nobody typed them wrong; each was
+right once. `scripts/check-content-drift.mjs`'s own header had explicitly ruled
+out checking the value, reasoning that it drifts weekly and only a wide tolerance
+band would be fair — and a wide band would have passed all three. That header has
+been rewritten to say so, because the reasoning was sound and the conclusion was
+still wrong.
+
+The script now runs four checks instead of one: records-tracked (unchanged),
+every four-figure euro amount on both pages against the newest backup summed by
+app.js's own `price_median`-then-`price_low` rule (±€10, chosen and justified
+in-file), `about.html`'s charter kicker against PROJECT.md's `**Version:**`, and
+every day-of-week either page claims for a scheduled job against the real cron in
+`.github/workflows/`. The cadence check names the workflow each sentence is a
+claim about, and fails if the sentence disappears — a rewrite has to update the
+claim list on purpose rather than quietly dropping coverage. It also fails if any
+workflow starts mentioning Discogs, since two sentences now depend on the price
+pull staying outside this repo.
+
+Verified by breaking each check in turn — the About tile, the guide's SVG label,
+the guide's prose figure, the charter kicker, the health-check cron flipped to
+Sunday, and a cadence sentence reworded — confirming each failed with a message
+naming the fix, and restoring. `npm test` clean before and after.
+
+**Delivered:** `guide.html`, `about.html`, `scripts/check-content-drift.mjs`,
+this file. No functional code touched.
