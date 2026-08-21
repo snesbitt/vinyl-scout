@@ -1826,3 +1826,58 @@ day and added a credential.
 `scripts/test-catalog-cache.mjs`, `package.json`,
 `.github/workflows/scheduled-sweep.yml`, `PROJECT.md`, this file.
 Committed locally, not pushed.
+
+## 2026-08-19, after the push: the cutover quietly broke the deploy trigger, and nothing would have said so
+
+The v50 catalog-cache cutover shipped and pushed clean. Then the live check
+came back wrong in an informative way: `/api/catalog-cache` had no top-level
+`source` field, and its `at` read 2026-08-16T00:02Z while the committed
+`data/catalog-cache.json` says 2026-08-16T10:30Z. Two different vintages,
+which is conclusive. The endpoint was still the old Blobs-backed v1, because
+Netlify had not deployed yet.
+
+That is expected lag, not a bug. Checking why led to the actual bug.
+
+`scripts/netlify-ignore.sh` decides whether a push earns a deploy, and it
+watches `*.html`, `*.js`, `*.css`, `covers`, `netlify`, `netlify.toml`,
+`robots.txt` and `package.json`. Not `data`. That was correct for as long as
+`data/catalog-cache.json` was inert, which it was: the Actions sweep wrote it
+purely so its output could be compared against what Blobs served. v50 made it
+input to a function bundle, so refreshing it now requires a deploy, and
+nothing in the deploy path knew that.
+
+`.github/workflows/scheduled-sweep.yml` commits that one file and nothing
+else. So the next Sunday sweep would have matched no watched path, the ignore
+script would have exited 0, the deploy would have been skipped, and
+`/api/catalog-cache` would have gone on serving the JSON bundled at whatever
+unrelated deploy happened last. Every part reports success in that scenario.
+The sweep runs green, the commit lands, the cache freezes. The only alarm is
+`concert-radar-health-check.mjs`'s 9-day freshness check, and when it finally
+fired it would have pointed at the sweep, which was working fine.
+
+Fixed by adding `data` to the watched paths, and `scripts/test-netlify-ignore.mjs`
+(new, 6 assertions, wired into `npm test`) now runs the real script against a
+throwaway git repo and asserts its actual exit codes, rather than anyone
+reading the path list and being satisfied. Removing the `data` line fails
+exactly the sweep-only assertion and nothing else.
+
+Two things worth keeping.
+
+First, the ignore script's own header had already written this down, in a
+paragraph about `backups/`: "if backups/ is live data your site or functions
+read at runtime, change the exclude line below so changes there trigger a
+deploy instead." A past session had reasoned the general case correctly and
+left the note. `data/` became that case, and the note was not re-read at the
+moment it applied. That is the third time today a correct note existed and the
+work was done as though it did not.
+
+Second, this is a class of bug that only exists at a seam. Every local test
+passed. The pushed code was right. The workflow was right. What broke was the
+relationship between a file's new role and a deploy heuristic written when it
+had a different role, and no single component was wrong. The live check is
+what surfaced it, which is the argument for the standing rule about verifying
+against production rather than against a green suite.
+
+**Delivered:** `scripts/netlify-ignore.sh`, `scripts/test-netlify-ignore.mjs`,
+`netlify/functions/catalog-cache.mjs` (comment only), `package.json`,
+`PROJECT.md`, this file.

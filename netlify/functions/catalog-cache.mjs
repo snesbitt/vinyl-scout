@@ -34,6 +34,17 @@
 // rather than every request. Freshness comes from redeploys: the Actions job
 // commits, Netlify's git integration deploys, the bundle carries the new data.
 //
+// THE CONSEQUENCE OF THAT, which is not obvious and bit immediately: this
+// endpoint's data now REFRESHES ONLY ON DEPLOY. The Blobs version did not, so
+// nothing in the deploy path had ever needed to care about data/. It does now.
+// scripts/netlify-ignore.sh is what decides whether a push is worth a deploy,
+// and `data` had to be added to its watched paths (2026-08-19) or the weekly
+// sweep-only commit would match nothing, skip the deploy, and leave this
+// serving stale bundled JSON forever while every job involved reported
+// success. scripts/test-netlify-ignore.mjs pins that. If this file ever stops
+// importing the JSON, that watched path can go; while it does, they are
+// coupled and must move together.
+//
 // Staleness is deliberately NOT this endpoint's problem, same as v1. The
 // client calls it once on first paint when it has no local cache, then always
 // runs its own live sweepCatalog() regardless, so this only has to be
