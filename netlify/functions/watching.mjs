@@ -21,12 +21,34 @@ export const config = {
 // browser's local storage with nothing durable behind it. Susan asked
 // directly for this to move server-side, same as the wishlist did.
 //
-// Ungated, same rationale + same exception as wishlist.mjs (v2, 2026-07-11):
-// this is casual state Susan adds to from her phone; typing the edit
-// passphrase every time isn't practical here either. Deliberately narrower
-// than the catalog gate — the catalog (`/api/records`) and covers
-// (`/api/save-cover`) remain fully gated. Separate Blobs store ('watching')
-// so a bug here can never touch the catalog or wishlist stores.
+// Ungated. This was originally justified as "same exception as wishlist.mjs
+// (v2, 2026-07-11)" — that precedent no longer exists. Phase 8 (2026-08-06)
+// took wishlist.mjs to v4 and put POST/DELETE behind checkWriteAuth(),
+// because as links got shared more widely the gap was worth closing there.
+// Reviewed against that decision 2026-08-21 and deliberately NOT applied
+// here. The reasoning, on this endpoint's own terms rather than by
+// inheritance:
+//
+//   - What it holds is the thinnest data in the project: artist + optional
+//     city, plus a `going` boolean. No prices, no purchase intent, no
+//     valuation, nothing that reveals what Susan owns or what it's worth.
+//     The wishlist is a shopping list; this is a notification preference.
+//   - Nothing here is destructive in a way backups can't undo. Deletions are
+//     already recorded to watching-state.json's `deleted` list (v2 below),
+//     which is what a restore has to honour anyway.
+//   - Blast radius is bounded by construction: its own Blobs store
+//     ('watching'), so a bug here cannot reach the catalog or the wishlist.
+//     The catalog (`/api/records`) and covers (`/api/save-cover`) stay fully
+//     gated, as does the wishlist.
+//   - The cost of gating lands exactly where the feature is used. Watching
+//     and the Going toggle are phone actions, taken standing in front of a
+//     venue listing. A key prompt there is the friction that got wishlist
+//     writes opened up in the first place, and Phase 8 only became
+//     acceptable because localStorage made it one entry per device.
+//
+// If what's stored here ever grows past artist+city+going — a price alert, a
+// contact, anything tied to a purchase — revisit this. The decision is about
+// what the data IS, not about the endpoint being unimportant.
 //
 // A watched item has no server-verified show/date attached — it's just
 // "artist (+ optional city) Susan wants to hear about." concert-radar.html

@@ -1881,3 +1881,40 @@ against production rather than against a green suite.
 **Delivered:** `scripts/netlify-ignore.sh`, `scripts/test-netlify-ignore.mjs`,
 `netlify/functions/catalog-cache.mjs` (comment only), `package.json`,
 `PROJECT.md`, this file.
+
+## 2026-08-21 — Outside-in audit follow-up (PROJECT v52)
+
+Four items were raised against this repo by an audit that read only the public
+sites, not the code. Three were wrong. Recording which, because the wrong ones
+cost more to re-litigate than to write down.
+
+- **`PROJECT.md` vs `CLAUDE.md`** — not an inconsistency. The Guide names one,
+  the Roadmap names the other, and both are right; it's the deliberate split this
+  file's own header describes. Nothing to fix.
+- **`concert-radar-autofix/N` branches** — already the correct shape.
+  `concert-radar-health-check.yml` runs read-only and opens a PR
+  (`permissions: pull-requests: write`), never pushing to `main`. But "autofix"
+  appeared **zero times** in PROJECT.md and zero times here, so a job holding
+  write permission had its write behaviour recorded nowhere. Now in PROJECT.md's
+  endpoints section, with the note that the PR gate is what keeps it inside Hard
+  Rule 1's "no background mutation".
+- **`/api/watching` ungated** — real, but not as raised. The endpoint is
+  deliberate and well-reasoned; the problem was that its reasoning was
+  *inherited*: "same rationale + same exception as `wishlist.mjs` (v2,
+  2026-07-11)". Phase 8 gated the wishlist on 2026-08-06. The cited precedent had
+  been reversed for over two months. Susan re-decided it on its own terms and kept
+  it ungated — artist + city + a `going` boolean is a notification preference, the
+  store is isolated, deletions are already recorded, and a key prompt would land
+  exactly on the phone action the feature exists for. The header now argues that
+  directly and names what should reopen it.
+- **`about.html` incomplete** — the only item that landed as raised.
+  `/api/catalog-cache`, `/api/venue-shows`, and the Actions-based scheduled work
+  were missing from the public page, though all three were already right in
+  PROJECT.md.
+
+Nothing executable changed. `npm test` clean.
+
+**Note for the next session:** this repo's own standing rules (top of this file)
+warn that `git status`/`git diff` via device_bash reliably strand a
+`.git/index.lock`. That happened again today, in travel-intelligence, before the
+rule was read. Read the standing rules before running git here.

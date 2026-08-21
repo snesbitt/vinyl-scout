@@ -36,3 +36,9 @@ enrich-release-info.py
 fix-tosca-id.py
 vinyl-scout-reseed.sh
 vs-enrich-batch.py
+
+# Quarantine for files the Cowork folder mount can't delete (rm is blocked
+# there, so git locks and stray temp objects get moved here instead of
+# removed). Never part of the repo. Added 2026-08-21 after an `add -A`
+# swept 100+ of these in; travel-intelligence has ignored it since July.
+_to_delete/
