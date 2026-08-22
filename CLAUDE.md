@@ -1988,3 +1988,27 @@ naming the fix, and restoring. `npm test` clean before and after.
 
 **Delivered:** `guide.html`, `about.html`, `scripts/check-content-drift.mjs`,
 this file. No functional code touched.
+
+## 2026-08-21 (later still) — deploy-freshness check
+
+vinylscout.org had been serving a **2026-08-14** deploy for 8 days. The cause was
+`locked: true` on the published deploy — Netlify pins a locked deploy as the live
+one, so builds run and never publish over it. Auto-publishing had been turned off
+on 2026-08-13 so the new Actions deploy wouldn't double-deploy, and that Actions
+deploy never worked because `NETLIFY_AUTH_TOKEN` was never added. Both publish
+paths were off at once, and PROJECT.md v45 had flagged the second half as "first
+item on tomorrow's punch list" 8 days earlier.
+
+What made it invisible: every check here watches whether **data** is fresh. None
+watched whether the deployed **site** matches the repo. Netlify's own API said
+`state: "ready"` throughout, and it was right — that deploy was ready, it simply
+wasn't the one being served.
+
+`scripts/check-deploy-fresh.mjs` closes that. It fetches each page in
+`scripts/deploy-fresh.config.json` and compares it byte-for-byte with the file on
+disk; these sites publish the repo root as-is, so any mismatch means the live site
+is not this commit. It reads what a visitor reads rather than asking the API,
+because the API answer is what hid this.
+
+Not in `npm test` — that suite is offline by design. `npm run check:deploy`, or
+`--wait` to poll for three minutes right after a push.
