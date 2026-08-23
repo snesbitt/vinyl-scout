@@ -1,6 +1,32 @@
 {
   "shows": [
     {
+      "id": "venue-ape-10-2026-09-02",
+      "artist": "LP",
+      "title": "LP",
+      "venue": "The Castro",
+      "city": "San Francisco, CA",
+      "date": "2026-09-02",
+      "dateLabel": "Wed, Sep 2, 2026",
+      "source": "Venue: Another Planet Entertainment",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://apeconcerts.com/events/lp-260902/"
+    },
+    {
+      "id": "venue-sweetwater-37-2026-10-18",
+      "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
+      "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
+      "venue": "Sweetwater Music Hall",
+      "city": "Mill Valley, CA",
+      "date": "2026-10-18",
+      "dateLabel": "Sun, Oct 18, 2026",
+      "source": "Venue: Sweetwater Music Hall",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-talking-heads-more-for-kids-2/sweetwater-music-hall/mill-valley-california/"
+    },
+    {
       "id": "manual-easy-star-all-stars-2026-10-22",
       "artist": "Easy Star All-Stars",
       "title": "Easy Star All-Stars",
@@ -40,30 +66,17 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "jambase-jambase:15862856",
-      "artist": "Herbie Hancock",
-      "title": "Herbie Hancock at Mondavi Center for the Performing Arts",
-      "venue": "Mondavi Center for the Performing Arts",
-      "city": "Davis, CA",
-      "date": "2026-08-16",
-      "dateLabel": "Sun, Aug 16, 2026",
-      "source": "JamBase",
+      "id": "venue-uctheatre-28-2026-12-31",
+      "artist": "Steel Pulse (New Years Eve)",
+      "title": "Steel Pulse (New Years Eve)",
+      "venue": "The UC Theatre",
+      "city": "Berkeley, CA",
+      "date": "2026-12-31",
+      "dateLabel": "Thu, Dec 31, 2026",
+      "source": "Venue: The UC Theatre",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://www.mondaviarts.org/whats-on/herbie-hancock"
-    },
-    {
-      "id": "seatgeek-18118640",
-      "artist": "Herbie Hancock",
-      "title": "Herbie Hancock - San Francisco",
-      "venue": "Louise M. Davies Symphony Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-08-17",
-      "dateLabel": "Mon, Aug 17, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/herbie-hancock-tickets/classical/2026-08-17-7-30-pm/18118640"
+      "url": "https://www.theuctheatre.org/events"
     },
     {
       "id": "jambase-jambase:16324469",
@@ -362,7 +375,7 @@
       "source": "JamBase",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-world-tour-san-francisco-california-10-15-2026%2Fevent%2F1C0064AF09A75C9E&utm_medium=affiliate&utm_source=jambase"
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-world-tour-san-francisco-california-10-15-2026%2Fevent%2F1C0064AF09A75C9E%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
     },
     {
       "id": "seatgeek-18297996",
@@ -404,6 +417,19 @@
       "url": "https://app.opendate.io/e/easy-star-all-stars-october-24-2026-727778?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:16892367",
+      "artist": "Southern Culture on the Skids",
+      "title": "Southern Culture on the Skids at Bottom of the Hill",
+      "venue": "Bottom of the Hill",
+      "city": "San Francisco, CA",
+      "date": "2026-11-07",
+      "dateLabel": "Sat, Nov 7, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://link.dice.fm/yf9c0cb1e3e9?utm_source=jambase"
+    },
+    {
       "id": "seatgeek-18297395",
       "artist": "Bonobo",
       "title": "Bonobo",
@@ -443,6 +469,110 @@
       "url": "https://www.prekindle.com/promo/id/-2852527949111249697?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:16925777",
+      "artist": "Mindi Abair",
+      "title": "Mindi Abair at Yoshi’s",
+      "venue": "Yoshi’s",
+      "city": "Oakland, CA",
+      "date": "2026-12-22",
+      "dateLabel": "Tue, Dec 22, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/82462098/mindi-abair-christmas-show-tue122226-oakland-yoshis?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:16933849",
+      "artist": "Steel Pulse",
+      "title": "Steel Pulse at The UC Theatre",
+      "venue": "The UC Theatre",
+      "city": "Berkeley, CA",
+      "date": "2026-12-31",
+      "dateLabel": "Thu, Dec 31, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://app.opendate.io/e/steel-pulse-new-years-eve-december-31-2026-710251?utm_source=jambase"
+    },
+    {
+      "id": "seatgeek-18396976",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-06",
+      "dateLabel": "Sat, Feb 6, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-06-1-pm/concert/18396976"
+    },
+    {
+      "id": "seatgeek-18396978",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-07",
+      "dateLabel": "Sun, Feb 7, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-07-1-pm/concert/18396978"
+    },
+    {
+      "id": "seatgeek-18396980",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-12",
+      "dateLabel": "Fri, Feb 12, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-12-7-30-pm/concert/18396980"
+    },
+    {
+      "id": "seatgeek-18396982",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-13",
+      "dateLabel": "Sat, Feb 13, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-13-7-30-pm/concert/18396982"
+    },
+    {
+      "id": "seatgeek-18396984",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-19",
+      "dateLabel": "Fri, Feb 19, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-19-7-30-pm/concert/18396984"
+    },
+    {
+      "id": "seatgeek-18396986",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-20",
+      "dateLabel": "Sat, Feb 20, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-20-7-30-pm/concert/18396986"
+    },
+    {
       "id": "seatgeek-18166484",
       "artist": "Diana Ross",
       "title": "Diana Ross",
@@ -467,9 +597,22 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://seatgeek.com/jason-bonham-s-led-zeppelin-evening-tickets/napa-california-blue-note-napa-2026-08-23-7-pm/concert/18256453"
+    },
+    {
+      "id": "seatgeek-18514501",
+      "artist": "San Francisco Symphony",
+      "title": "San Francisco Symphony - Lang Lang in Recital",
+      "venue": "Louise M. Davies Symphony Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-10-04",
+      "dateLabel": "Sun, Oct 4, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/san-francisco-symphony-tickets/orchestral/2026-10-04-7-30-pm/18514501"
     }
   ],
-  "artistCount": 132,
-  "at": 1786876222209,
+  "artistCount": 131,
+  "at": 1787481321625,
   "source": "github-actions"
 }
