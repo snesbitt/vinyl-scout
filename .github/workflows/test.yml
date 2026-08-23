@@ -84,6 +84,24 @@ jobs:
   # moment the secret is added in GitHub repo Settings -> Secrets and
   # variables -> Actions, this condition is true and the job deploys for
   # real on the very next push -- no other change needed.
+  # 2026-08-21 — READ THIS BEFORE TURNING OFF AUTO-PUBLISHING IN NETLIFY.
+  #
+  # This job has never run. It self-disables via has_netlify_token below, so it
+  # is dormant and harmless, not broken. The trap is what happens around it.
+  #
+  # On 2026-08-13 auto-publishing was switched off in Netlify so this job
+  # wouldn't double-deploy. It then never ran, because NETLIFY_AUTH_TOKEN was
+  # never added — and with both publish paths off, vinylscout.org froze on a
+  # 2026-08-14 deploy for 8 days. Netlify's API reported that deploy `ready`
+  # throughout, correctly: it WAS ready, it simply wasn't being republished.
+  # Nothing caught it, because every check here watched data freshness rather
+  # than whether the deployed site matched the repo.
+  #
+  # So: adding NETLIFY_AUTH_TOKEN activates this job and you get two deploys per
+  # push — wasteful, not harmful. Turning auto-publishing off to stop that is
+  # only safe once you have SEEN this job publish successfully. Confirm with
+  # `npm run check:deploy` (scripts/check-deploy-fresh.mjs), which compares the
+  # live pages byte-for-byte against this repo.
   deploy:
     needs: test
     if: >-
