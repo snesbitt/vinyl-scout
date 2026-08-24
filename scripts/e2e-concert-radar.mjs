@@ -76,10 +76,10 @@ const watching = [
   // with goingShowId pre-set to one of its two real venue matches — see
   // riversideVenueShows below. Lets the assertions confirm the going
   // venue's block drops "Hide this show" and "Get tickets" while the
-  // still-not-going venue keeps both. Placed BEFORE Poolside so Poolside
-  // stays the last row — its own assertions below slice watchHtml from
-  // Poolside's name to the end of the list, which only stays valid if
-  // nothing else follows it.
+  // still-not-going venue keeps both. Its list position relative to
+  // Poolside no longer matters for the assertions below (2026-08-24):
+  // getWatchRowHtml() finds each row by artist name, not by position, since
+  // rows now render sorted by date rather than by this array's order.
   { id: "w5", artist: "Riverside", going: true, goingShowId: "venue-crest-riverside-2026-08-20" },
   { id: "w4", artist: "Poolside" },
 ];
@@ -318,6 +318,25 @@ function extractInlineScript(htmlText) {
 
 const scriptText = extractInlineScript(html);
 
+// 2026-08-24: Watching rows no longer render in watching[]'s insertion
+// order -- Susan's live-caught fix that day made renderWatchList() sort
+// rows soonest-to-latest by each artist's own confirmed date instead. Every
+// per-artist assertion below used to assume render order matched
+// watching[] order (slicing watchHtml between two artist names' string
+// positions, or indexing straight into watching[] to pick a DOM row) --
+// that assumption broke the moment sorting was added, since which artist's
+// row lands next to which is now a function of show dates, not list
+// position. This helper isolates one artist's own row HTML directly, by
+// splitting on the row wrapper itself and matching the artist's name near
+// the top of each candidate row, so every assertion below stays correct no
+// matter what order the rows actually render in.
+function getWatchRowHtml(watchHtml, artistName) {
+  const marker = '<div class="cr-watch-row">';
+  const rows = watchHtml.split(marker).slice(1); // [0] is whatever precedes the first row, if anything
+  const row = rows.find((r) => r.slice(0, 300).includes(artistName));
+  return row === undefined ? null : marker + row;
+}
+
 async function run(label, watchingList, travelOpts) {
   travelOpts = travelOpts || {};
   // runScripts: "outside-only" parses the document but does NOT
@@ -383,12 +402,12 @@ async function run(label, watchingList, travelOpts) {
   console.log("=== " + label + " ===");
   watchingList.forEach((w) => {
     const name = w.artist;
-    const idx = watchHtml.toLowerCase().indexOf(name.toLowerCase());
-    if (idx === -1) {
+    const rowHtml = getWatchRowHtml(watchHtml, name);
+    if (rowHtml === null) {
       console.log("  " + name + ": NOT RENDERED AT ALL (row missing)");
       return;
     }
-    const windowText = watchHtml.slice(idx, idx + 400).replace(/\s+/g, " ");
+    const windowText = rowHtml.replace(/\s+/g, " ");
     const hasVenue = /cr-watch-venue/.test(windowText);
     const hasCheckLive = /Check live/.test(windowText);
     console.log("  " + name + ": " + (hasVenue ? "MATCHED (venue shown)" : hasCheckLive ? "NO MATCH (Check live)" : "unclear") );
@@ -468,21 +487,19 @@ async function run(label, watchingList, travelOpts) {
   // has a second, still-not-going match at The Warfield (SF) — see
   // riversideVenueShows above. The going venue's block should drop "Hide
   // this show" and "Get tickets"; the not-going venue should keep both.
-  // Sliced strictly between "Riverside" and "Poolside" (the next row in
-  // watching[]) so a check here can never accidentally read past its own
-  // row into another artist's markup.
+  // Isolated via getWatchRowHtml() (by artist name, not by array/DOM
+  // position) so a check here can never accidentally read past its own row
+  // into another artist's markup, regardless of render order.
   const expectsRiverside = watchingList.some((w) => w.artist === "Riverside");
-  const riversideIdx = watchHtml.indexOf("Riverside");
-  const poolsideBoundaryIdx = watchHtml.indexOf("Poolside");
   if (!expectsRiverside) {
     // Not every scenario's watchingList includes the Riverside fixture
     // (e.g. the spelling-drift scenario uses its own separate list) —
     // nothing to check here for those, same guard Poolside's own block
     // uses below.
-  } else if (riversideIdx === -1) {
+  } else if (getWatchRowHtml(watchHtml, "Riverside") === null) {
     report("  Riverside row: FAIL (not rendered at all)");
   } else {
-    const riversideHtml = watchHtml.slice(riversideIdx, poolsideBoundaryIdx === -1 ? undefined : poolsideBoundaryIdx);
+    const riversideHtml = getWatchRowHtml(watchHtml, "Riverside");
     const crestIdx = riversideHtml.indexOf("The Crest Theatre");
     const warfieldIdx = riversideHtml.indexOf("The Warfield");
     report("  Riverside's going (Crest Theatre) block should show the GOING state: " +
@@ -514,17 +531,17 @@ async function run(label, watchingList, travelOpts) {
   // into one composite date range the way Thievery Corporation's real
   // bug did (wrong venue shown, a fabricated-looking multi-date span).
   const expectsPoolside = watchingList.some((w) => w.artist === "Poolside");
-  const poolsideIdx = watchHtml.indexOf("Poolside");
   if (!expectsPoolside) {
     // Not every scenario's watchingList includes the Poolside fixture
     // (e.g. the spelling-drift scenario uses its own separate list) —
     // nothing to check here for those.
-  } else if (poolsideIdx === -1) {
+  } else if (getWatchRowHtml(watchHtml, "Poolside") === null) {
     report("  Poolside row: FAIL (not rendered at all)");
   } else {
-    // Poolside is the last row in `watching`, so its own markup runs to
-    // the end of #cr-watch-list — safe to slice from its name to the end.
-    const poolsideHtml = watchHtml.slice(poolsideIdx);
+    // Isolated to just Poolside's own row via getWatchRowHtml() — no longer
+    // assumes Poolside renders last (that stopped being true once rows
+    // sort by date instead of watching[] insertion order).
+    const poolsideHtml = getWatchRowHtml(watchHtml, "Poolside");
     const hasFox = /The Fox Theater.{0,20}Oakland, CA/.test(poolsideHtml);
     const hasMasonic = /The Masonic.{0,20}San Francisco, CA/.test(poolsideHtml);
     report("  Poolside row SHOULD show The Fox Theater — Oakland, CA as its own venue line: " + (hasFox ? "pass" : "FAIL (missing)"));
@@ -560,16 +577,25 @@ async function run(label, watchingList, travelOpts) {
       prevTravel = cur;
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
+    // Found by matching each row's own artist name, not by indexing
+    // watchingList[i] into rows[i] -- rows no longer render in
+    // watchingList's order (see getWatchRowHtml()'s comment above), so an
+    // index from one no longer lines up with the other.
     const rows = window.document.querySelectorAll(".cr-watch-row");
+    function findRowForArtist(artist) {
+      for (const row of rows) {
+        const nameEl = row.querySelector(".cr-watch-artist");
+        if (nameEl && nameEl.textContent.trim().toLowerCase().startsWith(artist.toLowerCase())) return row;
+      }
+      return null;
+    }
     (travelOpts.expectMatchFor || []).forEach((artist) => {
-      const idx = watchingList.findIndex((w) => w.artist.toLowerCase() === artist.toLowerCase());
-      const row = idx === -1 ? null : rows[idx];
+      const row = findRowForArtist(artist);
       const note = row ? row.querySelector(".travel-match") : null;
       report("  .travel-match note for \"" + artist + "\": " + (note ? "pass (" + note.textContent.trim() + ")" : "FAIL (no note rendered)"));
     });
     (travelOpts.expectNoMatchFor || []).forEach((artist) => {
-      const idx = watchingList.findIndex((w) => w.artist.toLowerCase() === artist.toLowerCase());
-      const row = idx === -1 ? null : rows[idx];
+      const row = findRowForArtist(artist);
       const note = row ? row.querySelector(".travel-match") : null;
       report("  \"" + artist + "\" should have NO .travel-match note: " + (note ? "FAIL (unexpected note: " + note.textContent.trim() + ")" : "pass (none rendered)"));
     });
