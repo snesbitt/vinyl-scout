@@ -1,5 +1,5 @@
 {
-  "snapshot_at": "2026-08-24T09:00:32.887Z",
+  "snapshot_at": "2026-08-24T09:58:38.347Z",
   "record_count": 94,
   "records": [
     {
@@ -2190,5 +2190,6 @@
       "price_updated_at": "2026-08-17T16:18:12.327Z",
       "condition": "VG+"
     }
-  ]
+  ],
+  "source": "github-actions"
 }
