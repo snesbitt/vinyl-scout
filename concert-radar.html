@@ -1399,6 +1399,17 @@
       els.watchList.innerHTML = errorHtml + '<p class="cr-watch-empty">Not watching any artists yet.</p>';
       return;
     }
+    var watchSortKeys = watching.map(function (w, i) {
+      var m = findWatchMatches(w.artist)[0];
+      return { w: w, i: i, key: m ? m.date : null };
+    });
+    watchSortKeys.sort(function (a, b) {
+      if (a.key && b.key) return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      if (a.key && !b.key) return -1;
+      if (!a.key && b.key) return 1;
+      return a.i - b.i;
+    });
+    watching = watchSortKeys.map(function (x) { return x.w; });
     els.watchList.innerHTML = errorHtml + watching.map(function (w, i) {
       var matches = findWatchMatches(w.artist);
       // A watched artist either already has confirmed show(s) in Coming
