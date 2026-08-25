@@ -2012,3 +2012,76 @@ because the API answer is what hid this.
 
 Not in `npm test` — that suite is offline by design. `npm run check:deploy`, or
 `--wait` to poll for three minutes right after a push.
+
+## 2026-08-25: Freight & Salvage is not broken, it is blocked, and the health check could not tell the difference
+
+The Concert Radar health check has now opened two branches proposing the
+same change, `concert-radar-autofix/1` (08-19) and `/2` (08-24): disable
+Freight & Salvage, with the error text "HTML structure changed and an
+automated fix could not be confidently verified." Neither was merged. Both
+should be closed rather than merged, because the diagnosis is wrong.
+
+What is actually true, verified today rather than inferred:
+
+- `/api/venue-shows` reports `freight: { count: 0, error: "HTTP 403" }`.
+  The other six venues are healthy, returning 16 / 14 / 64 / 66 / 68 / 30
+  shows.
+- `https://thefreight.org/shows/` loads perfectly in a real browser, with
+  upcoming shows listed through late August.
+
+So the venue is up and its markup is fine. Freight's server is refusing
+this specific caller. `venue-shows.mjs`'s `fetchText()` sends
+`User-Agent: Mozilla/5.0 (compatible; VinylScoutConcertRadar/1.0)`, a
+self-identifying bot signature and exactly what a WAF blocks.
+
+**The bug this exposed.** `fetchText()` throws `HTTP <status>` for any
+non-2xx, and `checkVenueShows()` treated every non-null error as a parser
+fault. But a request that returned 403 never delivered any HTML, so there
+was no parser fault to find and nothing for the repair path to look at. It
+sent the current parser source and an absent page to the Claude API, got
+nothing usable back, and fell through to a disable whose message asserted
+something it had no evidence for. Merging it would have replaced an
+accurate error, "HTTP 403", with a fabricated one about markup, and
+permanently disabled a venue that works.
+
+`classifyVenueFailure()` now splits transport failures from parser faults.
+Unreachable venues are reported, still fail the run so a human sees them,
+and are never repaired, never disabled, and never made into a PR. Leaving
+them alone is the point: `venue-shows.mjs` already surfaces the true cause
+in `meta.venues[].error`, and the old behaviour was overwriting it.
+
+The `HTTP \d{3}` test is anchored on purpose. `fetchText()` throws that
+exact string and nothing else, while a parser could reasonably mention
+"HTTP" inside a longer message, so an unanchored match would misfile real
+parser faults as unreachable and quietly stop repairing them. There is a
+test for that case specifically, and removing the anchor fails it.
+
+**The existing test suite had encoded the same mistake.** Its "broken
+venue" fixture used `error: 'HTTP 500'`, which is a transport failure, not
+a parser fault. That is why the script looked correct and looked covered
+right up until it filed two confident PRs against a working venue. The
+fixture now uses a real parser error and the transport case is tested
+separately. Three mutations were run against the classifier and all three
+fail the suite.
+
+**Not decided here, because it is not a session's call.** What to do about
+the 403 is Susan's:
+
+- Send fuller browser-like headers and see if it passes. Worth saying
+  plainly: the current UA identifies itself honestly, and Freight may be
+  blocking it deliberately. Changing it works around a choice the venue
+  may have made on purpose.
+- Leave Freight out and rely on manual entries, which already happened
+  once (`2ef41ab`, The Meditations, Sep 22).
+- Find a sanctioned feed. This was investigated today and the answer is
+  no, not usefully. thefreight.org is WordPress with a public REST API,
+  and it exposes a Tessitura-backed `wp/v2/tessi_performance` collection
+  (497 records) plus a legacy `wp/v2/events` (72 records, last touched
+  2021). Neither carries a usable performance date: `tessi_performance`
+  returns empty `content`, empty `acf`, and only WordPress's own post
+  dates, so the show dates live in Tessitura and are not in the REST
+  payload. Recorded so nobody spends another hour finding the same dead
+  end.
+
+**Delivered:** `scripts/concert-radar-health-check.mjs`,
+`scripts/test-concert-radar-health-check.mjs`, this file.

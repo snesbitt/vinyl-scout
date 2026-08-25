@@ -25,8 +25,12 @@
 //
 // WHAT THIS SCRIPT DOES (mirrors the old task's steps 1, 2, 2.5, 3a, 3b):
 //   1. Fetches the live /api/venue-shows and inspects meta.venues[] for
-//      each of the 7 scraped venue entries — a non-null `error` means
-//      that venue's parser is broken; count:0 with no error is flagged as
+//      each of the 7 scraped venue entries. A non-null `error` is then
+//      CLASSIFIED (see classifyVenueFailure): an `HTTP <status>` or a
+//      transport error means the request never returned a page, which is
+//      not a parser fault and is reported without any repair attempt or
+//      proposed change; anything else is a parser fault and goes to the
+//      repair path below. count:0 with no error is flagged as
 //      a warning (ambiguous — could be a genuinely quiet week) but is NOT
 //      auto-repaired, since guessing at a fix for something that hasn't
 //      actually failed risks breaking a parser that still works.
@@ -135,13 +139,47 @@ async function fetchJson(url) {
 
 // --- Step 1/2: venue-shows meta + canary ------------------------------
 
+// Not every non-null `error` in meta.venues[] is a parser fault, and treating
+// them alike is how this script produced a confidently wrong diagnosis two
+// weeks running (2026-08-19 and 08-24, branches concert-radar-autofix/1 and
+// /2, both proposing to disable Freight & Salvage for "HTML structure
+// changed").
+//
+// venue-shows.mjs's fetchText() throws exactly `HTTP <status>` when a request
+// comes back non-2xx, and lets fetch()'s own transport errors through
+// untouched. In both cases NO HTML EVER ARRIVED, so there is nothing a parser
+// could have got wrong and nothing an LLM can repair by looking at markup it
+// does not have. Freight & Salvage is the live example: verified 2026-08-25,
+// it returns HTTP 403 to the function while thefreight.org/shows/ loads fine
+// in a browser with shows listed. The venue is up, its markup is fine, and its
+// server is refusing this caller.
+//
+// A parser fault, by contrast, is any error thrown from inside a parse
+// function after HTML did arrive, and those are what the repair path exists
+// for.
+//
+// The `HTTP \d{3}` test is anchored deliberately. fetchText() throws that
+// exact string and nothing else, while a parser could legitimately mention
+// "HTTP" inside a longer message, so an unanchored match would misfile real
+// parser faults as unreachable and quietly stop repairing them.
+function classifyVenueFailure(error) {
+  const msg = String(error == null ? '' : error);
+  if (/^HTTP \d{3}$/.test(msg.trim())) return 'unreachable';
+  if (/\b(fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|ETIMEDOUT|socket hang up|network|aborted|certificate|TLS|SSL)\b/i.test(msg)) {
+    return 'unreachable';
+  }
+  return 'parser';
+}
+
 async function checkVenueShows() {
   const { ok, status, body } = await fetchJson(SITE_URL + '/api/venue-shows');
   if (!ok || !body || !Array.isArray(body.meta?.venues)) {
     throw new Error('GET /api/venue-shows unusable (HTTP ' + status + ', ' + (body ? 'malformed body' : 'no JSON body') + ') — cannot proceed with venue diagnosis this run');
   }
 
-  const broken = body.meta.venues.filter((v) => v.error);
+  const failed = body.meta.venues.filter((v) => v.error);
+  const unreachable = failed.filter((v) => classifyVenueFailure(v.error) === 'unreachable');
+  const broken = failed.filter((v) => classifyVenueFailure(v.error) === 'parser');
   const suspicious = body.meta.venues.filter((v) => !v.error && v.count === 0);
 
   const canaryShow = (body.shows || []).find(
@@ -151,7 +189,7 @@ async function checkVenueShows() {
   );
   const canaryOk = !!canaryShow && canaryShow.date === CANARY.expectedDate;
 
-  return { allVenues: body.meta.venues, broken, suspicious, canaryOk, canaryShow: canaryShow || null };
+  return { allVenues: body.meta.venues, broken, unreachable, suspicious, canaryOk, canaryShow: canaryShow || null };
 }
 
 // --- Step 3: SeatGeek spot check ---------------------------------------
@@ -396,6 +434,20 @@ async function main() {
   let changed = false;
   const changeSummaryLines = [];
 
+  // Unreachable venues are a real problem and a human should see them, so the
+  // run still goes red. What they are NOT is patchable: no HTML arrived, so
+  // there is nothing to diagnose in the parser and nothing to send the repair
+  // path. Deliberately no PR either. venue-shows.mjs already surfaces the true
+  // cause in meta.venues[].error ("HTTP 403"), and disabling the venue would
+  // REPLACE that accurate message with a fabricated one about markup changing.
+  // Leaving it alone keeps the honest error visible.
+  if (findings.venueShows && findings.venueShows.unreachable.length > 0) {
+    for (const v of findings.venueShows.unreachable) {
+      log('Unreachable: ' + v.label + ' (' + v.error + ') — the request never returned a page, so this is not a parser fault. No repair attempted, no change proposed.');
+    }
+    exitCode = 1;
+  }
+
   if (findings.venueShows && findings.venueShows.broken.length > 0) {
     source = await readFile(VENUE_FILE, 'utf-8');
     let helperBlock;
@@ -511,7 +563,11 @@ async function main() {
   if (findings.venueShows) {
     lines.push('## Venues');
     for (const v of findings.venueShows.allVenues) {
-      const state = v.error ? 'BROKEN (' + v.error + ')' : (v.count === 0 ? 'suspicious (0 shows, no error)' : 'healthy (' + v.count + ' shows)');
+      const state = v.error
+        ? (classifyVenueFailure(v.error) === 'unreachable'
+            ? 'UNREACHABLE (' + v.error + ') — request never returned a page; not a parser fault'
+            : 'BROKEN (' + v.error + ')')
+        : (v.count === 0 ? 'suspicious (0 shows, no error)' : 'healthy (' + v.count + ' shows)');
       lines.push('- ' + v.label + ': ' + state);
     }
     lines.push('');
@@ -534,6 +590,17 @@ async function main() {
   if (findings.repairs.length) {
     lines.push('## Repairs applied (verified)');
     for (const r of findings.repairs) lines.push('- ' + r.function + ' (' + r.venues.join(', ') + '): ' + r.notes);
+    lines.push('');
+  }
+  if (findings.venueShows && findings.venueShows.unreachable.length) {
+    lines.push('## Venues unreachable (needs a human, but NOT a parser fix)');
+    for (const v of findings.venueShows.unreachable) {
+      lines.push('- ' + v.label + ' (`' + v.key + '`): ' + v.error + ' from ' + v.sourceUrl);
+    }
+    lines.push('');
+    lines.push('These returned no page at all, so no parser change was attempted and none is proposed. ' +
+      'Check whether the venue is blocking this caller (the scraper sends a self-identifying bot User-Agent) ' +
+      'or has moved the page, before assuming anything is wrong with the parser.');
     lines.push('');
   }
   if (findings.disabled.length) {
@@ -575,6 +642,7 @@ async function main() {
 export {
   extractFunction, extractHelperBlock, replaceFunction, disableVenueLine,
   bumpVersion, wrapComment, verifyParserAgainstHtml, checkVenueShows,
+  classifyVenueFailure,
   checkSeatGeekSpotCheck, checkCatalogCacheFreshness, VENUE_FUNCTION, CANARY,
 };
 

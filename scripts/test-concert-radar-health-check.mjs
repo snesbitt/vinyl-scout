@@ -21,6 +21,7 @@ import {
   extractFunction, extractHelperBlock, replaceFunction, disableVenueLine,
   bumpVersion, verifyParserAgainstHtml, checkVenueShows,
   checkSeatGeekSpotCheck, checkCatalogCacheFreshness, VENUE_FUNCTION, CANARY,
+  classifyVenueFailure,
 } from './concert-radar-health-check.mjs';
 
 const VENUE_FILE = 'netlify/functions/venue-shows.mjs';
@@ -162,19 +163,28 @@ function withMockFetch(responses, fn) {
   return fn().finally(() => { globalThis.fetch = real; });
 }
 
+// 2026-08-25: this fixture used to use `error: 'HTTP 500'` as its example of
+// a broken venue, and that was the bug in miniature. An HTTP status error
+// means the request never returned a page, so there is no parser fault to
+// find and nothing for the repair path to work on. The test encoded the same
+// conflation the script did, which is why the script's behaviour looked
+// correct and covered right up until it filed two wrong PRs against a working
+// venue. Swapped for a real parser fault, which is what `broken` now means.
+// The transport case is covered separately below.
 await check('checkVenueShows flags a broken venue and detects a missing canary', async () => {
   const fakeBody = {
     shows: [],
     meta: {
       venues: [
         { key: 'cornerstone', label: 'Cornerstone', sourceUrl: 'https://cornerstoneberkeley.com/events', count: 3, error: null },
-        { key: 'sweetwater', label: 'Sweetwater Music Hall', sourceUrl: 'https://sweetwatermusichall.org/events/', count: 0, error: 'HTTP 500' },
+        { key: 'sweetwater', label: 'Sweetwater Music Hall', sourceUrl: 'https://sweetwatermusichall.org/events/', count: 0, error: "Cannot read properties of undefined (reading 'name')" },
       ],
     },
   };
   await withMockFetch([{ text: JSON.stringify(fakeBody) }], async () => {
     const result = await checkVenueShows();
     assert(result.broken.length === 1 && result.broken[0].key === 'sweetwater', 'did not correctly identify the broken venue');
+    assert(result.unreachable.length === 0, 'a parser fault must not be filed as unreachable');
     assert(result.canaryOk === false, 'canary should be missing when shows array is empty');
   });
   ok('checkVenueShows correctly identifies broken venues and missing canary from mocked JSON');
@@ -228,6 +238,78 @@ await check('checkCatalogCacheFreshness accepts a fresh timestamp', async () => 
     assert(result.ok === true, 'a 2-day-old cache should be accepted as fresh');
   });
   ok('checkCatalogCacheFreshness correctly accepts a fresh timestamp');
+});
+
+// ---------------------------------------------------------------------------
+// classifyVenueFailure / unreachable-vs-broken split (2026-08-25)
+//
+// Added after this script diagnosed the same venue wrongly two weeks running.
+// Freight & Salvage returns HTTP 403 to the function; thefreight.org/shows/
+// loads fine in a browser. No HTML ever arrived, so there was never a parser
+// fault, but every non-null error went to the repair path and then to a
+// disable whose message asserted the venue's "HTML structure changed."
+// Merging either PR would have replaced an accurate error with a fabricated
+// one and permanently disabled a working venue.
+// ---------------------------------------------------------------------------
+
+await check('classifyVenueFailure separates transport failures from parser faults', async () => {
+  for (const msg of ['HTTP 403', 'HTTP 404', 'HTTP 500', ' HTTP 429 ']) {
+    assert(classifyVenueFailure(msg) === 'unreachable', JSON.stringify(msg) + ' should be unreachable');
+  }
+  for (const msg of ['fetch failed', 'getaddrinfo ENOTFOUND thefreight.org', 'connect ECONNREFUSED 1.2.3.4:443', 'The operation was aborted', 'socket hang up']) {
+    assert(classifyVenueFailure(msg) === 'unreachable', JSON.stringify(msg) + ' should be unreachable');
+  }
+  // Real parser faults, including one that mentions HTTP inside a longer
+  // message. An unanchored /HTTP \d{3}/ would misfile this as unreachable and
+  // silently stop repairing a genuinely broken parser, which is the failure
+  // this test exists to prevent.
+  for (const msg of [
+    "Cannot read properties of null (reading 'textContent')",
+    'Unexpected token < in JSON at position 0',
+    'no JSON-LD Event blocks found',
+    'parseFreight: expected an HTTP 200 marker in the row markup, found none',
+  ]) {
+    assert(classifyVenueFailure(msg) === 'parser', JSON.stringify(msg) + ' should be parser');
+  }
+  ok('classifyVenueFailure separates transport failures from parser faults');
+});
+
+await check('checkVenueShows routes a 403 to unreachable, not to the repair path', async () => {
+  const payload = {
+    shows: [],
+    meta: {
+      venues: [
+        { key: 'freight', label: 'Freight & Salvage', sourceUrl: 'https://thefreight.org/shows/', count: 0, error: 'HTTP 403' },
+        { key: 'gamh', label: 'Great American Music Hall', sourceUrl: 'https://x/', count: 0, error: "Cannot read properties of null (reading 'map')" },
+        { key: 'chapel', label: 'The Chapel', sourceUrl: 'https://y/', count: 12, error: null },
+      ],
+    },
+  };
+  await withMockFetch([{ text: JSON.stringify(payload) }], async () => {
+    const result = await checkVenueShows();
+    assert(result.unreachable.length === 1, 'expected exactly one unreachable venue');
+    assert(result.unreachable[0].key === 'freight', 'freight should be the unreachable one');
+    assert(result.broken.length === 1, 'expected exactly one parser-broken venue');
+    assert(result.broken[0].key === 'gamh', 'gamh should be the parser-broken one');
+    // The load-bearing assertion: a blocked venue must never reach the repair
+    // or disable path, because that is what produced the wrong PRs.
+    assert(!result.broken.some((v) => v.key === 'freight'), 'freight must not be treated as a broken parser');
+  });
+  ok('checkVenueShows routes a 403 to unreachable, not to the repair path');
+});
+
+await check('a venue that is merely quiet is still neither broken nor unreachable', async () => {
+  const payload = {
+    shows: [],
+    meta: { venues: [{ key: 'ape', label: 'Ashkenaz', sourceUrl: 'https://z/', count: 0, error: null }] },
+  };
+  await withMockFetch([{ text: JSON.stringify(payload) }], async () => {
+    const result = await checkVenueShows();
+    assert(result.broken.length === 0, 'a quiet venue is not broken');
+    assert(result.unreachable.length === 0, 'a quiet venue is not unreachable');
+    assert(result.suspicious.length === 1, 'a quiet venue is suspicious');
+  });
+  ok('a venue that is merely quiet is still neither broken nor unreachable');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
