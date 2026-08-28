@@ -233,5 +233,63 @@ var body3 = await res3.json();
 assertEqual(body3.shows, [], "an unrecognized envelope shape returns an empty (honest) list, not a throw");
 assertEqual(body3.meta.envelope_key_used, null, "and meta.envelope_key_used is null — visible in the response, not swallowed");
 
+// --- v2: bounded retry + distinct-code error classification ---------------
+// (see jambase-shows.mjs's own "Small bounded retry" comment). Matches the
+// pattern discogs-pricing.mjs's error codes and
+// concert-radar-health-check.mjs's classifyVenueFailure() already use
+// elsewhere in this repo: auth/rate-limit/network/parse get distinct codes
+// instead of collapsing into one generic "could not reach JamBase" message.
+
+// A network-level failure (fetch() itself throwing) on the first two
+// attempts, succeeding on the third, should still return a normal 200 —
+// proving the retry actually retries, not just that it exists in the code.
+var netCallCount = 0;
+global.fetch = async () => {
+  netCallCount++;
+  if (netCallCount < 3) throw new Error("simulated network failure");
+  return { ok: true, status: 200, json: async () => FAKE_JAMBASE_RESPONSE };
+};
+var resRetrySucceeds = await handler(new Request("https://vinylscout.org/api/jambase-shows"));
+assertEqual(resRetrySucceeds.status, 200, "a network error on attempts 1-2 that succeeds on attempt 3 still returns 200");
+assertEqual(netCallCount, 3, "exactly 3 fetch attempts were made (2 failures + 1 success), proving the retry loop actually ran");
+
+// A network failure on every attempt exhausts the retry budget (3 attempts)
+// and surfaces as NETWORK_ERROR, not a generic message.
+var netFailCount = 0;
+global.fetch = async () => { netFailCount++; throw new Error("simulated permanent network failure"); };
+var resNetFail = await handler(new Request("https://vinylscout.org/api/jambase-shows"));
+var bodyNetFail = await resNetFail.json();
+assertEqual(resNetFail.status, 502, "a network error on every attempt returns 502");
+assertEqual(bodyNetFail.code, "NETWORK_ERROR", "a network error carries code NETWORK_ERROR, distinct from an auth or parse failure");
+assertEqual(netFailCount, 3, "the retry loop stops at 3 attempts, not fewer or more");
+
+// A 401 from JamBase is an auth failure — NOT retried (retrying a bad key
+// wastes budget and will never succeed) — and gets its own code.
+var authCallCount = 0;
+global.fetch = async () => { authCallCount++; return { ok: false, status: 401, json: async () => ({ message: "invalid key" }) }; };
+var resAuth = await handler(new Request("https://vinylscout.org/api/jambase-shows"));
+var bodyAuth = await resAuth.json();
+assertEqual(resAuth.status, 401, "a 401 from JamBase surfaces as 401, not a generic 502");
+assertEqual(bodyAuth.code, "AUTH_FAILED", "a 401 carries code AUTH_FAILED");
+assertEqual(authCallCount, 1, "a 401 is NOT retried — retrying a bad key can't succeed and would waste the free-tier budget");
+
+// A 429 IS retried (rate limits are transient) — exhausting the budget
+// surfaces as RATE_LIMITED, distinct from a generic upstream error.
+var rateLimitCallCount = 0;
+global.fetch = async () => { rateLimitCallCount++; return { ok: false, status: 429, json: async () => ({ message: "rate limited" }) }; };
+var resRateLimit = await handler(new Request("https://vinylscout.org/api/jambase-shows"));
+var bodyRateLimit = await resRateLimit.json();
+assertEqual(resRateLimit.status, 429, "a 429 from JamBase surfaces as 429");
+assertEqual(bodyRateLimit.code, "RATE_LIMITED", "a 429 carries code RATE_LIMITED, distinct from AUTH_FAILED or NETWORK_ERROR");
+assertEqual(rateLimitCallCount, 3, "a 429 IS retried up to the full attempt budget, unlike a 401");
+
+// A response that claims 200 but whose body isn't valid JSON is a parse
+// failure, not a network or auth one.
+global.fetch = async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token"); } });
+var resParse = await handler(new Request("https://vinylscout.org/api/jambase-shows"));
+var bodyParse = await resParse.json();
+assertEqual(resParse.status, 502, "an unparseable 200 response returns 502");
+assertEqual(bodyParse.code, "PARSE_ERROR", "an unparseable response body carries code PARSE_ERROR, distinct from NETWORK_ERROR/AUTH_FAILED");
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed > 0) process.exit(1);
