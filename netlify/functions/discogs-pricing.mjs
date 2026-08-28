@@ -1,6 +1,17 @@
 // netlify/functions/discogs-pricing.mjs
 // Vinyl Scout — Phase 3.1: on-demand market pricing from Discogs.
 //
+// v21: BUG FIX — price_median/price_high/have_count/want_count/
+//      price_last_sold/rating_avg/rating_count could be nulled out by a
+//      PARTIAL scrape. v19 introduced keep() to preserve existing values on
+//      a failed/empty scrape, but only price_low actually used it per-field;
+//      the other six fields were gated behind one all-or-nothing
+//      `scrapeUsable` boolean ("did the scrape find at least one of these
+//      six"), so a scrape that found have/want but missed median/high still
+//      wrote null over a perfectly good stored median/high. Fixed by giving
+//      every price/count/rating field its own independent keep() fallback,
+//      matching what price_low already did. See test-discogs-pricing.mjs.
+//
 // v20: SECURITY FIX — this endpoint had NO server-side auth check at all.
 //      PROJECT.md's endpoint table ("POST /api/discogs-pricing — edit-secret
 //      required") and CLAUDE.md's repo-layout comment both documented this
@@ -197,6 +208,39 @@ function describeTokenShape(token) {
   }
   return { length: len, isAlphanumeric: isAlnum, classification: likely };
 }
+
+// --- v21: pricing merge logic, pulled out for direct testing ---------------
+//
+// keep() decides ONE field's next stored value: use the fresh scrape/API
+// value if it found something, otherwise fall back to whatever the record
+// already had. Applying it per-field (not gated behind a single "did the
+// scrape find anything at all" flag) is the whole fix — see the v21 note
+// above the caller.
+export function keepValue(fresh, existing) {
+  return fresh != null ? fresh : (existing != null ? existing : null);
+}
+
+// Merges a fresh pricing lookup onto the stored record. `fresh` carries the
+// raw results of this call's API + scrape (any field may be null if that
+// specific source didn't have it) — every output field independently keeps
+// the record's existing value when its own fresh value is null.
+export function mergePricingFields(record, fresh) {
+  return Object.assign({}, record, {
+    discogs_release_id: fresh.releaseId,
+    price_low: keepValue(fresh.priceLow, record.price_low),
+    copies_available: keepValue(fresh.copiesAvailable, record.copies_available),
+    price_currency: fresh.currency || record.price_currency || 'USD',
+    price_updated_at: new Date().toISOString(),
+    price_high: keepValue(fresh.priceHigh, record.price_high),
+    price_median: keepValue(fresh.priceMedian, record.price_median),
+    price_last_sold: keepValue(fresh.priceLastSold, record.price_last_sold),
+    have_count: keepValue(fresh.haveCount, record.have_count),
+    want_count: keepValue(fresh.wantCount, record.want_count),
+    rating_avg: keepValue(fresh.ratingAvg, record.rating_avg),
+    rating_count: keepValue(fresh.ratingCount, record.rating_count)
+  });
+}
+// --- end pricing merge logic ------------------------------------------------
 
 async function discogsFetch(url, token) {
   const res = await fetch(url, { headers: discogsHeaders(token) });
@@ -499,22 +543,24 @@ export default async (req, context) => {
   // all 85 medians lost). Rule: a failed or empty scrape keeps the record's
   // existing values; API fields update only when the API returned data.
   // (v18 note still applies: price_last_sold is a STRING date or null.)
-  const scrapeUsable =
-    scrapeResult.status === 'fulfilled' && scrapeDebug.fields_found > 0;
-  const keep = (fresh, existing) => (fresh != null ? fresh : (existing != null ? existing : null));
-  const updated = Object.assign({}, record, {
-    discogs_release_id: releaseId,
-    price_low: keep(priceLow, record.price_low),
-    copies_available: keep(copiesAvailable, record.copies_available),
-    price_currency: currency || record.price_currency || 'USD',
-    price_updated_at: new Date().toISOString(),
-    price_high: scrapeUsable ? priceHigh : keep(null, record.price_high),
-    price_median: scrapeUsable ? priceMedian : keep(null, record.price_median),
-    price_last_sold: scrapeUsable ? priceLastSold : keep(null, record.price_last_sold),
-    have_count: scrapeUsable ? haveCount : keep(null, record.have_count),
-    want_count: scrapeUsable ? wantCount : keep(null, record.want_count),
-    rating_avg: scrapeUsable ? ratingAvg : keep(null, record.rating_avg),
-    rating_count: scrapeUsable ? ratingCount : keep(null, record.rating_count)
+  //
+  // v21: PER-FIELD fallback, not a single all-or-nothing flag. v19/v20 gated
+  // price_high/median/have/want/rating/last_sold behind one `scrapeUsable`
+  // boolean ("did the scrape find AT LEAST ONE of these six fields") — so a
+  // partial scrape that found have/want but missed median/high still wrote
+  // `priceMedian`/`priceHigh` directly (null), nulling out good stored
+  // values, because `scrapeUsable` was true from the have/want hit. Only
+  // price_low used the correct pattern: keep() falls back per-field,
+  // independent of every other field. mergePricingFields() below now uses
+  // that same keep() for every field — each price/count/rating field
+  // independently keeps its own old value when THAT field wasn't found,
+  // regardless of what else was. Pulled out as an exported pure function
+  // (matching this repo's pattern elsewhere, e.g. jambase-shows.mjs's
+  // exported helpers) so it can be regression-tested directly without
+  // touching Netlify Blobs or the network — see test-discogs-pricing.mjs.
+  const updated = mergePricingFields(record, {
+    releaseId, priceLow, copiesAvailable, currency,
+    priceHigh, priceMedian, priceLastSold, haveCount, wantCount, ratingAvg, ratingCount
   });
 
   try {
