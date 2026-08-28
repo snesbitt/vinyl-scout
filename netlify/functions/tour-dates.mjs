@@ -126,6 +126,48 @@ function json(body, status) {
   });
 }
 
+// --- Small bounded retry for the SeatGeek fetch() calls below -------------
+// 3 attempts total (1 try + 2 retries), short backoff (300ms, 600ms).
+// Retries only a transient failure — a network-level error (fetch() itself
+// throwing: DNS/connection/timeout) or a 429/5xx from SeatGeek — never a
+// plain 4xx like 401/403/404, which won't change on a retry and would just
+// burn rate-limit budget for nothing. Dependency-free; duplicated per-file
+// rather than shared, same one-file-per-endpoint convention this file's own
+// header note already explains for TRIBUTE_WORDS-style small helpers.
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 300;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
+async function fetchWithRetry(url, options) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw err;
+    }
+    if (!res.ok && isRetryableStatus(res.status) && attempt < RETRY_ATTEMPTS) {
+      await sleep(RETRY_BASE_DELAY_MS * attempt);
+      continue;
+    }
+    return res;
+  }
+  throw lastErr;
+}
+
 export default async (req) => {
   // Read-only endpoint: only GET is allowed.
   if (req.method !== "GET") {
@@ -179,17 +221,38 @@ export default async (req) => {
     return p;
   }
 
+  // Classifies every failure with a distinct `code` — auth/rate-limit/
+  // network/parse — matching the shape discogs-pricing.mjs's error codes
+  // (NO_TOKEN, BAD_TOKEN_IDENTITY, etc.) and concert-radar-health-check.mjs's
+  // classifyVenueFailure() already use elsewhere in this repo, rather than
+  // collapsing every failure into one generic "could not reach" message.
   async function seatGeekGet(path, params) {
     const full = "https://api.seatgeek.com/2/" + path + "?" + params.toString();
-    const res = await fetch(full);
+    let res;
+    try {
+      res = await fetchWithRetry(full);
+    } catch (netErr) {
+      const err = new Error("Network error reaching SeatGeek: " + netErr.message);
+      err.code = "NETWORK_ERROR";
+      throw err;
+    }
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).message || ""; } catch (e) {}
       const err = new Error("SeatGeek returned HTTP " + res.status + (detail ? " — " + detail : ""));
-      err.upstream = true;
+      err.status = res.status;
+      if (res.status === 401 || res.status === 403) err.code = "AUTH_FAILED";
+      else if (res.status === 429) err.code = "RATE_LIMITED";
+      else err.code = "UPSTREAM_ERROR";
       throw err;
     }
-    return res.json();
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      const err = new Error("SeatGeek response was not valid JSON: " + parseErr.message);
+      err.code = "PARSE_ERROR";
+      throw err;
+    }
   }
 
   // Normalize for comparison: lowercase, unify "&"/"and", drop punctuation,
@@ -274,8 +337,9 @@ export default async (req) => {
       });
     }
   } catch (err) {
-    if (err.upstream) return json({ error: err.message }, 502);
-    return json({ error: "Could not reach SeatGeek: " + err.message }, 502);
+    const code = err.code || "UPSTREAM_ERROR";
+    const status = code === "AUTH_FAILED" ? 401 : code === "RATE_LIMITED" ? 429 : 502;
+    return json({ error: err.message, code }, status);
   }
 
   const shows = events.map((e) => {

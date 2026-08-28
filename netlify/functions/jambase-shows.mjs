@@ -133,6 +133,49 @@ function json(body, status) {
   });
 }
 
+// --- Small bounded retry for the JamBase fetch() calls below --------------
+// 3 attempts total (1 try + 2 retries), short backoff (300ms, 600ms).
+// Retries only a transient failure — a network-level error (fetch() itself
+// throwing: DNS/connection/timeout) or a 429/5xx from JamBase — never a
+// plain 4xx like 401/403/404, which won't change on a retry and would just
+// burn budget against the free tier's 1,000 calls/month for nothing.
+// Dependency-free; duplicated per-file rather than shared, same
+// one-file-per-endpoint convention this file's own header explains for
+// TRIBUTE_WORDS/HOME_LAT-style small constants (see tour-dates.mjs).
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 300;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
+async function fetchWithRetry(url, options) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw err;
+    }
+    if (!res.ok && isRetryableStatus(res.status) && attempt < RETRY_ATTEMPTS) {
+      await sleep(RETRY_BASE_DELAY_MS * attempt);
+      continue;
+    }
+    return res;
+  }
+  throw lastErr;
+}
+
 export function dateLabelFromIso(iso) {
   if (!iso) return null;
   const d = new Date(iso);
@@ -234,19 +277,43 @@ async function fetchAllEvents(apiKey, lat, lon, perPage, allPages) {
     // eventDateFrom deliberately omitted — documented to default to "current
     // date" when blank, which is exactly what a forward-looking sweep wants.
 
-    const res = await fetch(JAMBASE_BASE + "/events?" + params.toString(), {
-      headers: {
-        Authorization: "Bearer " + apiKey,
-        Accept: "application/json",
-      },
-    });
+    // Classifies every failure with a distinct `code` — auth/rate-limit/
+    // network/parse — matching the shape discogs-pricing.mjs's error codes
+    // and concert-radar-health-check.mjs's classifyVenueFailure() already
+    // use elsewhere in this repo, rather than collapsing every failure into
+    // one generic "could not reach JamBase" message.
+    let res;
+    try {
+      res = await fetchWithRetry(JAMBASE_BASE + "/events?" + params.toString(), {
+        headers: {
+          Authorization: "Bearer " + apiKey,
+          Accept: "application/json",
+        },
+      });
+    } catch (netErr) {
+      const err = new Error("Network error reaching JamBase on page " + page + ": " + netErr.message);
+      err.code = "NETWORK_ERROR";
+      throw err;
+    }
     httpStatus = res.status;
     if (!res.ok) {
       let detail = "";
       try { detail = JSON.stringify(await res.json()); } catch (e) {}
-      throw new Error("JamBase returned HTTP " + res.status + (detail ? " — " + detail : "") + " on page " + page);
+      const err = new Error("JamBase returned HTTP " + res.status + (detail ? " — " + detail : "") + " on page " + page);
+      err.status = res.status;
+      if (res.status === 401 || res.status === 403) err.code = "AUTH_FAILED";
+      else if (res.status === 429) err.code = "RATE_LIMITED";
+      else err.code = "UPSTREAM_ERROR";
+      throw err;
     }
-    const body = await res.json();
+    let body;
+    try {
+      body = await res.json();
+    } catch (parseErr) {
+      const err = new Error("JamBase response was not valid JSON on page " + page + ": " + parseErr.message);
+      err.code = "PARSE_ERROR";
+      throw err;
+    }
     const parsed = parseEnvelope(body || {});
     envelopeKey = parsed.envelopeKey;
     events.push.apply(events, parsed.events);
@@ -292,7 +359,9 @@ export default async (req) => {
     pagesFetched = result.pagesFetched;
     totalPages = result.totalPages;
   } catch (err) {
-    return json({ error: "Could not reach JamBase: " + err.message }, 502);
+    const code = err.code || "UPSTREAM_ERROR";
+    const status = code === "AUTH_FAILED" ? 401 : code === "RATE_LIMITED" ? 429 : 502;
+    return json({ error: err.message, code }, status);
   }
 
   const shows = rawEvents

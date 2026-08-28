@@ -98,6 +98,49 @@ function discogsHeaders(token) {
   };
 }
 
+// --- Small bounded retry for the two external fetch() calls below ---------
+// 3 attempts total (1 try + 2 retries), short backoff (300ms, 600ms).
+// Retries only a transient failure — a network-level error (fetch() itself
+// throwing: DNS/connection/timeout) or a 429/5xx from Discogs — never a
+// plain 4xx like 401/403/404, which won't change on a retry and would just
+// burn time for nothing. Dependency-free; duplicated per-file rather than
+// shared, matching this repo's existing one-file-per-endpoint convention
+// (see tour-dates.mjs's own comment on why small helpers like TRIBUTE_WORDS
+// are copied rather than imported).
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 300;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
+async function fetchWithRetry(url, options) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw err;
+    }
+    if (!res.ok && isRetryableStatus(res.status) && attempt < RETRY_ATTEMPTS) {
+      await sleep(RETRY_BASE_DELAY_MS * attempt);
+      continue;
+    }
+    return res;
+  }
+  throw lastErr;
+}
+
 // --- v18: Statistics block scraping ----------------------------------------
 //
 // Discogs renders the release page server-side; the Statistics block is in
@@ -116,7 +159,7 @@ function discogsHeaders(token) {
 
 async function scrapeReleaseStats(releaseId) {
   const url = `https://www.discogs.com/release/${releaseId}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: {
       'User-Agent': USER_AGENT,
       'Accept': 'text/html,application/xhtml+xml',
@@ -243,7 +286,7 @@ export function mergePricingFields(record, fresh) {
 // --- end pricing merge logic ------------------------------------------------
 
 async function discogsFetch(url, token) {
-  const res = await fetch(url, { headers: discogsHeaders(token) });
+  const res = await fetchWithRetry(url, { headers: discogsHeaders(token) });
   if (!res.ok) {
     let body = '';
     try { body = (await res.text()).slice(0, 300); } catch (_) {}
