@@ -10,7 +10,8 @@ on:
     # "records tracked" stat tile vs. the latest committed catalog backup,
     # see scripts/check-content-drift.mjs) even on a week with no code
     # changes at all. Runs the same job as a normal push, so no separate
-    # workflow file or new failure mode.
+    # workflow file or new failure mode. Also drives the deploy-freshness
+    # job below, which only runs on this trigger.
     - cron: "0 13 * * 1"
 
 jobs:
@@ -152,3 +153,92 @@ jobs:
       - name: Deploy to Netlify (production)
         if: steps.ignore-check.outputs.should_deploy == 'true'
         run: npx --yes netlify-cli@21 deploy --prod --dir=. --site="$NETLIFY_SITE_ID"
+
+  # scripts/check-deploy-fresh.mjs (see its own header) was written after
+  # vinylscout.org spent 8 days frozen on a 2026-08-14 deploy that Netlify's
+  # own API called `ready` the entire time -- the deploy WAS ready, it just
+  # wasn't the one being served (a locked deploy). Until now this script
+  # only ran when a human remembered to type `npm run check:deploy` by hand.
+  # This job makes that check itself part of the automation, on the same
+  # weekly cron as the content-drift check above -- so a repeat of the
+  # August incident is caught within a week (previously: never, on its own)
+  # instead of only when someone happens to notice the site looks stale.
+  #
+  # Deliberately scheduled-only, not on every push: right after a push the
+  # deploy may still be building, and `npm run check:deploy` is meant to be
+  # run with --wait for that case (already documented in this repo as a
+  # manual post-deploy step). This job's job is the *unattended* backstop --
+  # catching drift on a week nobody pushed anything at all, which is exactly
+  # the scenario the August incident was.
+  deploy-freshness:
+    name: Deploy freshness check (live site vs. repo)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compare the live site against this repo
+        id: freshness
+        run: |
+          set +e
+          npm run check:deploy -- --json > deploy-freshness-result.json
+          CODE=$?
+          set -e
+          cat deploy-freshness-result.json
+          if [ "$CODE" -ne 0 ]; then
+            echo "drifted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # One open issue per incident, not one per week the drift persists --
+      # re-runs while the same drift is still open add a comment instead of
+      # piling up duplicate issues.
+      - name: Open or update an issue if the live site has drifted
+        if: steps.freshness.outputs.drifted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Deploy freshness check failed: live site does not match main"
+          BODY_FILE="$(mktemp)"
+          {
+            echo "Weekly scheduled \`npm run check:deploy\` found that vinylscout.org does not"
+            echo "byte-for-byte match what is committed on \`main\` ($(date -u +%Y-%m-%dT%H:%M:%SZ))."
+            echo ""
+            echo "This is the exact failure mode that froze vinylscout.org on a 2026-08-14 deploy"
+            echo "for 8 days -- Netlify's API reported that deploy \`ready\` the whole time. Check"
+            echo "first for a LOCKED deploy: app.netlify.com -> this site -> Deploys -> find the"
+            echo "one marked Locked -> Unlock -> Trigger deploy."
+            echo ""
+            echo "Full comparison (scripts/check-deploy-fresh.mjs --json):"
+            echo '```json'
+            cat deploy-freshness-result.json
+            echo '```'
+            echo ""
+            echo "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > "$BODY_FILE"
+
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --search "$TITLE in:title" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body-file "$BODY_FILE"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$BODY_FILE"
+          fi
+
+      - name: Fail the run so it shows red, not just the issue
+        if: steps.freshness.outputs.drifted == 'true'
+        run: |
+          echo "Live site does not match this repo's main branch. See the opened/updated issue for details." >&2
+          exit 1
