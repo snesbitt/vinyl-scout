@@ -2,10 +2,12 @@
 // Content-drift check for Vinyl Scout, same idea as Streaming Scout's
 // scripts/check-content-drift.mjs (2026-08-08): about.html's "N records
 // tracked" stat tile is a hand-typed number that should always equal the
-// real size of the catalog. The daily scheduled backup.mjs function already
-// commits a full catalog snapshot to git (backups/YYYY-MM-DD.json, complete
-// with a record_count field) — this check reads the latest one and fails
-// loudly if about.html has drifted from it.
+// real size of the catalog. The nightly GitHub Actions backup
+// (.github/workflows/backup-catalog.yml, scripts/backup-catalog.mjs —
+// retired off the old Netlify-scheduled backup.mjs 2026-08-26, bdd16c0)
+// already commits a full catalog snapshot to git (backups/YYYY-MM-DD.json,
+// complete with a record_count field) — this check reads the latest one and
+// fails loudly if about.html has drifted from it.
 //
 // 2026-08-21: this header used to say the "collection value" tile was
 // deliberately NOT checked, on the reasoning that it's approximate ("≈"),
@@ -36,7 +38,7 @@ let failures = [];
 
   if (backupFiles.length === 0) {
     failures.push(
-      "backups/: no dated snapshot files found at all (backup.mjs may have stopped running, or this check's glob pattern is stale).",
+      "backups/: no dated snapshot files found at all (the nightly backup-catalog.yml Actions job may have stopped running, or this check's glob pattern is stale).",
     );
   } else {
     const latestFile = backupFiles[backupFiles.length - 1];
@@ -49,11 +51,12 @@ let failures = [];
         `backups/${latestFile}: no "records" array found (backup format may have changed; update this check).`,
       );
     } else if (declaredCount !== actualCount) {
-      // The backup file disagreeing with itself is a bug in backup.mjs, not
-      // in about.html — worth surfacing distinctly so it's not misread as a
-      // content-drift issue on the About page.
+      // The backup file disagreeing with itself is a bug in
+      // scripts/backup-catalog.mjs, not in about.html — worth surfacing
+      // distinctly so it's not misread as a content-drift issue on the
+      // About page.
       failures.push(
-        `backups/${latestFile}: its own record_count (${declaredCount}) doesn't match its records array length (${actualCount}). This is a backup.mjs bug, not an about.html drift issue.`,
+        `backups/${latestFile}: its own record_count (${declaredCount}) doesn't match its records array length (${actualCount}). This is a scripts/backup-catalog.mjs bug, not an about.html drift issue.`,
       );
     } else {
       const about = readFileSync("about.html", "utf8");
@@ -293,6 +296,92 @@ const VALUE_TOLERANCE_EUR = 10;
   }
 }
 
+// Check 5: every backtick-wrapped `something.mjs` filename in PROJECT.md's
+// and CLAUDE.md's CURRENT-REFERENCE prose (not their dated changelog/journal
+// entries) must still exist under netlify/functions/, netlify/lib/, or
+// scripts/. Written after PROJECT.md's own /api/catalog-cache entry and
+// CLAUDE.md's repo-layout table both kept describing a deleted
+// netlify/functions/scheduled-sweep.mjs as still live for days after it was
+// actually deleted (2026-08-25) — the same failure mode Check 4 already
+// guards against for cron cadence claims, applied here to file existence.
+//
+// SCOPING, stated rather than left implicit (same discipline as Check 2's
+// tolerance-band note above): a blind scan of the WHOLE of either file would
+// fail constantly, and for the wrong reason. Both files are full of
+// accurate historical narration that mentions a file BECAUSE it was just
+// deleted or renamed as the whole point of that dated entry (e.g. CLAUDE.md's
+// 2026-08-26 entry saying `backup.mjs` was retired) — flagging those would
+// be crying wolf on correct history, and a check that cries wolf gets
+// ignored inside a month. So: CLAUDE.md's dated entries (headings starting
+// "## YYYY-MM-DD") are excluded from this check; only its undated
+// "how this repo currently is" sections (Repo layout, Weekly automation,
+// etc.) are scanned. PROJECT.md's Changelog (the dated "- **vNN
+// (YYYY-MM-DD)**" bullet list right under the title) is excluded the same
+// way; everything from "## Identity" onward — the actual charter body — is
+// scanned.
+{
+  const CODE_DIRS = ["netlify/functions", "netlify/lib", "scripts"];
+
+  function existsInCodeDirs(filename) {
+    for (const dir of CODE_DIRS) {
+      try {
+        if (readdirSync(dir).includes(filename)) return true;
+      } catch (e) {
+        /* dir doesn't exist in this checkout — treat as not found there */
+      }
+    }
+    return false;
+  }
+
+  // Matches both a bare `foo.mjs` and a `some/path/foo.mjs`-style relative
+  // path inside backticks (this repo uses both forms) — either way, only
+  // the trailing filename is checked, since that's what has to resolve
+  // under one of CODE_DIRS regardless of which directory the doc named.
+  function extractMjsMentions(text) {
+    const matches = [...text.matchAll(/`(?:[A-Za-z0-9_.\-]+\/)*([A-Za-z0-9_\-]+\.mjs)`/g)];
+    return matches.map((m) => m[1]);
+  }
+
+  // --- CLAUDE.md: keep only its undated ("current reference") sections ---
+  const claudeMd = readFileSync("CLAUDE.md", "utf8");
+  const claudeParts = claudeMd.split(/^(## .+)$/m); // [pre, heading, body, heading, body, ...]
+  let claudeCurrentText = claudeParts[0];
+  for (let i = 1; i < claudeParts.length; i += 2) {
+    const heading = claudeParts[i];
+    const body = claudeParts[i + 1] || "";
+    if (/^## \d{4}-\d{2}-\d{2}/.test(heading)) continue; // dated journal entry — skip
+    claudeCurrentText += heading + body;
+  }
+
+  // --- PROJECT.md: drop the dated Changelog bullet list, keep the rest ---
+  const projectMd = readFileSync("PROJECT.md", "utf8");
+  const identityIdx = projectMd.indexOf("\n## Identity");
+  const projectCurrentText = identityIdx === -1 ? projectMd : projectMd.slice(identityIdx);
+  if (identityIdx === -1) {
+    failures.push(
+      'PROJECT.md: could not find the "## Identity" heading this check uses to skip past the dated Changelog list (markup may have changed; update this check\'s split point).',
+    );
+  }
+
+  const mentions = [
+    ...extractMjsMentions(claudeCurrentText).map((file) => ({ file, doc: "CLAUDE.md" })),
+    ...extractMjsMentions(projectCurrentText).map((file) => ({ file, doc: "PROJECT.md" })),
+  ];
+
+  const seen = new Set();
+  for (const { file, doc } of mentions) {
+    const key = doc + ":" + file;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!existsInCodeDirs(file)) {
+      failures.push(
+        `${doc} references \`${file}\` in its current-reference prose (outside any dated changelog/journal entry), but no file by that name exists under netlify/functions/, netlify/lib/, or scripts/. ` +
+          "Either the file was deleted and this doc line is stale, or it was renamed/moved and this doc needs the new name.",
+      );
+    }
+  }
+}
+
 if (failures.length) {
   console.error("Content drift check FAILED:\n");
   for (const f of failures) console.error("  - " + f);
@@ -300,6 +389,7 @@ if (failures.length) {
 } else {
   console.log(
     "Content drift check passed: records-tracked count, collection value on both pages, " +
-      "about.html's charter version, and every documented job cadence all match the repo.",
+      "about.html's charter version, every documented job cadence, and every referenced " +
+      ".mjs filename in PROJECT.md/CLAUDE.md's current-reference prose all match the repo.",
   );
 }
