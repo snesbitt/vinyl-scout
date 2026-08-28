@@ -45,8 +45,12 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
     netlify/functions/ One file per endpoint; path set by export const config
       records.mjs        /api/records/:id?   GET public · POST/DELETE gated
       save-cover.mjs     /api/save-cover     POST gated · commits covers/<id>
-      backup-http.mjs    /api/backup         GET  gated (manual backup)
-      backup.mjs         scheduled 09:00 UTC nightly backup (not HTTP-reachable)
+      backup-http.mjs    /api/backup         GET  gated (manual backup;
+                         nightly automation retired off this Netlify
+                         function 2026-08-26, `bdd16c0` — see
+                         .github/workflows/backup-catalog.yml +
+                         scripts/backup-catalog.mjs, GitHub-Actions-
+                         scheduled, below)
       discogs-lookup.mjs /api/discogs/lookup GET ungated · pure read
       discogs-pricing.mjs/api/discogs-pricing POST gated · writes record · scrapes (see PROJECT.md v25 — no auth check at all before 2026-07-20)
       wishlist.mjs       /api/wishlist/:id?  GET public · POST/DELETE gated by EDIT_SECRET, v4 (see below)
@@ -78,24 +82,30 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          browser lost it from localStorage; separate
                          `watching` Blobs store; seeds 3 named artists once
                          via a sentinel record — see 2026-08-04 v16 note)
-      scheduled-sweep.mjs scheduled '@weekly' (not HTTP-reachable — Phase
-                         11, 2026-08-04, v18 — re-sweeps every catalog/
-                         wishlist artist + the venue scrape server-side via
-                         this site's own /api/tour-dates and /api/venue-
-                         shows endpoints, writes merged result to the
-                         `catalog-cache` Blobs store; see 2026-08-04 v18
-                         note)
       catalog-cache.mjs  /api/catalog-cache  GET ungated · pure read
                          (v2, 2026-08-19: serves data/catalog-cache.json,
                          committed weekly by the Actions job, NOT the
                          Blobs store any more; used
                          by concert-radar.html only as a first-paint
                          fallback for a browser with no local cache yet —
-                         see 2026-08-04 v18 note)
-    netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit)
+                         see 2026-08-04 v18 note. The Netlify Scheduled
+                         Function that used to write that Blobs store,
+                         `scheduled-sweep.mjs`, was deleted 2026-08-25
+                         [`bd65e35`] once this read side had run clean for
+                         a week — the sweep itself now lives only as
+                         scripts/scheduled-sweep.mjs +
+                         .github/workflows/scheduled-sweep.yml, below)
+    netlify/lib/run-backup.mjs  Shared backup logic (pure read → git commit;
+                       still used by backup-http.mjs's manual trigger —
+                       the nightly automation moved to
+                       scripts/backup-catalog.mjs, below)
     covers/            Album art committed by save-cover
     backups/           Daily JSON snapshots committed by run-backup
-    scripts/           netlify-ignore.sh (deploy gate) + smoke.mjs + helpers
+    scripts/           netlify-ignore.sh (deploy gate) + smoke.mjs +
+                       scheduled-sweep.mjs (weekly Concert Radar sweep,
+                       GitHub-Actions-scheduled) + backup-catalog.mjs
+                       (nightly catalog backup, GitHub-Actions-scheduled)
+                       + backup-watching.mjs + helpers
     PROJECT.md         The charter (scope, hard rules, schema, QA checklist)
 
 ## How it deploys
@@ -1799,10 +1809,18 @@ reshaped value would disable that check rather than trip it, and that no
 the change. Verified by mutation: dropping `at`, weakening the 405, and
 truncating the shows array each fail the suite.
 
-**Deliberately left alone.** `netlify/functions/scheduled-sweep.mjs` still
-exists and still writes the Blobs store, now with no reader. Harmless, and
-a working fallback while the read side is unverified. Retire it, and the
+**Deliberately left alone, at the time.** `netlify/functions/scheduled-sweep.mjs`
+still existed and still wrote the Blobs store, now with no reader. Harmless, and
+a working fallback while the read side was unverified. Retire it, and the
 store, in a follow-up.
+
+**Follow-up done, 2026-08-25 (`bd65e35`).** The read side (`catalog-cache.mjs`
+v2, above) had run cleanly for a week, including real unattended scheduled
+firings, so `netlify/functions/scheduled-sweep.mjs` was deleted for real —
+the GitHub Actions version (`scripts/scheduled-sweep.mjs` +
+`.github/workflows/scheduled-sweep.yml`) is now the only one. It no longer
+"still exists"; see the Repo layout section above, which has been updated
+to match.
 
 **The one thing local tests cannot prove.** This is a bundler-boundary
 change, and the standing rule at the top of this file says an import across
