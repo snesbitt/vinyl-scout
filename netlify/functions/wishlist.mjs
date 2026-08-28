@@ -15,7 +15,7 @@ function checkWriteAuth(req) {
   return !!(expected && provided && provided === expected);
 }
 
-// version: 4
+// version: 5
 //
 // Phase 3 — Wishlist. Separate Blobs store ('wishlist') so wishlist writes
 // can never touch the catalog store.
@@ -55,12 +55,29 @@ function checkWriteAuth(req) {
 // re-entering a key on mobile every session wasn't practical for a casual
 // list. A device-remembered key costs one entry per device, not one per
 // visit, closing the gap without reintroducing that friction.
+//
+// v5 (2026-08-28): defense-in-depth against re-adding a deleted item. The
+// "never auto-re-add" rule is recorded here in sync-state.json's `deleted`
+// array (see recordDeletion() below), but enforcement of it lives in an
+// EXTERNAL sync job this repo doesn't control — CLAUDE.md itself notes the
+// live trigger for that job couldn't even be located this session. This
+// can't fix the external job, but POST can now make a silent resurrection
+// VISIBLE: if the incoming artist+title normalizes to a key already in
+// `deleted`, the response carries `re_added_after_deletion: true` instead
+// of looking like an ordinary clean add. Deliberately a FLAG, not a hard
+// reject — matching the choice this repo already made for watching.mjs's
+// identical situation (see CLAUDE.md's 2026-08-09 entry: "Susan can always
+// freely re-add anything herself through the UI, any time she changes her
+// mind — this endpoint never blocks a POST"). Rejecting here with no
+// matching override control in wishlist.html would silently break a
+// legitimate human re-add with no way to complete it from the page. See
+// checkPreviouslyDeleted() below.
 
 // Same normalization used to build the `auto_added` keys already in
 // sync-state.json: lowercase, any non a-z0-9 char becomes a space (not
 // deleted — this matters for accented characters, e.g. "L'Impératrice" ->
 // "l imp ratrice"), then collapse runs of spaces and trim.
-function normalizeKey(s) {
+export function normalizeKey(s) {
   return String(s || '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, ' ')
@@ -126,6 +143,44 @@ async function recordDeletion(artist, title) {
   }
 }
 
+// v5: best-effort, read-only lookup against sync-state.json's `deleted`
+// list — a separate live GitHub Contents API read from recordDeletion()'s
+// own (which needs the file's `sha` too, for its PUT). Fetched fresh on
+// every check rather than bundled at deploy time: sync-state.json is
+// updated by both this file's own recordDeletion() and an external sync
+// job outside this repo's deploy cycle, so a build-time import (the
+// approach catalog-cache.mjs v2 uses for its own once-a-week data) would
+// only ever be as fresh as the last deploy — wrong tool for a rule that
+// needs to hold between deploys. Returns false (never blocks the write) on
+// any failure — missing GITHUB_TOKEN, network error, malformed file —
+// same fail-open posture as recordDeletion()'s own bookkeeping write.
+export async function checkPreviouslyDeleted(artist, title) {
+  const key = (normalizeKey(artist) + ' ' + normalizeKey(title)).trim();
+  if (!key) return false;
+
+  try {
+    const token = process.env.GITHUB_TOKEN;
+    const repo = process.env.GITHUB_REPO || 'snesbitt/vinyl-scout';
+    const branch = process.env.GITHUB_BRANCH || 'main';
+    const ghHeaders = {
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'vinyl-scout-wishlist',
+    };
+    if (token) ghHeaders['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch(
+      'https://api.github.com/repos/' + repo + '/contents/sync-state.json?ref=' + branch,
+      { headers: ghHeaders }
+    );
+    if (!res.ok) return false;
+    const file = await res.json();
+    const state = JSON.parse(Buffer.from(file.content, 'base64').toString('utf-8'));
+    return Array.isArray(state.deleted) && state.deleted.includes(key);
+  } catch (e) {
+    return false;
+  }
+}
+
 export default async (req, context) => {
   try {
     const method = (req.method || '').toUpperCase();
@@ -154,8 +209,27 @@ export default async (req, context) => {
           headers: { 'Content-Type': 'application/json' }
         });
       }
+
+      // v5 defense-in-depth (see checkPreviouslyDeleted() above): flag, not
+      // block, a re-add whose artist+title was previously recorded as
+      // deleted. Skipped entirely with no artist/title to key on.
+      let reAddedAfterDeletion = false;
+      if (body.artist || body.title) {
+        reAddedAfterDeletion = await checkPreviouslyDeleted(body.artist, body.title);
+        if (reAddedAfterDeletion) {
+          console.warn(
+            'wishlist.mjs: "' + (body.artist || '') + ' - ' + (body.title || '') +
+            '" was previously recorded as deleted (sync-state.json) and is being added again.'
+          );
+        }
+      }
+
       await store.set(body.id, JSON.stringify(body));
-      return new Response(JSON.stringify({ ok: true, id: body.id }), {
+      return new Response(JSON.stringify({
+        ok: true,
+        id: body.id,
+        re_added_after_deletion: reAddedAfterDeletion
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
