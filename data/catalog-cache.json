@@ -1,7 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-ape-10-2026-09-02",
+      "id": "venue-ape-2-2026-09-02",
       "artist": "LP",
       "title": "LP",
       "venue": "The Castro",
@@ -14,7 +14,20 @@
       "url": "https://apeconcerts.com/events/lp-260902/"
     },
     {
-      "id": "venue-sweetwater-37-2026-10-18",
+      "id": "venue-ape-14-2026-09-09",
+      "artist": "Liz Phair & Sleater-Kinney",
+      "title": "Liz Phair & Sleater-Kinney",
+      "venue": "Greek Theatre",
+      "city": "Berkeley, CA",
+      "date": "2026-09-09",
+      "dateLabel": "Wed, Sep 9, 2026",
+      "source": "Venue: Another Planet Entertainment",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://apeconcerts.com/events/liz-phair-sleater-kinney-260909/"
+    },
+    {
+      "id": "venue-sweetwater-35-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -66,6 +79,19 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
+      "id": "venue-gamh-57-2026-11-28",
+      "artist": "Zepparella the Led Zeppelin Powerhouse",
+      "title": "Zepparella the Led Zeppelin Powerhouse",
+      "venue": "Great American Music Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-11-28",
+      "dateLabel": "Sat, Nov 28, 2026",
+      "source": "Venue: Great American Music Hall",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
+    },
+    {
       "id": "venue-uctheatre-28-2026-12-31",
       "artist": "Steel Pulse (New Years Eve)",
       "title": "Steel Pulse (New Years Eve)",
@@ -77,58 +103,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "jambase-jambase:16324469",
-      "artist": "Jason Bonham’s Led Zeppelin Evening",
-      "title": "Jason Bonham's Led Zeppelin Evening at Meritage Resort And Spa",
-      "venue": "Meritage Resort And Spa",
-      "city": "Napa, CA",
-      "date": "2026-08-23",
-      "dateLabel": "Sun, Aug 23, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fjason-bonhams-led-zeppelin-evening-napa-california-08-23-2026%2Fevent%2F1C0064AFCCC3DE6C%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16741925",
-      "artist": "Alasdair Fraser",
-      "title": "Annual Freight Fiddle Summit",
-      "venue": "The Freight",
-      "city": "Berkeley, CA",
-      "date": "2026-08-27",
-      "dateLabel": "Thu, Aug 27, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://secure.thefreight.org/15922/15923-annual-freight-fiddle-summit-hosted-by-alasdair-fraser-friends-260827?promo=8411"
-    },
-    {
-      "id": "jambase-jambase:15988467",
-      "artist": "Wax",
-      "title": "Wax at The Independent",
-      "venue": "The Independent",
-      "city": "San Francisco, CA",
-      "date": "2026-08-28",
-      "dateLabel": "Fri, Aug 28, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.ticketweb.com/event/wax-dj-hoppa-the-independent-tickets/14823433?pl=independentsf"
-    },
-    {
-      "id": "jambase-jambase:16305894",
-      "artist": "marQ",
-      "title": "marQ at Brick and Mortar Music Hall",
-      "venue": "Brick and Mortar Music Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-08-29",
-      "dateLabel": "Sat, Aug 29, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketweb.com%2Fevent%2Fmarq-brick-and-mortar-music-hall-tickets%2F14918213&utm_medium=affiliate&utm_source=jambase"
     },
     {
       "id": "seatgeek-18163038",
@@ -417,6 +391,19 @@
       "url": "https://app.opendate.io/e/easy-star-all-stars-october-24-2026-727778?utm_source=jambase"
     },
     {
+      "id": "seatgeek-18529143",
+      "artist": "Moby",
+      "title": "Moby with Azzecca and DJ Holographic (18+)",
+      "venue": "Bill Graham Civic Auditorium",
+      "city": "San Francisco, CA",
+      "date": "2026-11-05",
+      "dateLabel": "Thu, Nov 5, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
+    },
+    {
       "id": "jambase-jambase:16892367",
       "artist": "Southern Culture on the Skids",
       "title": "Southern Culture on the Skids at Bottom of the Hill",
@@ -482,17 +469,17 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/82462098/mindi-abair-christmas-show-tue122226-oakland-yoshis?utm_source=jambase"
     },
     {
-      "id": "jambase-jambase:16933849",
+      "id": "seatgeek-18532597",
       "artist": "Steel Pulse",
-      "title": "Steel Pulse at The UC Theatre",
+      "title": "Steel Pulse",
       "venue": "The UC Theatre",
       "city": "Berkeley, CA",
       "date": "2026-12-31",
       "dateLabel": "Thu, Dec 31, 2026",
-      "source": "JamBase",
+      "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://app.opendate.io/e/steel-pulse-new-years-eve-december-31-2026-710251?utm_source=jambase"
+      "url": "https://seatgeek.com/steel-pulse-tickets/berkeley-california-the-uc-theatre-2026-12-31-8-pm/concert/18532597"
     },
     {
       "id": "seatgeek-18396976",
@@ -586,19 +573,6 @@
       "url": "https://seatgeek.com/diana-ross-tickets/napa-california-blue-note-napa-2026-09-01-8-pm/concert/18166484"
     },
     {
-      "id": "seatgeek-18256453",
-      "artist": "Jason Bonham's Led Zeppelin Evening",
-      "title": "Jason Bonham's Led Zeppelin Evening",
-      "venue": "Blue Note Napa at Meritage Resort",
-      "city": "Napa, CA",
-      "date": "2026-08-23",
-      "dateLabel": "Sun, Aug 23, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/jason-bonham-s-led-zeppelin-evening-tickets/napa-california-blue-note-napa-2026-08-23-7-pm/concert/18256453"
-    },
-    {
       "id": "seatgeek-18514501",
       "artist": "San Francisco Symphony",
       "title": "San Francisco Symphony - Lang Lang in Recital",
@@ -612,7 +586,7 @@
       "url": "https://seatgeek.com/san-francisco-symphony-tickets/orchestral/2026-10-04-7-30-pm/18514501"
     }
   ],
-  "artistCount": 131,
-  "at": 1787481321625,
+  "artistCount": 133,
+  "at": 1788101233725,
   "source": "github-actions"
 }
