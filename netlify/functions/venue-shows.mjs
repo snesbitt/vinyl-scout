@@ -1,5 +1,17 @@
 // netlify/functions/venue-shows.mjs
-// version: 5
+// version: 6
+// v6 (2026-09-01): v5's browser-like headers (below) deployed clean but
+// did not clear Freight & Salvage's HTTP 403 — verified live, then
+// isolated why: identical headers succeed from a real browser on Susan's
+// own Mac and still 403 from this function, which points at an IP/ASN
+// block (Netlify Functions run from AWS Lambda datacenter ranges) rather
+// than anything about the request itself. No header change from a
+// serverless function can pass that kind of rule. Asked Susan again with
+// that finding; she chose to drop Freight from active scraping rather
+// than keep the weekly red run or scope a residential-IP proxy. Moved
+// from VENUES to EXCLUDED_VENUES (see that comment below) — parseFreight()
+// itself is left in place, unused. Full trail in CLAUDE.md's 2026-09-01
+// entries.
 // v5 (2026-08-31): Freight & Salvage (thefreight.org) has been returning
 // HTTP 403 to every request since at least 2026-08-19 — verified 2026-08-25
 // (see CLAUDE.md that date) that the venue itself is up and its markup is
@@ -413,10 +425,17 @@ function parseUcTheatre(html) {
   return out;
 }
 
+// Freight & Salvage was pulled from active scraping 2026-09-01 — see
+// EXCLUDED_VENUES below for why, and CLAUDE.md's 2026-09-01 entry for the
+// full trail (a Cloudflare/ASN-level block on Netlify's own IP ranges,
+// confirmed not fixable by any header change from a serverless function).
+// parseFreight() itself is left in place, unused, in case a future fix
+// (e.g. routing the fetch through a non-datacenter IP) makes it relevant
+// again — deleting a working parser for a venue that might come back
+// seemed like the wrong kind of tidiness.
 var VENUES = [
   { key: "cornerstone", label: "Cornerstone", url: "https://cornerstoneberkeley.com/events", parse: parseCornerstone },
   { key: "ape", label: "Another Planet Entertainment (Fox, Greek, Bill Graham Civic, Castro, Bimbo's, Independent)", url: "https://apeconcerts.com/event-listing/", parse: parseApe },
-  { key: "freight", label: "Freight & Salvage", url: "https://thefreight.org/shows/", parse: parseFreight },
   { key: "sweetwater", label: "Sweetwater Music Hall", url: "https://sweetwatermusichall.org/events/", parse: parseSweetwater },
   { key: "gamh", label: "Great American Music Hall", url: "https://gamh.com/calendar/", parse: function (html) { return parseSeeTickets(html, "Great American Music Hall", "San Francisco, CA"); } },
   { key: "chapel", label: "The Chapel", url: "https://thechapelsf.com/calendar/", parse: function (html) { return parseSeeTickets(html, "The Chapel", "San Francisco, CA"); } },
@@ -542,6 +561,20 @@ var MANUAL_SHOWS = [
 // either would mean finding the actual JSON/XHR endpoint each site's
 // widget calls client-side (worth a follow-up look at each site's network
 // requests in a real browser) rather than scraping the page shell.
+//   - Freight & Salvage (Berkeley) — thefreight.org/shows/ — added
+//     2026-09-01. Different failure mode than the two above: the page
+//     itself is a normal server-rendered WordPress/Kinsta site behind
+//     Cloudflare, and a real browser loads it fine. The block is
+//     IP/ASN-based — Netlify Functions run from AWS Lambda datacenter
+//     ranges, and Cloudflare's bot rule rejects that origin regardless of
+//     request headers (verified 2026-08-25 that headers alone don't
+//     explain it, verified 2026-09-01 — after actually trying a
+//     browser-realistic header set — that headers genuinely aren't the
+//     mechanism: identical headers succeed from a residential IP and
+//     403 from Netlify's). Revisiting would mean routing the fetch
+//     through a non-datacenter IP (a residential proxy/relay), not
+//     anything this function can do to its own request. Real shows are
+//     added by hand via Concert Radar's "+ Add a show" fallback.
 
 export default async (req) => {
   if (req.method !== "GET") {
@@ -612,6 +645,7 @@ export default async (req) => {
       excluded: [
         { key: "ashkenaz", label: "Ashkenaz", reason: "calendar renders via client-side JS; no show data in raw HTML" },
         { key: "newparish", label: "The New Parish", reason: "calendar loads via a lazy iframe with no data in raw HTML" },
+        { key: "freight", label: "Freight & Salvage", reason: "thefreight.org blocks Netlify's IP range at the Cloudflare/WAF level, independent of request headers; see EXCLUDED_VENUES above" },
       ],
     },
   }, 200);

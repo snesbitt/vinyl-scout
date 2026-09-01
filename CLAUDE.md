@@ -2183,3 +2183,40 @@ IP proxy or scraping relay could theoretically get around the ASN block,
 but that's new infrastructure and cost for one of seven venues and hasn't
 been scoped — worth a explicit call from Susan before anyone builds it,
 not a default next step.
+
+## 2026-09-01, later — Freight & Salvage dropped from active scraping
+
+Asked Susan to choose between the three options above, now that "browser
+headers" was confirmed closed out rather than merely untried. **She chose:
+drop Freight from the venue list.**
+
+**What changed (v6):** `netlify/functions/venue-shows.mjs`'s `VENUES`
+array no longer includes Freight — it's moved to `EXCLUDED_VENUES`
+alongside Ashkenaz and The New Parish, with its own reason (IP/ASN block,
+not a client-side-rendering problem like those two) and now appears in
+the API response's `meta.excluded[]` instead of `meta.venues[]`.
+`parseFreight()` itself is untouched and still in the file, just unused —
+deleting a working parser for a venue that might come back later (a
+residential-IP proxy, if that's ever built) seemed like the wrong kind of
+cleanup.
+
+**Practical effect:** `concert-radar-health-check.yml` will no longer see
+Freight in `meta.venues[]` at all, so it can't fail on it — the weekly
+red run this whole two-day thread was about should stop. Real Freight
+shows still reach Concert Radar the way they already do for anything
+outside all three automated sources: the "+ Add a show" manual fallback,
+same path used for The Meditations (`2ef41ab`).
+
+**Docs updated in the same change**, since a scraped-venue count is
+exactly the kind of claim the 2026-08-21 drift audit flagged as going
+stale silently: `about.html` and `guide.html`'s "seven venue
+feeds"/"seven hand-picked venue calendars" language now says six, with a
+short note on why the seventh isn't there. `roadmap.html`'s Concert Radar
+phase body got the same correction rather than being left to quietly
+disagree with About. `check-content-drift.mjs` does not yet assert this
+count itself (it wasn't in scope for this session) — worth adding next
+time that script is open, so this specific staleness can't recur
+silently.
+
+**Delivered:** `netlify/functions/venue-shows.mjs` (v6), `about.html`,
+`guide.html`, `roadmap.html`, this file.
