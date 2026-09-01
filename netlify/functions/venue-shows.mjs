@@ -1,5 +1,24 @@
 // netlify/functions/venue-shows.mjs
-// version: 4
+// version: 5
+// v5 (2026-08-31): Freight & Salvage (thefreight.org) has been returning
+// HTTP 403 to every request since at least 2026-08-19 — verified 2026-08-25
+// (see CLAUDE.md that date) that the venue itself is up and its markup is
+// fine; its server was refusing this caller specifically, based on the
+// self-identifying `VinylScoutConcertRadar/1.0` User-Agent fetchText() sent.
+// That 403 has been failing the concert-radar-health-check.yml Actions run
+// every week since it shipped (3/3 runs red, all for this one reason) with
+// no auto-repair possible, since a 403 isn't a parser fault — see that
+// script's classifyVenueFailure(). Susan chose (2026-08-31, offered 3
+// options after the 08-25 diagnosis) to try browser-like request headers
+// rather than dropping Freight from the venue list or leaving the run red.
+// fetchText() now sends a real Chrome-on-macOS User-Agent plus the Accept/
+// Accept-Language headers a real browser sends, instead of a bot-labeled UA
+// — applies to all 7 venues, not just Freight, since they share this one
+// function and none of the other 6 are currently blocked by it (see
+// meta.venues[] as of this date: cornerstone/ape/sweetwater/gamh/chapel/
+// uctheatre all healthy). If Freight is still 403ing after this ships, the
+// block is on something other than the UA string and the remaining options
+// (drop the venue, or accept the weekly red run) are back on the table.
 // v4 (2026-08-04, same day as v3): Susan flagged directly that Easy Star
 // All-Stars also plays Cornerstone Berkeley, Oct 22, 2026 — v3 had checked
 // this specific date/venue combo (it appeared on Songkick's artist
@@ -223,7 +242,13 @@ function dateLabelFromIso(iso) {
 }
 
 async function fetchText(url) {
-  var res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; VinylScoutConcertRadar/1.0)" } });
+  var res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.text();
 }

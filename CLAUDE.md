@@ -2103,3 +2103,41 @@ the 403 is Susan's:
 
 **Delivered:** `scripts/concert-radar-health-check.mjs`,
 `scripts/test-concert-radar-health-check.mjs`, this file.
+
+## 2026-08-31 — Freight & Salvage: Susan picked an option, and the health check's 3-for-3 losing streak was the reason to ask
+
+`concert-radar-health-check.yml` had run 3 times since it shipped on
+2026-08-19 (one manual, two scheduled) and failed all 3 — every single one
+for the same reason: Freight & Salvage still 403ing `fetchText()`, and the
+script deliberately failing the run whenever a venue is unreachable (see
+2026-08-25 above — that's the point of `classifyVenueFailure()`, a human
+needs to see it, and no PR gets opened for something that isn't a parser
+fault). Susan hadn't picked one of the three options that entry laid out,
+so it kept happening — a real, live-verified `meta.venues[]` HTTP 403 on
+Freight, all 6 other venues healthy, catalog-cache 34 hours old, SeatGeek
+spot check 200 — every Monday, forever, until someone chose.
+
+Asked Susan directly this session (prompted by her GitHub failure-run
+email for run #3). She picked the first option: send fuller browser-like
+headers and see if it passes.
+
+**What changed:** `fetchText()` in `venue-shows.mjs` (v5) now sends a real
+Chrome-on-macOS `User-Agent` plus `Accept`/`Accept-Language` headers
+matching what an actual browser sends, replacing the self-identifying
+`VinylScoutConcertRadar/1.0` UA. This is shared by all 7 venues, not just
+Freight — there's only the one `fetchText()` — but none of the other 6
+were blocked by the old UA, so this should be a pure win for Freight with
+no expected change anywhere else. `npm run check` and
+`npm run test:concert-radar-health-check` both pass clean against the
+patched file (22/22).
+
+**Not verified live** from the cloud session that made this change — no
+network path to `thefreight.org` from there. Applied directly to this
+local clone instead; next step is push and watch the next
+`concert-radar-health-check` run (or `workflow_dispatch` it manually
+rather than waiting for Monday) to see whether HTTP 403 actually clears.
+If Freight is still blocking after this ships, the UA wasn't what it was
+keying on, and the other two options from 08-25 — drop the venue, or
+accept the weekly red run — are back on the table.
+
+**Delivered:** `netlify/functions/venue-shows.mjs` (v5), this file.
