@@ -2141,3 +2141,45 @@ keying on, and the other two options from 08-25 — drop the venue, or
 accept the weekly red run — are back on the table.
 
 **Delivered:** `netlify/functions/venue-shows.mjs` (v5), this file.
+
+## 2026-09-01 — Freight & Salvage: the browser-like headers deployed clean and did not work
+
+v5 deployed to production at 16:04 UTC (Netlify deploy `6a96f762df88670008a94a64`,
+commit `4869152`, confirmed `state: "ready"` and `commit_ref` matching
+exactly). Checked live `/api/venue-shows` immediately after (cache-busted,
+`age: 0`, so this is a genuinely fresh call, not a cached pre-deploy
+response): **Freight & Salvage still comes back `count: 0, error: "HTTP
+403"`.** The header change did not clear the block.
+
+Isolated why, rather than leaving it a mystery for the next session: fetched
+`https://thefreight.org/shows/` with the exact same `User-Agent`/`Accept`/
+`Accept-Language` headers now in `fetchText()`, but from a real browser
+running on Susan's own Mac instead of from Netlify's function. That request
+got **HTTP 200**, `server: cloudflare`, `cf-cache-status: HIT` — same
+headers, same target URL, different origin, different outcome.
+
+That isolates the block to **where the request comes from, not what it
+says.** Cloudflare (thefreight.org is Cloudflare-fronted, Kinsta-hosted
+WordPress underneath) is near-certainly blocking on IP/ASN — Netlify
+Functions run out of AWS Lambda datacenter ranges, which is exactly the
+kind of traffic a WAF's bot-protection rule keys on regardless of what
+`User-Agent` string is attached. No header change from a serverless
+function can pass that kind of rule; the request would need to originate
+from a non-datacenter IP, which isn't something `fetchText()` can do on
+its own.
+
+**v5's header change is left in place** — it's harmless (still a more
+honest, less bot-signaling request) and correct in spirit, it just wasn't
+sufficient on its own, and there's no reason to revert it.
+
+**Where this actually leaves the decision:** the "send browser-like
+headers" option from 08-25 is now closed out, tried and didn't work — not
+still open. What's left is the other two from that entry: drop Freight
+from the venue list (manual entries only, as already done once for The
+Meditations), or accept that this venue reports `HTTP 403` and the health
+check goes red for it every week (which is at least an *honest* red,
+distinct from a fixable bug — see `classifyVenueFailure()`). A residential-
+IP proxy or scraping relay could theoretically get around the ASN block,
+but that's new infrastructure and cost for one of seven venues and hasn't
+been scoped — worth a explicit call from Susan before anyone builds it,
+not a default next step.
