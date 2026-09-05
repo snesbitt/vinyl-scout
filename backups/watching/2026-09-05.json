@@ -1,0 +1,26 @@
+{
+  "snapshot_at": "2026-09-05T12:38:40.420Z",
+  "item_count": 3,
+  "items": [
+    {
+      "id": "watch_08e5e12f9f7f04cb",
+      "artist": "Easy Star All-Stars",
+      "city": "Berkeley, CA",
+      "going": true,
+      "goingShowId": "manual-easy-star-all-stars-2026-10-22"
+    },
+    {
+      "id": "watch_45acfd4406c3dc74",
+      "artist": "Thievery Corporation",
+      "city": "Oakland, CA",
+      "going": true,
+      "goingShowId": "seatgeek-18241583"
+    },
+    {
+      "id": "watch_b9e270ac2aaf174f",
+      "artist": "Boy Harsher",
+      "city": "oakland"
+    }
+  ],
+  "source": "github-actions"
+}
