@@ -2220,3 +2220,20 @@ silently.
 
 **Delivered:** `netlify/functions/venue-shows.mjs` (v6), `about.html`,
 `guide.html`, `roadmap.html`, this file.
+
+## 2026-09-09 — check:freshness shipped; the Sunday sweep missed a week
+
+The daily portfolio freshness sweep is specified to run
+`npm run check:freshness` here, and no such script existed — its Step 1
+has been a no-op. Shipped scripts/check-freshness.mjs (read-only, zero
+deps, no network): [STALE] when the nightly catalog or watching backup
+is more than 2 days old or data/catalog-cache.json passes 9 days,
+[REVIEW] at 8, exit 1 on [STALE] only. Out of npm test by design —
+these thresholds fail on the calendar, not on the code. Its first run
+flagged the real thing: scheduled-sweep.yml missed Sunday 2026-09-06
+(sweep commits landed 8/16, 8/23, 8/30, then nothing), leaving the
+Concert Radar cache 10 days old. Per the punch-list rule, Actions log
+review before any fix, then a manual workflow re-run:
+https://github.com/snesbitt/vinyl-scout/actions/workflows/scheduled-sweep.yml
+Earlier the same day (802bd88): About/Guide stat tiles caught up to the
+2026-09-08 backup (95 records). PROJECT.md is at v55.

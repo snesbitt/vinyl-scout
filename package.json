@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Personal vinyl cataloging agent \u2014 single-user, Netlify-hosted.",
   "scripts": {
+    "check:freshness": "node scripts/check-freshness.mjs",
     "check": "for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check \"$f\" || exit 1; done",
     "test:audio-preview": "node scripts/test-audio-preview.mjs",
     "test:artists-playing": "node scripts/test-artists-playing.mjs",
