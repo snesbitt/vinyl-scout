@@ -1,33 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-ape-2-2026-09-02",
-      "artist": "LP",
-      "title": "LP",
-      "venue": "The Castro",
-      "city": "San Francisco, CA",
-      "date": "2026-09-02",
-      "dateLabel": "Wed, Sep 2, 2026",
-      "source": "Venue: Another Planet Entertainment",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://apeconcerts.com/events/lp-260902/"
-    },
-    {
-      "id": "venue-ape-14-2026-09-09",
-      "artist": "Liz Phair & Sleater-Kinney",
-      "title": "Liz Phair & Sleater-Kinney",
-      "venue": "Greek Theatre",
-      "city": "Berkeley, CA",
-      "date": "2026-09-09",
-      "dateLabel": "Wed, Sep 9, 2026",
-      "source": "Venue: Another Planet Entertainment",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://apeconcerts.com/events/liz-phair-sleater-kinney-260909/"
-    },
-    {
-      "id": "venue-sweetwater-35-2026-10-18",
+      "id": "venue-sweetwater-24-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -79,7 +53,7 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-57-2026-11-28",
+      "id": "venue-gamh-54-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -92,7 +66,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-uctheatre-28-2026-12-31",
+      "id": "venue-uctheatre-30-2026-12-31",
       "artist": "Steel Pulse (New Years Eve)",
       "title": "Steel Pulse (New Years Eve)",
       "venue": "The UC Theatre",
@@ -103,84 +77,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "seatgeek-18163038",
-      "artist": "Diana Ross",
-      "title": "Diana Ross",
-      "venue": "The Mountain Winery - Saratoga",
-      "city": "Saratoga, CA",
-      "date": "2026-08-30",
-      "dateLabel": "Sun, Aug 30, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/diana-ross-tickets/saratoga-california-the-mountain-winery-1-2026-08-30-7-30-pm/concert/18163038"
-    },
-    {
-      "id": "jambase-jambase:16045792",
-      "artist": "Diana Ross",
-      "title": "Diana Ross at Meritage Resort And Spa",
-      "venue": "Meritage Resort And Spa",
-      "city": "Napa, CA",
-      "date": "2026-09-01",
-      "dateLabel": "Tue, Sep 1, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fdiana-ross-napa-california-09-01-2026%2Fevent%2F1C006485F25655EC%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16195743",
-      "artist": "LP",
-      "title": "LP at Castro Theatre",
-      "venue": "Castro Theatre",
-      "city": "San Francisco, CA",
-      "date": "2026-09-02",
-      "dateLabel": "Wed, Sep 2, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Flp-all-is-not-lost-tour-san-francisco-california-09-02-2026%2Fevent%2F1C00649BADFB37A3%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16675631",
-      "artist": "Rav",
-      "title": "Rav at Neck of the Woods",
-      "venue": "Neck of the Woods",
-      "city": "San Francisco, CA",
-      "date": "2026-09-05",
-      "dateLabel": "Sat, Sep 5, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.envelop.us/envelop-sf?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16169514",
-      "artist": "Liz Phair",
-      "title": "Liz Phair at Greek Theatre",
-      "venue": "Greek Theatre",
-      "city": "Berkeley, CA",
-      "date": "2026-09-09",
-      "dateLabel": "Wed, Sep 9, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fliz-phair-sleaterkinney-the-flannel-and-berkeley-california-09-09-2026%2Fevent%2F1C00649BD7D2C11D%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "seatgeek-18241583",
-      "artist": "Thievery Corporation",
-      "title": "Thievery Corporation",
-      "venue": "Fox Theater - Oakland",
-      "city": "Oakland, CA",
-      "date": "2026-09-12",
-      "dateLabel": "Sat, Sep 12, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/thievery-corporation-tickets/oakland-california-fox-theater-oakland-2026-09-12-8-pm/concert/18241583"
     },
     {
       "id": "jambase-jambase:16397065",
@@ -287,6 +183,19 @@
       "url": "https://seatgeek.com/steel-pulse-tickets/napa-california-napa-music-hall-2026-10-04-8-pm/concert/18372635"
     },
     {
+      "id": "jambase-jambase:16978430",
+      "artist": "Lang Lang",
+      "title": "Lang Lang at Davies Symphony Hall",
+      "venue": "Davies Symphony Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-10-04",
+      "dateLabel": "Sun, Oct 4, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://sfsymphony.org/?utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:15668984",
       "artist": "Air Supply",
       "title": "Air Supply at Meritage Resort And Spa",
@@ -337,6 +246,19 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.axs.com/events/1378828/air-supply-tickets?cid=usaffjambase&utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:16990485",
+      "artist": "Ee",
+      "title": "Ee at Bottom of the Hill",
+      "venue": "Bottom of the Hill",
+      "city": "San Francisco, CA",
+      "date": "2026-10-14",
+      "dateLabel": "Wed, Oct 14, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://link.dice.fm/l2e6148fad83?utm_source=jambase"
     },
     {
       "id": "jambase-jambase:16323234",
@@ -482,95 +404,108 @@
       "url": "https://seatgeek.com/steel-pulse-tickets/berkeley-california-the-uc-theatre-2026-12-31-8-pm/concert/18532597"
     },
     {
-      "id": "seatgeek-18396976",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557005",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-06",
-      "dateLabel": "Sat, Feb 6, 2027",
+      "date": "2027-06-04",
+      "dateLabel": "Fri, Jun 4, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-06-1-pm/concert/18396976"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-04-7-30-pm/18557005"
     },
     {
-      "id": "seatgeek-18396978",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557008",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-07",
-      "dateLabel": "Sun, Feb 7, 2027",
+      "date": "2027-06-08",
+      "dateLabel": "Tue, Jun 8, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-07-1-pm/concert/18396978"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-08-7-30-pm/18557008"
     },
     {
-      "id": "seatgeek-18396980",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557009",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-12",
-      "dateLabel": "Fri, Feb 12, 2027",
+      "date": "2027-06-12",
+      "dateLabel": "Sat, Jun 12, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-12-7-30-pm/concert/18396980"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-12-7-30-pm/18557009"
     },
     {
-      "id": "seatgeek-18396982",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557010",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-13",
-      "dateLabel": "Sat, Feb 13, 2027",
+      "date": "2027-06-17",
+      "dateLabel": "Thu, Jun 17, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-13-7-30-pm/concert/18396982"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-17-7-30-pm/18557010"
     },
     {
-      "id": "seatgeek-18396984",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557011",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-19",
-      "dateLabel": "Fri, Feb 19, 2027",
+      "date": "2027-06-20",
+      "dateLabel": "Sun, Jun 20, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-19-7-30-pm/concert/18396984"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-20-2-pm/18557011"
     },
     {
-      "id": "seatgeek-18396986",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
+      "id": "seatgeek-18557016",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
       "city": "San Francisco, CA",
-      "date": "2027-02-20",
-      "dateLabel": "Sat, Feb 20, 2027",
+      "date": "2027-06-26",
+      "dateLabel": "Sat, Jun 26, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-20-7-30-pm/concert/18396986"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-26-2-pm/18557016"
     },
     {
-      "id": "seatgeek-18166484",
-      "artist": "Diana Ross",
-      "title": "Diana Ross",
-      "venue": "Blue Note Napa at Meritage Resort",
-      "city": "Napa, CA",
-      "date": "2026-09-01",
-      "dateLabel": "Tue, Sep 1, 2026",
+      "id": "seatgeek-18557017",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
+      "city": "San Francisco, CA",
+      "date": "2027-06-29",
+      "dateLabel": "Tue, Jun 29, 2027",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/diana-ross-tickets/napa-california-blue-note-napa-2026-09-01-8-pm/concert/18166484"
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-06-29-7-30-pm/18557017"
+    },
+    {
+      "id": "seatgeek-18557020",
+      "artist": "San Francisco Opera",
+      "title": "San Francisco Opera - Tosca",
+      "venue": "War Memorial Opera House",
+      "city": "San Francisco, CA",
+      "date": "2027-07-02",
+      "dateLabel": "Fri, Jul 2, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-07-02-7-30-pm/18557020"
     },
     {
       "id": "seatgeek-18514501",
@@ -586,7 +521,7 @@
       "url": "https://seatgeek.com/san-francisco-symphony-tickets/orchestral/2026-10-04-7-30-pm/18514501"
     }
   ],
-  "artistCount": 133,
-  "at": 1788101233725,
+  "artistCount": 134,
+  "at": 1789308940770,
   "source": "github-actions"
 }
