@@ -382,6 +382,70 @@ const VALUE_TOLERANCE_EUR = 10;
   }
 }
 
+// Check 6: the number of venues the pages claim Concert Radar scrapes matches
+// the VENUES array in netlify/functions/venue-shows.mjs.
+//
+// Flagged as missing on 2026-09-01, when Freight & Salvage moved from VENUES to
+// EXCLUDED_VENUES (an IP-level block, not a parser fault) and the count went
+// from seven to six. guide.html and roadmap.html were updated in that pass.
+// about.html was not: it still said "Seven hand-picked Bay Area venues" on
+// 2026-09-14, two weeks later, and this check found it on its first run. That
+// is the entire argument for writing the assertion at the moment the number
+// changes rather than noting that somebody should.
+//
+// Counts the array rather than trusting a constant, so moving a venue in or out
+// of EXCLUDED_VENUES is enough to make the pages wrong here, loudly.
+{
+  const src = readFileSync("netlify/functions/venue-shows.mjs", "utf8");
+  const start = src.indexOf("var VENUES = [");
+  const end = start === -1 ? -1 : src.indexOf("\n];", start);
+  if (start === -1 || end === -1) {
+    failures.push(
+      'netlify/functions/venue-shows.mjs: could not locate the `var VENUES = [ ... ];` block. ' +
+        "It was renamed or reformatted; update this check rather than deleting it.",
+    );
+  } else {
+    const block = src.slice(start, end);
+    const realCount = (block.match(/^\s*\{\s*key:/gm) || []).length;
+
+    const WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    // "six hand-picked Bay Area venue calendars", "seven venue feeds", "6 venues".
+    const CLAIM = /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\b([^.<]{0,45}?)\bvenue/gi;
+
+    if (realCount === 0) {
+      failures.push(
+        "netlify/functions/venue-shows.mjs: found the VENUES block but parsed 0 entries from it. " +
+          "The entry shape changed, so this check would pass vacuously against any claim at all.",
+      );
+    }
+
+    for (const page of ["about.html", "guide.html", "roadmap.html"]) {
+      let html;
+      try {
+        html = readFileSync(page, "utf8");
+      } catch {
+        continue;
+      }
+      for (const m of html.matchAll(CLAIM)) {
+        const raw = m[1].toLowerCase();
+        const claimed = WORDS[raw] ?? Number(raw);
+        if (!Number.isFinite(claimed)) continue;
+        // Skip anything that is plainly about something other than the scrape
+        // itself, so an unrelated "three venues in one night" line can't fail
+        // the build.
+        if (!/hand-picked|scrape|calendar|feed|venue[s]? ,|venues,/i.test(m[0])) continue;
+        if (claimed !== realCount) {
+          failures.push(
+            `${page} claims "${m[0].trim().replace(/\s+/g, " ")}" but venue-shows.mjs's VENUES array ` +
+              `holds ${realCount} actively scraped venue(s). Update the page, or this check if the ` +
+              "array moved.",
+          );
+        }
+      }
+    }
+  }
+}
+
 if (failures.length) {
   console.error("Content drift check FAILED:\n");
   for (const f of failures) console.error("  - " + f);

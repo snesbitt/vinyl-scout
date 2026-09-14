@@ -2237,3 +2237,62 @@ review before any fix, then a manual workflow re-run:
 https://github.com/snesbitt/vinyl-scout/actions/workflows/scheduled-sweep.yml
 Earlier the same day (802bd88): About/Guide stat tiles caught up to the
 2026-09-08 backup (95 records). PROJECT.md is at v55.
+
+## 2026-09-14, later: the freshness check was wired into nothing, and about.html still said seven venues
+
+Two findings from a portfolio-wide punch list, both of the same kind: work
+that was done correctly and then not connected to anything.
+
+**1. `check-freshness.mjs` ran nowhere.** It asserts that both nightly backup
+jobs left a file and that Concert Radar's weekly cache is inside its window,
+which is precisely the check that would have caught this morning's failed
+`backup-watching` run. It existed in `package.json` as `check:freshness` and
+appeared in no workflow and not in `npm test`. A check that only runs when
+somebody types it runs when somebody already suspects a problem, which is the
+opposite of its purpose.
+
+The cost is measurable: `backups/watching/` is missing 2026-08-28, 2026-08-30
+and 2026-09-14, all to the same lost push race. Nothing went red for any of
+them. The first two were found weeks later by reading the directory; the third
+was found the same way this morning.
+
+New `.github/workflows/daily-freshness.yml` runs it at 09:30 UTC, after both
+backup jobs (09:05 and 09:10) with slack for GitHub's scheduling delay. Read-
+only, no npm install, no network. A missing backup now fails a scheduled run
+and GitHub's own failure email says so, which is a channel with a track record
+of reaching Susan — today's screenshot is the proof.
+
+Deliberately a separate workflow from the jobs it watches, for the reason this
+file already records in another form: a backup job reporting on its own backup
+never reports when it never runs. The Fitness Log's `daily-health.yml` got the
+same treatment today.
+
+**2. `about.html` still claimed "Seven hand-picked Bay Area venues."** Freight
+& Salvage moved to `EXCLUDED_VENUES` on 2026-09-01 and the real count has been
+six ever since. That pass updated `guide.html` and `roadmap.html` and missed
+this line, and the same entry flagged that `check-content-drift.mjs` did not
+assert the count — noting the gap instead of closing it. Two weeks later the
+page was still wrong.
+
+`check-content-drift.mjs` Check 6 now counts the `VENUES` array itself and
+compares it against every number-plus-venue claim in `about.html`,
+`guide.html` and `roadmap.html`. It found the stale line on its first run.
+Counting the array rather than a constant means moving a venue in or out of
+`EXCLUDED_VENUES` is enough to make a stale page fail.
+
+Verified by mutation, all three caught: restoring "Seven" fails; adding a
+seventh venue to `VENUES` fails; renaming `VENUES` fails rather than passing
+vacuously against zero parsed entries.
+
+**Verified:** `npm test` green end to end, exit 0, including the new Check 6.
+`node --check` on the modified script, workflow parsed as YAML,
+`check-freshness.mjs` run against the live tree.
+
+**Note on today's `backup-watching` failure:** the retry fix merged in PR #6
+at 10:41 landed an hour after the 09:39 failure, so nothing has exercised it
+and `backups/watching/2026-09-14.json` is still missing. Running that workflow
+by hand fills the gap and proves the retry in one go.
+
+**Delivered:** `.github/workflows/daily-freshness.yml` (new),
+`scripts/check-content-drift.mjs`, `about.html`, this file. Committed on
+`main`, not pushed.

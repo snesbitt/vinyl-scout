@@ -1,0 +1,50 @@
+name: Daily freshness check
+
+# Read-only. Runs scripts/check-freshness.mjs, which asserts that the two
+# nightly backup jobs actually left a file and that Concert Radar's weekly
+# cache is inside its window.
+#
+# WHY THIS EXISTS (2026-09-14). check-freshness.mjs was written earlier and
+# wired into nothing: present in package.json as `check:freshness`, absent from
+# `npm test` and from every workflow. A check that only runs when somebody
+# types it is a check that runs when somebody already suspects a problem, which
+# is the opposite of what it is for.
+#
+# The cost of that showed up on 2026-08-28, 2026-08-30 and again on 2026-09-14,
+# when backup-watching.yml lost a push race and left no file. Nothing went red.
+# The first two holes were found weeks later by reading the directory; the third
+# was found the same way. With this job, a missing backup fails a scheduled run
+# the next morning and GitHub's own failure email says so.
+#
+# Deliberately a separate workflow from the two backup jobs it watches: a
+# backup job reporting on its own backup never reports when it never runs.
+# Same reasoning as The Fitness Log's daily-health.yml.
+#
+# 09:30 UTC: after backup-catalog.yml (09:05) and backup-watching.yml (09:10),
+# with enough slack for GitHub's scheduling delay to land them. check-freshness
+# allows a backup to be a day old, so a late run is tolerated rather than
+# flapping.
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No npm ci: check-freshness.mjs has zero dependencies, reads the
+      # checkout, and makes no network calls.
+      - name: Check backup and cache freshness
+        run: npm run check:freshness
