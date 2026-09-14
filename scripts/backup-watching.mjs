@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/backup-watching.mjs
-// version: 1
+// version: 2
 //
 // GitHub Actions-native replacement for netlify/functions/backup-watching.mjs
 // + netlify/lib/run-watching-backup.mjs, added as part of the same
@@ -40,18 +40,55 @@
 //     so a broken run shows up red in the Actions tab instead of silently
 //     writing a wrong/empty-looking snapshot that could be mistaken for
 //     real data loss.
+//
+// v2 (2026-09-14): retry the fetch instead of failing on the first hiccup.
+// This job had failed intermittently (3 of 32 scheduled runs, ~9%) with no
+// code change in between — the live site's own function/Blobs read has
+// occasional cold-start or transient-error hiccups (documented elsewhere in
+// this repo, e.g. the wishlist's own ~2.5s Blobs-propagation-delay note),
+// and a single unlucky request used to fail the whole run. A pure GET with
+// no side effects is safe to retry, so it now tries up to 3 times with a
+// short backoff before giving up — still fails loudly (see main().catch
+// below) if every attempt fails, so a genuinely broken endpoint still shows
+// up red in the Actions tab rather than being silently swallowed.
 
 const SITE_URL = process.env.BACKUP_SITE_URL || 'https://vinylscout.org';
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 2000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWatchingList() {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(SITE_URL + '/api/watching');
+      if (!res.ok) {
+        throw new Error('GET /api/watching failed: HTTP ' + res.status);
+      }
+      const items = await res.json();
+      if (!Array.isArray(items)) {
+        throw new Error('GET /api/watching did not return an array (got ' + typeof items + ')');
+      }
+      if (attempt > 1) {
+        console.log('backup-watching.mjs: succeeded on attempt ' + attempt + ' of ' + MAX_ATTEMPTS);
+      }
+      return items;
+    } catch (err) {
+      lastErr = err;
+      console.error('backup-watching.mjs: attempt ' + attempt + ' of ' + MAX_ATTEMPTS + ' failed: ' + err.message);
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+  throw lastErr;
+}
 
 async function main() {
-  const res = await fetch(SITE_URL + '/api/watching');
-  if (!res.ok) {
-    throw new Error('GET /api/watching failed: HTTP ' + res.status);
-  }
-  const items = await res.json();
-  if (!Array.isArray(items)) {
-    throw new Error('GET /api/watching did not return an array (got ' + typeof items + ')');
-  }
+  const items = await fetchWatchingList();
 
   items.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
 
