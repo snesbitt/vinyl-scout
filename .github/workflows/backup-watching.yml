@@ -22,6 +22,25 @@ name: Daily watching-list backup
 # 09:05 UTC Actions run and 5 minutes after the old Netlify job's own
 # 09:05 UTC schedule, so none of the three race on the same GitHub API
 # rate-limit window or the same repo ref during the transition period.
+#
+# 2026-09-14: this job had been failing intermittently (3 of 32 scheduled
+# runs so far) with a plain `git push` that gives up the instant the remote
+# has moved since checkout -- non-fast-forward, no retry. This repo has a
+# real, regular second writer: watching.mjs's own DELETE handler commits
+# straight to watching-state.json via the GitHub Contents API (see its v2
+# header comment) any time Susan removes a watched artist on the live site,
+# at whatever moment that happens to be -- unrelated to this job's own
+# schedule. (GitHub's own scheduling delay also means "09:10 UTC" is only
+# nominal -- real start times in the Actions history range from ~2:30am to
+# ~1:50pm Pacific.) backup-catalog.yml has never hit this because nothing
+# else commits to this repo on its schedule; this job shares the repo with
+# a second, independent writer. Fixed below by rebasing onto the latest
+# main and retrying the push a few times instead of failing on the very
+# first collision. scripts/backup-watching.mjs also picked up a retry
+# around its own fetch in the same pass, in case a share of these failures
+# were instead a transient hiccup from the live site's own function/Blobs
+# read rather than a push race -- both are cheap, safe things to retry
+# since this whole job is a pure read plus a single-file commit.
 
 on:
   schedule:
@@ -53,7 +72,28 @@ jobs:
           git add "${{ steps.backup.outputs.backup_path }}"
           if git diff --cached --quiet; then
             echo "No changes to commit (watching snapshot for today already matches, or this is a same-day re-run)."
-          else
-            git commit -m "watching-backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.item_count }} items, via GitHub Actions)"
-            git push
+            exit 0
           fi
+          git commit -m "watching-backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.item_count }} items, via GitHub Actions)"
+
+          # Push, and if main moved since checkout (e.g. watching.mjs's own
+          # Contents-API commit to watching-state.json landed in between),
+          # rebase onto the latest main and retry -- our change only ever
+          # touches one file under backups/watching/, so a real conflict
+          # with another writer is not expected; this just absorbs the race.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected on attempt $attempt (main moved since checkout) -- fetching and rebasing before retrying."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "::error::Rebase failed -- a real conflict, not just a race. Aborting for a human to look at."
+              git rebase --abort
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::Exhausted push retries -- something kept landing on main faster than this job could catch up."
+          exit 1

@@ -19,6 +19,14 @@ name: Daily catalog backup
 # offset convention already used for backup-watching.mjs, so overlapping
 # backups (this one and the old one, during the transition period) don't
 # race on anything.
+#
+# 2026-09-14: backup-watching.yml (same shape as this file) was found
+# failing intermittently on a plain `git push` that gives up the instant
+# main has moved since checkout -- no retry. This job hasn't hit that in
+# practice (nothing else commits to this repo on this job's schedule the
+# way watching.mjs's own Contents-API writes do for the watching job), but
+# the push step here has the identical latent bug, so it gets the identical
+# fix rather than waiting for its own future collision to prove it out.
 
 on:
   schedule:
@@ -50,7 +58,25 @@ jobs:
           git add "${{ steps.backup.outputs.backup_path }}"
           if git diff --cached --quiet; then
             echo "No changes to commit (catalog snapshot for today already matches, or this is a same-day re-run)."
-          else
-            git commit -m "backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.record_count }} records, via GitHub Actions)"
-            git push
+            exit 0
           fi
+          git commit -m "backup: ${{ steps.backup.outputs.backup_path }} (${{ steps.backup.outputs.record_count }} records, via GitHub Actions)"
+
+          # Push, and if main moved since checkout, rebase onto the latest
+          # main and retry -- see this file's 2026-09-14 header note.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+          fi
+            echo "Push rejected on attempt $attempt (main moved since checkout) -- fetching and rebasing before retrying."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "::error::Rebase failed -- a real conflict, not just a race. Aborting for a human to look at."
+              git rebase --abort
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "::error::Exhausted push retries -- something kept landing on main faster than this job could catch up."
+          exit 1
