@@ -1,7 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-sweetwater-24-2026-10-18",
+      "id": "venue-sweetwater-19-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -53,7 +53,7 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-54-2026-11-28",
+      "id": "venue-gamh-55-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -66,7 +66,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-uctheatre-30-2026-12-31",
+      "id": "venue-uctheatre-29-2026-12-31",
       "artist": "Steel Pulse (New Years Eve)",
       "title": "Steel Pulse (New Years Eve)",
       "venue": "The UC Theatre",
@@ -77,32 +77,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "jambase-jambase:16397065",
-      "artist": "ALI",
-      "title": "ALI at Rickshaw Stop",
-      "venue": "Rickshaw Stop",
-      "city": "San Francisco, CA",
-      "date": "2026-09-16",
-      "dateLabel": "Wed, Sep 16, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNjkyNzU5OjE4/clickthru?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16869654",
-      "artist": "Chayce Beckham",
-      "title": "Chayce Beckham at Gold Bar Distillery",
-      "venue": "Gold Bar Distillery",
-      "city": "San Francisco, CA",
-      "date": "2026-09-19",
-      "dateLabel": "Sat, Sep 19, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.ticketfairy.com/event/country-on-the-bay-September-2026"
     },
     {
       "id": "seatgeek-18194392",
@@ -206,7 +180,7 @@
       "source": "JamBase",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fair-supply-a-matter-of-time-napa-california-10-09-2026%2Fevent%2F1C00644DBD1F294C%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
+      "url": "https://ticketmaster.evyy.net/c/252938/264167/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fair-supply-a-matter-of-time-napa-california-10-09-2026%2Fevent%2F1C00644DBD1F294C&utm_medium=affiliate"
     },
     {
       "id": "jambase-jambase:16747055",
@@ -276,7 +250,7 @@
     {
       "id": "seatgeek-18297996",
       "artist": "Boy Harsher",
-      "title": "Boy Harsher",
+      "title": "Boy Harsher with james K",
       "venue": "Fox Theater - Oakland",
       "city": "Oakland, CA",
       "date": "2026-10-15",
@@ -352,6 +326,19 @@
       "url": "https://seatgeek.com/bonobo-tickets/oakland-california-fox-theater-oakland-2026-11-14-8-pm/concert/18297395"
     },
     {
+      "id": "jambase-jambase:17071618",
+      "artist": "JOA",
+      "title": "JOA at Halcyon",
+      "venue": "Halcyon",
+      "city": "San Francisco, CA",
+      "date": "2026-11-20",
+      "dateLabel": "Fri, Nov 20, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://link.dice.fm/n2df1a3b73aa?utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:16643999",
       "artist": "Agriculture",
       "title": "Agriculture at August Hall",
@@ -378,6 +365,19 @@
       "url": "https://www.prekindle.com/promo/id/-2852527949111249697?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:17060407",
+      "artist": "Goldie",
+      "title": "Goldie at Public Works (Main Room)",
+      "venue": "Public Works (Main Room)",
+      "city": "San Francisco, CA",
+      "date": "2026-12-12",
+      "dateLabel": "Sat, Dec 12, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://www.tixr.com/groups/publicsf/events/metalheadz-goldie-photek-presented-by-stamina-public-works-206157?utm_campaign=jambase&utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:16925777",
       "artist": "Mindi Abair",
       "title": "Mindi Abair at Yoshi’s",
@@ -402,6 +402,84 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://seatgeek.com/steel-pulse-tickets/berkeley-california-the-uc-theatre-2026-12-31-8-pm/concert/18532597"
+    },
+    {
+      "id": "seatgeek-18396976",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-06",
+      "dateLabel": "Sat, Feb 6, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-06-1-pm/concert/18396976"
+    },
+    {
+      "id": "seatgeek-18396978",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-07",
+      "dateLabel": "Sun, Feb 7, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-07-1-pm/concert/18396978"
+    },
+    {
+      "id": "seatgeek-18396980",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-12",
+      "dateLabel": "Fri, Feb 12, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-12-7-30-pm/concert/18396980"
+    },
+    {
+      "id": "seatgeek-18396982",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-13",
+      "dateLabel": "Sat, Feb 13, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-13-7-30-pm/concert/18396982"
+    },
+    {
+      "id": "seatgeek-18396984",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-19",
+      "dateLabel": "Fri, Feb 19, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-19-7-30-pm/concert/18396984"
+    },
+    {
+      "id": "seatgeek-18396986",
+      "artist": "Buena Vista Social Club",
+      "title": "Buena Vista Social Club",
+      "venue": "Orpheum Theatre - San Francisco",
+      "city": "San Francisco, CA",
+      "date": "2027-02-20",
+      "dateLabel": "Sat, Feb 20, 2027",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-20-7-30-pm/concert/18396986"
     },
     {
       "id": "seatgeek-18557005",
@@ -522,6 +600,6 @@
     }
   ],
   "artistCount": 134,
-  "at": 1789308940770,
+  "at": 1789913057687,
   "source": "github-actions"
 }
