@@ -1,7 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-sweetwater-16-2026-10-18",
+      "id": "venue-sweetwater-9-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -53,7 +53,7 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-53-2026-11-28",
+      "id": "venue-gamh-47-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -66,7 +66,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-51-2026-12-13",
+      "id": "venue-sweetwater-47-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -79,7 +79,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-30-2026-12-31",
+      "id": "venue-uctheatre-28-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -90,45 +90,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "jambase-jambase:17075958",
-      "artist": "Sunshine Becker",
-      "title": "Sunshine Becker at San Francisco County Fair Building",
-      "venue": "San Francisco County Fair Building",
-      "city": "San Francisco, CA",
-      "date": "2026-10-01",
-      "dateLabel": "Thu, Oct 1, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.eventbrite.com/e/gospel-the-psychedelic-church-tickets-2001430032103"
-    },
-    {
-      "id": "jambase-jambase:17097896",
-      "artist": "Alastair Greene",
-      "title": "Alastair Greene at Almost Famous Wine",
-      "venue": "Almost Famous Wine",
-      "city": "Livermore, CA",
-      "date": "2026-10-02",
-      "dateLabel": "Fri, Oct 2, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.eventbrite.com/e/1995037014415?aff=ebdijbjambase&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:15634765",
-      "artist": "Fleetwood Macramé",
-      "title": "Fleetwood Macramé at HopMonk Sebastopol",
-      "venue": "HopMonk Sebastopol",
-      "city": "Sebastopol, CA",
-      "date": "2026-10-03",
-      "dateLabel": "Sat, Oct 3, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNjc2MzQ3OjE4/clickthru?utm_source=jambase"
     },
     {
       "id": "seatgeek-18372635",
@@ -587,6 +548,6 @@
     }
   ],
   "artistCount": 134,
-  "at": 1790521446060,
+  "at": 1791126820836,
   "source": "github-actions"
 }
