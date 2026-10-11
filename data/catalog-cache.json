@@ -1,7 +1,20 @@
 {
   "shows": [
     {
-      "id": "venue-sweetwater-9-2026-10-18",
+      "id": "seatgeek-18297996",
+      "artist": "Boy Harsher",
+      "title": "Boy Harsher with james K",
+      "venue": "Fox Theater - Oakland",
+      "city": "Oakland, CA",
+      "date": "2026-10-15",
+      "dateLabel": "Thu, Oct 15, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/boy-harsher-tickets/oakland-california-fox-theater-oakland-2026-10-15-8-pm/concert/18297996"
+    },
+    {
+      "id": "venue-sweetwater-6-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -53,7 +66,7 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-47-2026-11-28",
+      "id": "venue-gamh-42-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -66,7 +79,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-47-2026-12-13",
+      "id": "venue-sweetwater-45-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -79,7 +92,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-28-2026-12-31",
+      "id": "venue-uctheatre-22-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -90,71 +103,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "seatgeek-18372635",
-      "artist": "Steel Pulse",
-      "title": "Steel Pulse",
-      "venue": "Napa Music Hall",
-      "city": "Napa, CA",
-      "date": "2026-10-04",
-      "dateLabel": "Sun, Oct 4, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/steel-pulse-tickets/napa-california-napa-music-hall-2026-10-04-8-pm/concert/18372635"
-    },
-    {
-      "id": "jambase-jambase:16978430",
-      "artist": "Lang Lang",
-      "title": "Lang Lang at Davies Symphony Hall",
-      "venue": "Davies Symphony Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-10-04",
-      "dateLabel": "Sun, Oct 4, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://sfsymphony.org/?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:15668984",
-      "artist": "Air Supply",
-      "title": "Air Supply at Meritage Resort And Spa",
-      "venue": "Meritage Resort And Spa",
-      "city": "Napa, CA",
-      "date": "2026-10-09",
-      "dateLabel": "Fri, Oct 9, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fair-supply-a-matter-of-time-napa-california-10-09-2026%2Fevent%2F1C00644DBD1F294C%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16747055",
-      "artist": "DOMi & JD BECK",
-      "title": "DOMi & JD BECK at Bimbo’s 365 Club",
-      "venue": "Bimbo’s 365 Club",
-      "city": "San Francisco, CA",
-      "date": "2026-10-09",
-      "dateLabel": "Fri, Oct 9, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/264167/4272?u=https%3A%2F%2Fwww.ticketweb.com%2Fevent%2Fdomijdbeck-who-asked-tour-bimbos-365-club-tickets%2F14257304&utm_medium=affiliate"
-    },
-    {
-      "id": "jambase-jambase:16024231",
-      "artist": "Rumours of Fleetwood Mac",
-      "title": "Rumours of Fleetwood Mac at Mountain Winery",
-      "venue": "Mountain Winery",
-      "city": "Saratoga, CA",
-      "date": "2026-10-09",
-      "dateLabel": "Fri, Oct 9, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.axs.com/events/1386829/rumours-of-fleetwood-mac-tickets?cid=usaffjambase&utm_source=jambase"
     },
     {
       "id": "jambase-jambase:16060777",
@@ -181,32 +129,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://link.dice.fm/l2e6148fad83?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16323234",
-      "artist": "SiM",
-      "title": "SiM at August Hall",
-      "venue": "August Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-10-15",
-      "dateLabel": "Thu, Oct 15, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-world-tour-san-francisco-california-10-15-2026%2Fevent%2F1C0064AF09A75C9E%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
-    },
-    {
-      "id": "seatgeek-18297996",
-      "artist": "Boy Harsher",
-      "title": "Boy Harsher with james K",
-      "venue": "Fox Theater - Oakland",
-      "city": "Oakland, CA",
-      "date": "2026-10-15",
-      "dateLabel": "Thu, Oct 15, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/boy-harsher-tickets/oakland-california-fox-theater-oakland-2026-10-15-8-pm/concert/18297996"
     },
     {
       "id": "seatgeek-18613937",
@@ -248,6 +170,19 @@
       "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
     },
     {
+      "id": "jambase-jambase:17202102",
+      "artist": "Armin van Buuren",
+      "title": "Armin van Buuren at Pier 48’s Shed A",
+      "venue": "Pier 48’s Shed A",
+      "city": "San Francisco, CA",
+      "date": "2026-11-07",
+      "dateLabel": "Sat, Nov 7, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://www.axs.com/events/1613710/armin-van-buuren-4-hr-set-tickets?cid=usaffjambase&utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:16892367",
       "artist": "Southern Culture on the Skids",
       "title": "Southern Culture on the Skids at Bottom of the Hill",
@@ -259,6 +194,19 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://link.dice.fm/yf9c0cb1e3e9?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17173009",
+      "artist": "School Fair",
+      "title": "School Fair at 4 Star Theater",
+      "venue": "4 Star Theater",
+      "city": "San Francisco, CA",
+      "date": "2026-11-12",
+      "dateLabel": "Thu, Nov 12, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://www.eventbrite.com/e/2001417665113?aff=ebdijbjambase&utm_source=jambase"
     },
     {
       "id": "seatgeek-18297395",
@@ -534,20 +482,20 @@
       "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-07-02-7-30-pm/18557020"
     },
     {
-      "id": "seatgeek-18514501",
-      "artist": "San Francisco Symphony",
-      "title": "San Francisco Symphony - Lang Lang in Recital",
-      "venue": "Louise M. Davies Symphony Hall",
+      "id": "seatgeek-18650407",
+      "artist": "Armin van Buuren",
+      "title": "Armin van Buuren (4 HR Set)(21+)",
+      "venue": "Pier 48 - San Francisco",
       "city": "San Francisco, CA",
-      "date": "2026-10-04",
-      "dateLabel": "Sun, Oct 4, 2026",
+      "date": "2026-11-07",
+      "dateLabel": "Sat, Nov 7, 2026",
       "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://seatgeek.com/san-francisco-symphony-tickets/orchestral/2026-10-04-7-30-pm/18514501"
+      "url": "https://seatgeek.com/armin-van-buuren-tickets/san-francisco-california-pier-48-2026-11-07-8-pm/concert/18650407"
     }
   ],
   "artistCount": 134,
-  "at": 1791126820836,
+  "at": 1791735202216,
   "source": "github-actions"
 }
