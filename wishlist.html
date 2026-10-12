@@ -19,7 +19,7 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=32" />
   <style>
-    /* Wishlist — version: 18. Wishlist Priority (2026-07-29, Phase 9 pulled
+    /* Wishlist — version: 19. "+ Collection" button on each row (2026-10-12): one click copies the item into the catalog, then removes it from the wishlist. Previous: version: 18. Wishlist Priority (2026-07-29, Phase 9 pulled
        forward at Susan's request; simplified 2026-07-30): sort defaults to
        Priority mode with a Cheapest/Most expensive toggle, plus a plain
        A–Z option -- see the script's own comment for history (a blended
@@ -88,6 +88,9 @@
     .wl-nums a { border-bottom: 1px solid var(--rule); }
     .wl-del { background: transparent; border: 0; color: var(--ink-faint); font-size: 18px; cursor: pointer; padding: 4px 8px; }
     .wl-del:hover { color: var(--accent); }
+    .wl-own { font-family: var(--mono); font-size: 12px; background: transparent; border: 1px solid var(--rule); color: var(--ink-soft); min-height: 44px; padding: 0 12px; border-radius: 999px; cursor: pointer; margin-left: 8px; white-space: nowrap; }
+    .wl-own:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+    .wl-own:disabled { opacity: 0.6; cursor: progress; }
     .wl-form { margin-top: 34px; border-top: 1px solid var(--rule); padding-top: 22px; }
     .wl-form h3 { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 14px; }
     .wl-form .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -411,6 +414,7 @@
         + '<span class="wl-nums">' + nums.join(' · ')
         + (pct != null ? ' · <span class="wl-discount">▼' + pct + '%</span>' : '')
         + ' · <a href="' + link + '" target="_blank" rel="noopener">see listings</a>'
+        + '<button type="button" class="wl-own" data-id="' + esc(w.id) + '" aria-label="Add to collection" title="Add to my collection (removes it from the wishlist)">+ Collection</button>'
         + '<button class="wl-del" data-id="' + esc(w.id) + '" aria-label="Remove">×</button></span>'
         + '</div>'
         + '<div class="wl-audio-panel" id="wl-audio-' + esc(w.id) + '" hidden></div>';
@@ -495,9 +499,66 @@
     } catch (err) { showError('Delete failed: ' + err.message); }
   }
 
+  // One-click "I got it": copy a wishlist item into the catalog, then remove it
+  // from the wishlist. Order matters: the catalog write must succeed first, so a
+  // failure never loses the item. Catalog writes use the catalog's edit key
+  // (sessionStorage 'vs_edit_secret', same as seed.html/audit.html).
+  function getCatalogSecret() {
+    var s = '';
+    try { s = sessionStorage.getItem('vs_edit_secret') || ''; } catch (e) {}
+    if (s) return s;
+    s = prompt('Enter edit key (writes are protected):') || '';
+    if (s) { try { sessionStorage.setItem('vs_edit_secret', s); } catch (e) {} }
+    return s;
+  }
+  function clearCatalogSecret() {
+    try { sessionStorage.removeItem('vs_edit_secret'); } catch (e) {}
+  }
+  async function ownItem(id, btn) {
+    var w = items.filter(function (x) { return x.id === id; })[0];
+    if (!w) return;
+    var orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      var secret = getCatalogSecret();
+      if (!secret) throw new Error('Edit key required');
+      var hex = ''; var bytes = new Uint8Array(8); crypto.getRandomValues(bytes);
+      for (var i = 0; i < bytes.length; i++) { hex += bytes[i].toString(16).padStart(2, '0'); }
+      var rec = {
+        id: 'rec_' + hex,
+        artist: w.artist,
+        title: w.title,
+        year: null,
+        genre: null,
+        cover_url: w.cover_url || null,
+        notes: '',
+        condition: 'VG',
+        discogs_release_id: w.discogs_release_id || null,
+        created_at: new Date().toISOString()
+      };
+      if (w.price_median != null) { rec.price_median = w.price_median; rec.price_currency = w.currency || 'EUR'; }
+      var res = await fetch('/api/records', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Edit-Key': secret }, body: JSON.stringify(rec) });
+      if (res.status === 401) { clearCatalogSecret(); throw new Error('wrong edit key. Click again to re-enter it.'); }
+      if (!res.ok) { var p = await res.json().catch(function(){return {};}); throw new Error(p.error || 'HTTP ' + res.status); }
+      // Catalog write landed. Now drop it from the wishlist (best effort).
+      var wlSecret = getEditSecret();
+      var del = await fetch('/api/wishlist/' + encodeURIComponent(id), { method: 'DELETE', headers: { 'X-Edit-Key': wlSecret } });
+      if (del.status === 401) clearEditSecret();
+      if (!del.ok) { showError('Added to your collection, but couldn\u2019t remove it from the wishlist (HTTP ' + del.status + '). Remove it with \u00d7.'); btn.disabled = false; btn.textContent = orig; return; }
+      clearError();
+      items = items.filter(function (x) { return x.id !== id; });
+      render();
+    } catch (err) {
+      showError('Add to collection failed: ' + err.message);
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     $('f-add').addEventListener('click', addItem);
     $('wl-list').addEventListener('click', function (e) {
+      var ownBtn = e.target.closest && e.target.closest('.wl-own');
+      if (ownBtn && ownBtn.dataset.id) { ownItem(ownBtn.dataset.id, ownBtn); return; }
       var delBtn = e.target.closest && e.target.closest('.wl-del');
       if (delBtn && delBtn.dataset.id) { delItem(delBtn.dataset.id); return; }
       var playBtn = e.target.closest && e.target.closest('.wl-play');
