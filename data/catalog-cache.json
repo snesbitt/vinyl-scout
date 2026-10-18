@@ -1,20 +1,7 @@
 {
   "shows": [
     {
-      "id": "seatgeek-18297996",
-      "artist": "Boy Harsher",
-      "title": "Boy Harsher with james K",
-      "venue": "Fox Theater - Oakland",
-      "city": "Oakland, CA",
-      "date": "2026-10-15",
-      "dateLabel": "Thu, Oct 15, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/boy-harsher-tickets/oakland-california-fox-theater-oakland-2026-10-15-8-pm/concert/18297996"
-    },
-    {
-      "id": "venue-sweetwater-6-2026-10-18",
+      "id": "venue-sweetwater-0-2026-10-18",
       "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -66,7 +53,7 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-42-2026-11-28",
+      "id": "venue-gamh-36-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -79,7 +66,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-45-2026-12-13",
+      "id": "venue-sweetwater-40-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -92,7 +79,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-22-2026-12-31",
+      "id": "venue-uctheatre-20-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -103,32 +90,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "jambase-jambase:16060777",
-      "artist": "Air Supply",
-      "title": "Air Supply at Mountain Winery",
-      "venue": "Mountain Winery",
-      "city": "Saratoga, CA",
-      "date": "2026-10-11",
-      "dateLabel": "Sun, Oct 11, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.axs.com/events/1378828/air-supply-tickets?cid=usaffjambase&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16990485",
-      "artist": "Ee",
-      "title": "Ee at Bottom of the Hill",
-      "venue": "Bottom of the Hill",
-      "city": "San Francisco, CA",
-      "date": "2026-10-14",
-      "dateLabel": "Wed, Oct 14, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://link.dice.fm/l2e6148fad83?utm_source=jambase"
     },
     {
       "id": "seatgeek-18613937",
@@ -222,6 +183,19 @@
       "url": "https://seatgeek.com/bonobo-tickets/oakland-california-fox-theater-oakland-2026-11-14-8-pm/concert/18297395"
     },
     {
+      "id": "jambase-jambase:17247680",
+      "artist": "Bill Evans",
+      "title": "California Bluegrass Reunion",
+      "venue": "The Freight",
+      "city": "Berkeley, CA",
+      "date": "2026-11-14",
+      "dateLabel": "Sat, Nov 14, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://secure.thefreight.org/16170/16171-california-bluegrass-reunion-261114?promo=8815"
+    },
+    {
       "id": "jambase-jambase:17071618",
       "artist": "JOA",
       "title": "JOA at Halcyon",
@@ -298,84 +272,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://seatgeek.com/steel-pulse-tickets/berkeley-california-the-uc-theatre-2026-12-31-8-pm/concert/18532597"
-    },
-    {
-      "id": "seatgeek-18396976",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-06",
-      "dateLabel": "Sat, Feb 6, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-06-1-pm/concert/18396976"
-    },
-    {
-      "id": "seatgeek-18396978",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-07",
-      "dateLabel": "Sun, Feb 7, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-07-1-pm/concert/18396978"
-    },
-    {
-      "id": "seatgeek-18396980",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-12",
-      "dateLabel": "Fri, Feb 12, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-12-7-30-pm/concert/18396980"
-    },
-    {
-      "id": "seatgeek-18396982",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-13",
-      "dateLabel": "Sat, Feb 13, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-13-7-30-pm/concert/18396982"
-    },
-    {
-      "id": "seatgeek-18396984",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-19",
-      "dateLabel": "Fri, Feb 19, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-19-7-30-pm/concert/18396984"
-    },
-    {
-      "id": "seatgeek-18396986",
-      "artist": "Buena Vista Social Club",
-      "title": "Buena Vista Social Club",
-      "venue": "Orpheum Theatre - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2027-02-20",
-      "dateLabel": "Sat, Feb 20, 2027",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/buena-vista-social-club-tickets/san-francisco-california-orpheum-theatre-san-francisco-2027-02-20-7-30-pm/concert/18396986"
     },
     {
       "id": "seatgeek-18557005",
@@ -495,7 +391,7 @@
       "url": "https://seatgeek.com/armin-van-buuren-tickets/san-francisco-california-pier-48-2026-11-07-8-pm/concert/18650407"
     }
   ],
-  "artistCount": 134,
-  "at": 1791735202216,
+  "artistCount": 133,
+  "at": 1792331601264,
   "source": "github-actions"
 }
