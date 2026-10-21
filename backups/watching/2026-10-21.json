@@ -1,0 +1,14 @@
+{
+  "snapshot_at": "2026-10-21T14:27:24.127Z",
+  "item_count": 1,
+  "items": [
+    {
+      "id": "watch_08e5e12f9f7f04cb",
+      "artist": "Easy Star All-Stars",
+      "city": "Berkeley, CA",
+      "going": true,
+      "goingShowId": "manual-easy-star-all-stars-2026-10-22"
+    }
+  ],
+  "source": "github-actions"
+}
