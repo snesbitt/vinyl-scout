@@ -528,7 +528,10 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 18 (paired with style.css?v=33)
+// version: 19 (paired with style.css?v=33)
+// v19 (2026-10-24): accepting a pressing now saves the auto-fetched cover_url
+// to the record (single upsert). Before, the image file was committed but the
+// record kept no cover_url, so the cover was gone after a reload.
 // v17 (2026-07-20): mobile touch-target/zoom fix. .audit-input's base
 // font-size was 14px, with per-field overrides as low as 12px
 // (js-year/js-genre) and 13px (js-notes) — all under the 16px iOS Safari
@@ -1057,6 +1060,11 @@ async function acceptPressing(idx) {
           method: 'POST',
           body: JSON.stringify({ recordId: id, releaseId: merged.discogs_release_id })
         });
+        // discogs-cover only commits the image file. Save the record with the
+        // returned URL too, or the cover is gone on the next reload (same
+        // single-record upsert as the manual upload path).
+        var withCover = Object.assign({}, existing, { cover_url: coverRes.cover_url });
+        await api('/api/records', { method: 'POST', body: JSON.stringify(withCover) });
         existing.cover_url = coverRes.cover_url;
         coverMsg = ' + cover fetched';
       } catch (coverErr) {
