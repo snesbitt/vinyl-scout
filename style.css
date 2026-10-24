@@ -1,6 +1,6 @@
 /* Vinyl Scout — style.css
    version: 28 (see cache-bust ?v= query string on each page's <link> for
-   the real current number — v32 as of this note; the "version" line above
+   the real current number — v33 as of this note; the "version" line above
    has drifted from that in the past and is kept here for changelog
    continuity, not as the authoritative number)
    v32 (2026-08-07): Phase 6 "Editorial polish pass", part 1 — masthead
@@ -1197,6 +1197,7 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
    Scout's About pages (stat-strip, page-card-grid, callout, wont-list). */
 
 .stat-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0 28px; }
+.stat-strip--three .stat-tile:last-child { grid-column: 1 / -1; } /* phone: third tile spans the row */
 .stat-tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; text-align: center; }
 .stat-tile__num { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 22px; color: var(--accent); }
 .stat-tile__label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-top: 4px; }
@@ -1292,6 +1293,8 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
 
 @media (min-width: 640px) {
   .stat-strip { grid-template-columns: repeat(4, 1fr); }
+  .stat-strip--three { grid-template-columns: repeat(3, 1fr); }
+  .stat-strip--three .stat-tile:last-child { grid-column: auto; }
   .page-card-grid { grid-template-columns: 1fr 1fr; }
   .stack-grid { grid-template-columns: 1fr 1fr; }
   .model-grid { grid-template-columns: repeat(4, 1fr); }
