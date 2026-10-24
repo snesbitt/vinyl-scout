@@ -1,5 +1,9 @@
 // Vinyl Scout — app.js
-// version: 36
+// version: 38
+// v38 (2026-10-24): header collection value is USD only. It sums records
+// priced in USD (a record with no currency counts as USD) and no longer shows
+// a euro part or an ECB-converted figure. Removed the Frankfurter rate fetch
+// (loadFx) and its state, which nothing else used.
 // v36 (2026-07-20): refreshPricing() now sends the edit passphrase (X-Edit-Key)
 // with its request, prompting once via getEditSecret() (same sessionStorage-
 // cached pattern as audit.html) -- required after discogs-pricing.mjs was
@@ -213,19 +217,6 @@
     return { price: parts.join(' · '), community: hw.join(' · ') };
   }
 
-  var fxUsd = null; // EUR -> USD, today's ECB rate (v27)
-async function loadFx() {
-try {
-var res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD');
-if (!res.ok) return;
-var data = await res.json();
-if (data && data.rates && data.rates.USD) {
-fxUsd = Number(data.rates.USD);
-renderCollectionValue();
-}
-} catch (e) { /* EUR-only display is fine */ }
-}
-
 // Soft collection value: sum stored prices across the catalog. Pure read of
   // already-stored data (no network, no re-pricing). Prefers price_median,
   // falls back to price_low. Groups by currency so we never add across them.
@@ -250,17 +241,11 @@ renderCollectionValue();
     if (!el) return;
     var v = collectionValue();
     if (v.priced === 0) { el.hidden = true; el.textContent = ''; return; }
-    var parts = [];
-    for (var cur in v.byCur) {
-      if (Object.prototype.hasOwnProperty.call(v.byCur, cur)) {
-        parts.push('\u2248 ' + (cur === 'EUR' ? '€' : '$') + Math.round(v.byCur[cur]).toLocaleString('en-US'));
-      }
-    }
-    var txt = parts.join(' + ');
-if (fxUsd && v.byCur.EUR) {
-txt += ' \u00b7 \u2248 $' + Math.round(v.byCur.EUR * fxUsd).toLocaleString('en-US') + ' USD';
-}
-el.textContent = txt;
+    // USD only. A record priced in another currency is left out of this
+    // figure. It is never shown as a second amount and never converted.
+    var usd = v.byCur.USD;
+    if (usd == null) { el.hidden = true; el.textContent = ''; return; }
+    el.textContent = '\u2248 $' + Math.round(usd).toLocaleString('en-US');
     el.hidden = false;
   }
 
@@ -880,6 +865,5 @@ el.textContent = txt;
     });
 
     load();
-    loadFx();
   });
 })();
