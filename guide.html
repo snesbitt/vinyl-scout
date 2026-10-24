@@ -217,10 +217,12 @@
     </p>
     <p>
       The catalog's own integrity is checked a level down and on different
-      terms. A content-drift check inside the test suite counts the records,
-      reads the newest committed backup, and fails the build if what these
-      pages claim has drifted from it; it runs on every push and once a week
-      on its own. Reconciling the live catalog against that backup record by
+      terms. The record count and collection value on these pages aren't typed in. They
+      come from the live catalog when the page loads. A content-drift check in
+      the test suite runs that same page code against the newest committed
+      backup and fails the build if the numbers come out wrong, or if a
+      hand-typed count creeps back in. It runs on every push and once a week on
+      its own. Reconciling the live catalog against that backup record by
       record is still a manual step, done by hand when something looks off.
       Worth knowing which of your safeguards is a job and which is a habit.
     </p>

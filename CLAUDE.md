@@ -289,7 +289,10 @@ whatever the sync jobs touched to already be current.
   same discipline "Whenever Susan asks for a docs review/update" above
   describes for a live session, now running on a schedule too — if a
   Monday report ever says a doc wasn't fully read, that's the automation
-  degrading, not an acceptable shortcut). (2) A QA/health pass — as of Job
+  degrading, not an acceptable shortcut). Whenever the run raises PROJECT.md's `**Version:**`, it must set
+  `about.html`'s kicker (`vN charter`) to the same N in the same commit;
+  `scripts/check-content-drift.mjs` Check 3 fails the build if they differ
+  (it did on 2026-10-19, after v56). (2) A QA/health pass — as of Job
   E's v20 expansion, full `scripts/smoke.mjs` assertion parity now runs
   under Job E (see below) rather than Job D re-implementing a partial
   subset of the same checks; Job D's own remaining job-specific health
@@ -2296,3 +2299,40 @@ by hand fills the gap and proves the retry in one go.
 **Delivered:** `.github/workflows/daily-freshness.yml` (new),
 `scripts/check-content-drift.mjs`, `about.html`, this file. Committed on
 `main`, not pushed.
+
+## 2026-10-24 — Tests red since v56; About and Guide figures made live
+
+**Cause.** `scripts/check-content-drift.mjs` failed every run from 2026-10-19
+(Tests #182 to #185). about.html said 95 records and "v55 charter" against 97
+records and v56, and the newest backup mixed currencies (95 USD, 1 EUR, 1
+unpriced) while both pages printed one euro total. The 2026-10-19 patch had
+been delivered and never committed. The weekly run raised PROJECT.md to v56 and
+did not touch the kicker. Run #186 onward is green.
+
+**Why live figures.** The catalog changes daily and a typed number cannot keep
+up, so the record count and collection value stopped being typed. about.html
+and guide.html mark them `data-live="..."` and an inline
+`<script id="live-figures">` fills them from `/api/records` (USD records only,
+`collectionValue()` rule). The text inside each element is only the
+no-JavaScript fallback. Check 2 now runs that script against the newest backup
+with a fake fetch and document, and fails if it renders anything other than an
+independent calculation, if a hook is missing, or if a hand-typed catalog size
+or four-figure dollar amount comes back. The June 2026 "Bad day" example is
+marked `data-example` and exempt. If the value rule in app.js changes, change it
+in both page scripts and in the check.
+
+**Also shipped.** The app header shows USD only (app.js v38, Frankfurter fetch
+removed). The "accounts or logins" About tile is gone (style.css v33,
+`.stat-strip--three`). audit.html v19 saves the auto-fetched `cover_url` when a
+pressing is accepted: before, `/api/discogs/cover` committed the image and the
+record kept no `cover_url`, so the cover vanished on reload.
+
+**Charter version.** The About kicker cannot be derived (no build step), so the
+rule is a paired edit: raise PROJECT.md's version and the kicker together. It is
+now written into Job D above. The weekly scheduled task's own prompt lives
+outside this repo and was not visible this session; if it bumps the version it
+needs the same line.
+
+**Delivered:** about.html, guide.html, audit.html, app.js, index.html,
+style.css, the other pages' `style.css?v=33`, scripts/check-content-drift.mjs,
+PROJECT.md (v57), this file.
