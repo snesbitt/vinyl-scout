@@ -41,7 +41,7 @@
   <p class="article__kicker">How it works · v56 charter · October 2026</p>
   <h1>A pocket catalog for a personal record collection.</h1>
   <p class="article__lede">
-    Vinyl Scout is a catalog of 97 records. For each one it holds a condition
+    Vinyl Scout is a catalog of <span data-live="records">about a hundred</span> records. For each one it holds a condition
     grade, the exact pressing, the current market price, the Discogs community
     rating, and how many copies are for sale right now. Pricing and pressing
     data come from Discogs. Tap a record and a short preview of its most
@@ -57,17 +57,17 @@
   </p>
 
   <div class="stat-strip">
-    <div class="stat-tile"><span class="stat-tile__num">97</span><span class="stat-tile__label">records tracked</span></div>
-    <!-- collection value: summed from the newest backups/YYYY-MM-DD.json using
-         app.js collectionValue()'s own rule — price_median per record, falling
-         back to price_low, skipping records with neither, grouped by
-         price_currency. 2026-10-24: $2,612.28 across the 95 records priced in
-         USD (95 have a median). Not counted: 1 record priced in EUR (7.04, low
-         only) and 1 record with no price. Amounts in different currencies are
-         never added together. scripts/check-content-drift.mjs recomputes this
-         and fails the build if this figure drifts more than $10 from it, here
-         and in guide.html. -->
-    <div class="stat-tile"><span class="stat-tile__num">≈$2,612</span><span class="stat-tile__label">collection value (USD)</span></div>
+    <div class="stat-tile"><span class="stat-tile__num"><span data-live="records">–</span></span><span class="stat-tile__label">records tracked</span></div>
+    <!-- record count and collection value are live: the script at the end of this
+         page reads /api/records and fills every data-live element, using
+         app.js collectionValue()'s own rule (price_median per record, falling
+         back to price_low, skipping records with neither) over the USD records
+         only. Records priced in another currency, or with no price, are left
+         out. The text inside each element is only the no-JavaScript fallback.
+         scripts/check-content-drift.mjs fails if a hand-typed count or dollar
+         total comes back, or if the script renders anything other than what
+         the newest backup adds up to. -->
+    <div class="stat-tile"><span class="stat-tile__num"><span data-live="value-approx">–</span></span><span class="stat-tile__label">collection value (USD)</span></div>
     <div class="stat-tile"><span class="stat-tile__num">0</span><span class="stat-tile__label">accounts or logins</span></div>
     <div class="stat-tile"><span class="stat-tile__num">Mon</span><span class="stat-tile__label">weekly price refresh</span></div>
   </div>
@@ -294,6 +294,52 @@
 <footer class="site-footer">
   <div class="wrap">&copy; 2026</div>
 </footer>
+
+<script id="live-figures">
+// Live catalog figures. The catalog changes daily, so every [data-live] number
+// on this page is read from /api/records instead of typed by hand. The text
+// inside each element is only the fallback shown without JavaScript or if the
+// read fails. Rule: app.js collectionValue(), USD records only (a record with
+// no currency counts as USD). scripts/check-content-drift.mjs runs this script
+// against the newest backup and fails if it renders the wrong figures.
+(function () {
+  function usd(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+  function figures(recs) {
+    var f = { records: recs.length, low: 0, median: 0, usdCount: 0, usdTotal: 0 };
+    recs.forEach(function (r) {
+      var hasMed = r.price_median != null && !isNaN(r.price_median);
+      var hasLow = r.price_low != null && !isNaN(r.price_low);
+      if (hasLow) f.low++;
+      if (hasMed) f.median++;
+      var amt = hasMed ? Number(r.price_median) : hasLow ? Number(r.price_low) : null;
+      if (amt == null) return;
+      if ((r.price_currency || 'USD') !== 'USD') return;
+      f.usdCount++;
+      f.usdTotal += amt;
+    });
+    return f;
+  }
+  fetch('/api/records').then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (!Array.isArray(data) || data.length === 0) return;
+    var f = figures(data);
+    var text = {
+      'records': String(f.records),
+      'low': String(f.low),
+      'median': String(f.median),
+      'usd-count': String(f.usdCount),
+      'value': usd(f.usdTotal),
+      'value-approx': '≈ ' + usd(f.usdTotal)
+    };
+    document.querySelectorAll('[data-live]').forEach(function (el) {
+      var t = text[el.getAttribute('data-live')];
+      if (t != null) el.textContent = t;
+    });
+  }).catch(function () { /* the fallback wording stays */ });
+})();
+</script>
 
 </body>
 </html>

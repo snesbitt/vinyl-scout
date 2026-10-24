@@ -22,15 +22,28 @@
 // revisited. Check 2 below therefore uses a narrow absolute band (±€10),
 // and the trade-off is stated there rather than hidden.
 //
+//
+// 2026-10-24: the hand-typed record count and collection value were the most
+// common cause of a red Tests run, because the catalog changes every day and
+// the pages did not. about.html and guide.html now fill those figures from
+// /api/records in the browser, so Checks 1 and 2 changed purpose. Check 2 no
+// longer compares a typed number with the backup. It runs each page's own
+// live-figures script against the newest backup and fails if the rendered
+// figures differ from an independent calculation, and it fails if a
+// hand-typed count or four-figure dollar amount comes back.
+//
 // Add a new check here whenever a future session catches a new instance of
 // "the page said X but the data said Y" by hand, so it stops needing to be
 // caught by hand.
 
 import { readFileSync, readdirSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 
 let failures = [];
 
-// Check 1: "N records tracked" matches the latest committed backup snapshot.
+// Check 1: the newest backup snapshot exists and agrees with itself. It is
+// the reference that Check 2 measures the live figures against.
+let latest = null; // { file, records } for the newest consistent backup
 {
   const backupFiles = readdirSync("backups")
     .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
@@ -52,132 +65,133 @@ let failures = [];
       );
     } else if (declaredCount !== actualCount) {
       // The backup file disagreeing with itself is a bug in
-      // scripts/backup-catalog.mjs, not in about.html — worth surfacing
-      // distinctly so it's not misread as a content-drift issue on the
-      // About page.
+      // scripts/backup-catalog.mjs, not in the pages.
       failures.push(
-        `backups/${latestFile}: its own record_count (${declaredCount}) doesn't match its records array length (${actualCount}). This is a scripts/backup-catalog.mjs bug, not an about.html drift issue.`,
+        `backups/${latestFile}: its own record_count (${declaredCount}) doesn't match its records array length (${actualCount}). This is a scripts/backup-catalog.mjs bug, not a page drift issue.`,
       );
     } else {
-      const about = readFileSync("about.html", "utf8");
-      const statMatch = about.match(
-        /<span class="stat-tile__num">(\d+)<\/span><span class="stat-tile__label">records tracked<\/span>/,
-      );
-
-      if (!statMatch) {
-        failures.push(
-          'about.html: could not find the "records tracked" stat tile at all (markup may have changed; update this check\'s regex).',
-        );
-      } else {
-        const shownCount = Number(statMatch[1]);
-        if (shownCount !== actualCount) {
-          failures.push(
-            `about.html says "${shownCount} records tracked" but the latest backup (backups/${latestFile}) has ${actualCount} records. ` +
-              `Update about.html's stat tile, or this check, whichever is actually stale.`,
-          );
-        }
-      }
+      latest = { file: latestFile, records: backup.records };
     }
   }
 }
 
-// Check 2: every collection-value figure on about.html and guide.html matches
-// what the newest backup actually adds up to, in the currency the pages print.
+// Check 2: the catalog figures on about.html and guide.html are live, not
+// hand-typed, and the live script renders the right numbers.
 //
-// The value rule is app.js's own, from collectionValue() (see the "Soft
-// collection value" comment there): per record, prefer price_median, fall
-// back to price_low, skip the record if neither is a number, and group by
-// price_currency so amounts in different currencies are never added
-// together. This check reimplements that rule rather than importing it,
-// because app.js is browser code with no module exports. If collectionValue()
-// ever changes, change it here too.
-//
-// CURRENCY: the pages print one total, in PAGE_CURRENCY (USD since the v56
-// run, when the Discogs browser session switched from EUR to USD). Records
-// priced in another currency are left out of that total and the pages say so.
-// The check fails if the page currency has no records, or if another currency
-// becomes the largest by value (the pages would then describe the minority of
-// the collection). If the page currency really changes, change PAGE_CURRENCY
-// and PAGE_SYMBOL here and the figures on both pages together.
-//
-// TOLERANCE: +/-10 against the unrounded total. That is under half a percent
-// of the current ~2,600, wide enough to absorb rounding style and a genuinely
-// small price move, and narrow enough to catch the real failure mode, which is
-// a figure that was correct months ago. A real price refresh moving the total
-// by more than 10 fails this check until someone edits the number on both
-// pages. That is the intended cost: it is the only thing that keeps the
-// number honest.
-//
-// WHICH FIGURES COUNT: any amount in the page currency of four digits or more
-// (1,000+), anywhere in the file, SVG <text> nodes included. Single records
-// are nowhere near that. If a page ever needs to print a four-figure amount
-// that isn't the collection total, this heuristic needs rethinking, not
-// widening.
-const PAGE_CURRENCY = "USD";
-const PAGE_SYMBOL = "$";
-const VALUE_TOLERANCE = 10;
-{
-  const backupFiles = readdirSync("backups")
-    .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
-    .sort();
+// Each page marks its figures with data-live="<key>" elements and fills them
+// from /api/records in an inline <script id="live-figures">. The text inside
+// an element is only the no-JavaScript fallback, so it is never compared with
+// the data. This check does three things per page:
+//   1. every required data-live hook is present;
+//   2. the page's own script, run against the newest backup with a fake
+//      fetch and a fake document, renders exactly what an independent
+//      calculation gives (app.js collectionValue()'s rule over USD records:
+//      price_median, falling back to price_low, skipping records with
+//      neither, a record with no currency counting as USD);
+//   3. no hand-typed catalog size ("97 records") or four-figure dollar amount
+//      is left in the prose. Comments, scripts and elements marked
+//      data-example (a real past incident shown as an example) are excluded.
+// If the value rule in app.js changes, change it here and in both scripts.
+const LIVE_HOOKS = {
+  "about.html": ["records", "value-approx"],
+  "guide.html": ["records", "low", "median", "value", "usd-count"],
+};
+const UNFILLED = "(fallback text)";
+const usdText = (n) => "$" + Math.round(n).toLocaleString("en-US");
 
-  if (backupFiles.length > 0) {
-    const latestFile = backupFiles[backupFiles.length - 1];
-    const backup = JSON.parse(readFileSync(`backups/${latestFile}`, "utf8"));
-    const records = Array.isArray(backup.records) ? backup.records : [];
+if (latest) {
+  const exp = { low: 0, median: 0, usdCount: 0, usdTotal: 0 };
+  for (const r of latest.records) {
+    const hasMed = r.price_median != null && !isNaN(r.price_median);
+    const hasLow = r.price_low != null && !isNaN(r.price_low);
+    if (hasLow) exp.low++;
+    if (hasMed) exp.median++;
+    const amount = hasMed ? Number(r.price_median) : hasLow ? Number(r.price_low) : null;
+    if (amount == null) continue;
+    if ((r.price_currency || "USD") !== "USD") continue;
+    exp.usdCount++;
+    exp.usdTotal += amount;
+  }
+  const expectedText = {
+    records: String(latest.records.length),
+    low: String(exp.low),
+    median: String(exp.median),
+    "usd-count": String(exp.usdCount),
+    value: usdText(exp.usdTotal),
+    "value-approx": "≈ " + usdText(exp.usdTotal),
+  };
 
-    const byCurrency = {};
-    for (const r of records) {
-      const amount =
-        r.price_median != null && !isNaN(r.price_median)
-          ? Number(r.price_median)
-          : r.price_low != null && !isNaN(r.price_low)
-            ? Number(r.price_low)
-            : null;
-      if (amount == null) continue;
-      const currency = r.price_currency || "USD"; // app.js's own default
-      byCurrency[currency] = (byCurrency[currency] || 0) + amount;
+  if (exp.usdCount === 0) {
+    failures.push(
+      `backups/${latest.file}: no record is priced in USD, so the live collection value would read $0. Decide how the pages should read, then update the live-figures scripts and this check.`,
+    );
+  }
+
+  for (const [page, hooks] of Object.entries(LIVE_HOOKS)) {
+    const html = readFileSync(page, "utf8");
+
+    for (const key of hooks) {
+      if (!html.includes(`data-live="${key}"`)) {
+        failures.push(
+          `${page}: no data-live="${key}" element found (the figure may have been hand-typed again; make it a live element, or remove it from LIVE_HOOKS in this check).`,
+        );
+      }
     }
 
-    const currencies = Object.keys(byCurrency);
-    const largest = currencies.sort((x, y) => byCurrency[y] - byCurrency[x])[0];
-
-    if (byCurrency[PAGE_CURRENCY] == null || largest !== PAGE_CURRENCY) {
-      failures.push(
-        `backups/${latestFile}: the pages print their collection value in ${PAGE_CURRENCY}, but the priced records are ${currencies.join(", ") || "none"} ` +
-          `(largest by value: ${largest || "none"}). Decide how about.html and guide.html should read now, then update PAGE_CURRENCY in this check.`,
-      );
+    const scriptMatch = html.match(/<script id="live-figures">([\s\S]*?)<\/script>/);
+    if (!scriptMatch) {
+      failures.push(`${page}: no <script id="live-figures"> block found, so nothing fills the live figures.`);
     } else {
-      const total = byCurrency[PAGE_CURRENCY];
-      const expected = Math.round(total);
-      const figure = new RegExp(
-        "\\" + PAGE_SYMBOL + "\\s?(\\d{1,3}(?:,\\d{3})+|\\d{4,})",
-        "g",
-      );
-
-      for (const page of ["about.html", "guide.html"]) {
-        const html = readFileSync(page, "utf8");
-        const found = [...html.matchAll(figure)];
-
-        if (found.length === 0) {
-          failures.push(
-            `${page}: no collection-value figure found at all (expected at least one ${PAGE_SYMBOL}${expected.toLocaleString("en-US")}). ` +
-              "If the figure was deliberately removed, remove this page from Check 2's list too.",
-          );
-          continue;
-        }
-
-        for (const m of found) {
-          const shown = Number(m[1].replace(/,/g, ""));
-          if (Math.abs(shown - total) > VALUE_TOLERANCE) {
+      const elements = [...html.matchAll(/data-live="([^"]+)"/g)].map((m) => ({
+        key: m[1],
+        textContent: UNFILLED,
+        getAttribute: (name) => (name === "data-live" ? m[1] : null),
+      }));
+      let ran = true;
+      try {
+        runInNewContext(scriptMatch[1], {
+          fetch: async () => ({ ok: true, json: async () => latest.records }),
+          document: { querySelectorAll: () => elements },
+          Math,
+          Number,
+          String,
+          isNaN,
+          Array,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0)); // let the promise chain finish
+      } catch (e) {
+        ran = false;
+        failures.push(`${page}: the live-figures script threw: ${e.message}`);
+      }
+      if (ran) {
+        for (const el of elements) {
+          if (el.textContent === UNFILLED) {
             failures.push(
-              `${page} says "${PAGE_SYMBOL}${m[1]}" but the newest backup (backups/${latestFile}) adds up to ${PAGE_SYMBOL}${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in ${PAGE_CURRENCY} ` +
-                `(price_median, falling back to price_low). Change it to ${PAGE_SYMBOL}${expected.toLocaleString("en-US")}. ` +
-                "Check every copy on the page, SVG <text> labels included. There is usually more than one.",
+              `${page}: data-live="${el.key}" was not filled by the script (unknown key, or the script did not run).`,
+            );
+          } else if (el.textContent !== expectedText[el.key]) {
+            failures.push(
+              `${page}: data-live="${el.key}" rendered "${el.textContent}" but the newest backup (backups/${latest.file}) gives "${expectedText[el.key]}". The page script's rule has drifted from app.js collectionValue().`,
             );
           }
         }
       }
+    }
+
+    const prose = html
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/g, "")
+      .replace(/<span data-live="[^"]+">[^<]*<\/span>/g, "")
+      .replace(/<text[^>]*data-example[^>]*>[^<]*<\/text>/g, ""); // marked historical examples
+    for (const m of prose.matchAll(/\b\d{2,3}\s+records\b/g)) {
+      failures.push(
+        `${page}: "${m[0]}" looks like a hand-typed catalog size. Use a data-live="records" element so it stays true.`,
+      );
+    }
+    for (const m of prose.matchAll(/\$\s?(?:\d{1,3}(?:,\d{3})+|\d{4,})/g)) {
+      failures.push(
+        `${page}: "${m[0]}" looks like a hand-typed collection value. Use a data-live="value" element so it stays true.`,
+      );
     }
   }
 }
