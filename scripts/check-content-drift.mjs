@@ -82,34 +82,40 @@ let failures = [];
 }
 
 // Check 2: every collection-value figure on about.html and guide.html matches
-// what the newest backup actually adds up to.
+// what the newest backup actually adds up to, in the currency the pages print.
 //
 // The value rule is app.js's own, from collectionValue() (see the "Soft
 // collection value" comment there): per record, prefer price_median, fall
 // back to price_low, skip the record if neither is a number, and group by
 // price_currency so amounts in different currencies are never added
 // together. This check reimplements that rule rather than importing it,
-// because app.js is browser code with no module exports — if collectionValue()
+// because app.js is browser code with no module exports. If collectionValue()
 // ever changes, change it here too.
 //
-// TOLERANCE: ±€10 against the unrounded total. That is under half a percent
-// of the current ~€2,200, which is wide enough to absorb rounding style
-// (a page saying "about €2,220" for €2,219.77) and a genuinely small price
-// move, and narrow enough to catch the real failure mode, which is a figure
-// that was correct months ago. A percentage band can't do both: the three
-// wrong figures this check was written for were all within 1%. The cost is
-// that a real price refresh moving the total by more than €10 fails this
-// check until someone edits the number on both pages. That is the intended
-// cost — it is one line per page, and it is the only thing that keeps the
+// CURRENCY: the pages print one total, in PAGE_CURRENCY (USD since the v56
+// run, when the Discogs browser session switched from EUR to USD). Records
+// priced in another currency are left out of that total and the pages say so.
+// The check fails if the page currency has no records, or if another currency
+// becomes the largest by value (the pages would then describe the minority of
+// the collection). If the page currency really changes, change PAGE_CURRENCY
+// and PAGE_SYMBOL here and the figures on both pages together.
+//
+// TOLERANCE: +/-10 against the unrounded total. That is under half a percent
+// of the current ~2,600, wide enough to absorb rounding style and a genuinely
+// small price move, and narrow enough to catch the real failure mode, which is
+// a figure that was correct months ago. A real price refresh moving the total
+// by more than 10 fails this check until someone edits the number on both
+// pages. That is the intended cost: it is the only thing that keeps the
 // number honest.
 //
-// WHICH FIGURES COUNT: any euro amount of four digits or more (€1,000+),
-// anywhere in the file, SVG <text> nodes included — the €2,234 that started
-// this lived inside one. Single records are nowhere near that: the dearest
-// in the catalog is €147.89, and the highest price_high on any record is
-// €300. If a page ever needs to print a four-figure euro amount that isn't
-// the collection total, this heuristic needs rethinking, not widening.
-const VALUE_TOLERANCE_EUR = 10;
+// WHICH FIGURES COUNT: any amount in the page currency of four digits or more
+// (1,000+), anywhere in the file, SVG <text> nodes included. Single records
+// are nowhere near that. If a page ever needs to print a four-figure amount
+// that isn't the collection total, this heuristic needs rethinking, not
+// widening.
+const PAGE_CURRENCY = "USD";
+const PAGE_SYMBOL = "$";
+const VALUE_TOLERANCE = 10;
 {
   const backupFiles = readdirSync("backups")
     .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
@@ -134,25 +140,28 @@ const VALUE_TOLERANCE_EUR = 10;
     }
 
     const currencies = Object.keys(byCurrency);
-    if (currencies.length !== 1 || currencies[0] !== "EUR") {
-      // Both pages print a single euro figure. The moment the catalog holds
-      // more than one currency that stops being a true summary, and this
-      // check can no longer say what the pages should read.
+    const largest = currencies.sort((x, y) => byCurrency[y] - byCurrency[x])[0];
+
+    if (byCurrency[PAGE_CURRENCY] == null || largest !== PAGE_CURRENCY) {
       failures.push(
-        `backups/${latestFile}: priced records are no longer all in EUR (found ${currencies.join(", ") || "none"}). ` +
-          "about.html and guide.html both print one euro total; decide how they should read now, and update this check.",
+        `backups/${latestFile}: the pages print their collection value in ${PAGE_CURRENCY}, but the priced records are ${currencies.join(", ") || "none"} ` +
+          `(largest by value: ${largest || "none"}). Decide how about.html and guide.html should read now, then update PAGE_CURRENCY in this check.`,
       );
     } else {
-      const totalEur = byCurrency.EUR;
-      const expected = Math.round(totalEur);
+      const total = byCurrency[PAGE_CURRENCY];
+      const expected = Math.round(total);
+      const figure = new RegExp(
+        "\\" + PAGE_SYMBOL + "\\s?(\\d{1,3}(?:,\\d{3})+|\\d{4,})",
+        "g",
+      );
 
       for (const page of ["about.html", "guide.html"]) {
         const html = readFileSync(page, "utf8");
-        const found = [...html.matchAll(/€\s?(\d{1,3}(?:,\d{3})+|\d{4,})/g)];
+        const found = [...html.matchAll(figure)];
 
         if (found.length === 0) {
           failures.push(
-            `${page}: no collection-value figure found at all (expected at least one €${expected.toLocaleString("en-US")}). ` +
+            `${page}: no collection-value figure found at all (expected at least one ${PAGE_SYMBOL}${expected.toLocaleString("en-US")}). ` +
               "If the figure was deliberately removed, remove this page from Check 2's list too.",
           );
           continue;
@@ -160,11 +169,11 @@ const VALUE_TOLERANCE_EUR = 10;
 
         for (const m of found) {
           const shown = Number(m[1].replace(/,/g, ""));
-          if (Math.abs(shown - totalEur) > VALUE_TOLERANCE_EUR) {
+          if (Math.abs(shown - total) > VALUE_TOLERANCE) {
             failures.push(
-              `${page} says "€${m[1]}" but the newest backup (backups/${latestFile}) adds up to €${totalEur.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ` +
-                `(price_median, falling back to price_low). Change it to €${expected.toLocaleString("en-US")}. ` +
-                "Check every copy on the page, SVG <text> labels included — there is usually more than one.",
+              `${page} says "${PAGE_SYMBOL}${m[1]}" but the newest backup (backups/${latestFile}) adds up to ${PAGE_SYMBOL}${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in ${PAGE_CURRENCY} ` +
+                `(price_median, falling back to price_low). Change it to ${PAGE_SYMBOL}${expected.toLocaleString("en-US")}. ` +
+                "Check every copy on the page, SVG <text> labels included. There is usually more than one.",
             );
           }
         }
