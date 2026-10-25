@@ -1,43 +1,69 @@
 {
   "shows": [
     {
-      "id": "venue-sweetwater-0-2026-10-18",
-      "artist": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
-      "title": "The Rock and Roll Playhouse plays: Music of Talking Heads + More for Kids",
+      "id": "venue-sweetwater-11-2026-11-06",
+      "artist": "Southern Culture on the Skids with Frankie & The Pool Boys",
+      "title": "Southern Culture on the Skids with Frankie & The Pool Boys",
       "venue": "Sweetwater Music Hall",
       "city": "Mill Valley, CA",
-      "date": "2026-10-18",
-      "dateLabel": "Sun, Oct 18, 2026",
+      "date": "2026-11-06",
+      "dateLabel": "Fri, Nov 6, 2026",
       "source": "Venue: Sweetwater Music Hall",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-talking-heads-more-for-kids-2/sweetwater-music-hall/mill-valley-california/"
+      "url": "https://sweetwatermusichall.org/event/southern-culture-on-the-skids-with-frankie-the-pool-boys/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "manual-easy-star-all-stars-2026-10-22",
-      "artist": "Easy Star All-Stars",
-      "title": "Easy Star All-Stars",
-      "venue": "Cornerstone",
+      "id": "venue-gamh-27-2026-11-28",
+      "artist": "Zepparella the Led Zeppelin Powerhouse",
+      "title": "Zepparella the Led Zeppelin Powerhouse",
+      "venue": "Great American Music Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-11-28",
+      "dateLabel": "Sat, Nov 28, 2026",
+      "source": "Venue: Great American Music Hall",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
+    },
+    {
+      "id": "venue-sweetwater-36-2026-12-13",
+      "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
+      "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
+      "venue": "Sweetwater Music Hall",
+      "city": "Mill Valley, CA",
+      "date": "2026-12-13",
+      "dateLabel": "Sun, Dec 13, 2026",
+      "source": "Venue: Sweetwater Music Hall",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
+    },
+    {
+      "id": "venue-uctheatre-18-2026-12-31",
+      "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
+      "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
+      "venue": "The UC Theatre",
       "city": "Berkeley, CA",
-      "date": "2026-10-22",
-      "source": "Manual entry — verified 2026-08-04 (Songkick, not venue-confirmed)",
+      "date": "2026-12-31",
+      "dateLabel": "Thu, Dec 31, 2026",
+      "source": "Venue: The UC Theatre",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://www.songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley",
-      "dateLabel": "Thu, Oct 22, 2026"
+      "url": "https://www.theuctheatre.org/events"
     },
     {
-      "id": "manual-easy-star-all-stars-2026-10-24",
-      "artist": "Easy Star All-Stars",
-      "title": "Easy Star All-Stars",
-      "venue": "The Guild Theatre",
-      "city": "Menlo Park, CA",
-      "date": "2026-10-24",
-      "source": "Manual entry — verified 2026-08-04",
+      "id": "seatgeek-18529143",
+      "artist": "Moby",
+      "title": "Moby with Azzecca and DJ Holographic (18+)",
+      "venue": "Bill Graham Civic Auditorium",
+      "city": "San Francisco, CA",
+      "date": "2026-11-05",
+      "dateLabel": "Thu, Nov 5, 2026",
+      "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://www.guildtheatre.com/shows/easy-star-all-stars-24-oct",
-      "dateLabel": "Sat, Oct 24, 2026"
+      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
     },
     {
       "id": "jambase-jambase:16245484",
@@ -53,82 +79,17 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
     },
     {
-      "id": "venue-gamh-36-2026-11-28",
-      "artist": "Zepparella the Led Zeppelin Powerhouse",
-      "title": "Zepparella the Led Zeppelin Powerhouse",
-      "venue": "Great American Music Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-11-28",
-      "dateLabel": "Sat, Nov 28, 2026",
-      "source": "Venue: Great American Music Hall",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
-    },
-    {
-      "id": "venue-sweetwater-40-2026-12-13",
-      "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
-      "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
-      "venue": "Sweetwater Music Hall",
-      "city": "Mill Valley, CA",
-      "date": "2026-12-13",
-      "dateLabel": "Sun, Dec 13, 2026",
-      "source": "Venue: Sweetwater Music Hall",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
-    },
-    {
-      "id": "venue-uctheatre-20-2026-12-31",
-      "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
-      "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
-      "venue": "The UC Theatre",
-      "city": "Berkeley, CA",
-      "date": "2026-12-31",
-      "dateLabel": "Thu, Dec 31, 2026",
-      "source": "Venue: The UC Theatre",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "seatgeek-18613937",
-      "artist": "Easy Star All-Stars",
-      "title": "Easy Star All-Stars",
-      "venue": "Cornerstone - Berkeley",
-      "city": "Berkeley, CA",
-      "date": "2026-10-22",
-      "dateLabel": "Thu, Oct 22, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/easy-star-all-stars-tickets/berkeley-california-cornerstone-berkeley-2026-10-22-8-pm/concert/18613937"
-    },
-    {
-      "id": "jambase-jambase:16792774",
-      "artist": "Easy Star All-Stars",
-      "title": "Easy Star All-Stars at The Guild Theatre",
-      "venue": "The Guild Theatre",
-      "city": "Menlo Park, CA",
-      "date": "2026-10-24",
-      "dateLabel": "Sat, Oct 24, 2026",
+      "id": "jambase-jambase:17283202",
+      "artist": "Airrica",
+      "title": "Airrica at The Continental Bar Lounge & Patio",
+      "venue": "The Continental Bar Lounge & Patio",
+      "city": "San Jose, CA",
+      "date": "2026-11-06",
+      "dateLabel": "Fri, Nov 6, 2026",
       "source": "JamBase",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://app.opendate.io/e/easy-star-all-stars-october-24-2026-727778?utm_source=jambase"
-    },
-    {
-      "id": "seatgeek-18529143",
-      "artist": "Moby",
-      "title": "Moby with Azzecca and DJ Holographic (18+)",
-      "venue": "Bill Graham Civic Auditorium",
-      "city": "San Francisco, CA",
-      "date": "2026-11-05",
-      "dateLabel": "Thu, Nov 5, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
+      "url": "https://www.eventbrite.com/e/2003686130153?aff=ebdijbjambase&utm_source=jambase"
     },
     {
       "id": "jambase-jambase:17202102",
@@ -235,6 +196,19 @@
       "url": "https://www.prekindle.com/promo/id/-2852527949111249697?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:16960205",
+      "artist": "Zepparella",
+      "title": "Zepparella at Great American Music Hall",
+      "venue": "Great American Music Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-11-28",
+      "dateLabel": "Sat, Nov 28, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzAzMjIyOjE4/clickthru?utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:17060407",
       "artist": "Goldie",
       "title": "Goldie at Public Works (Main Room)",
@@ -261,6 +235,19 @@
       "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/82462098/mindi-abair-christmas-show-tue122226-oakland-yoshis?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:17262088",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at Ivy Room",
+      "venue": "Ivy Room",
+      "city": "Albany, CA",
+      "date": "2026-12-30",
+      "dateLabel": "Wed, Dec 30, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://tickets.venuepilot.com/e/fleetwood-macrame-bf9056?utm_source=jambase"
+    },
+    {
       "id": "seatgeek-18532597",
       "artist": "Steel Pulse",
       "title": "Steel Pulse",
@@ -272,6 +259,71 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://seatgeek.com/steel-pulse-tickets/berkeley-california-the-uc-theatre-2026-12-31-8-pm/concert/18532597"
+    },
+    {
+      "id": "jambase-jambase:17275663",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at Ivy Room",
+      "venue": "Ivy Room",
+      "city": "Albany, CA",
+      "date": "2026-12-31",
+      "dateLabel": "Thu, Dec 31, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://tickets.venuepilot.com/e/the-9th-annual-fleetwood-macrame-new-years-eve-party-6b1d6d?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17273915",
+      "artist": "Pure Prairie League",
+      "title": "Pure Prairie League at Uptown Theatre",
+      "venue": "Uptown Theatre",
+      "city": "Napa, CA",
+      "date": "2027-01-27",
+      "dateLabel": "Wed, Jan 27, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fatlanta-rhythm-section-pure-prairie-league-napa-california-01-27-2027%2Fevent%2F1C0065536BFC48A0&utm_medium=affiliate&utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17143339",
+      "artist": "Zepparella",
+      "title": "Zepparella at The Guild Theatre",
+      "venue": "The Guild Theatre",
+      "city": "Menlo Park, CA",
+      "date": "2027-02-27",
+      "dateLabel": "Sat, Feb 27, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://app.opendate.io/e/zepparella-february-27-2027-746379?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17267978",
+      "artist": "Lambrini Girls",
+      "title": "Lambrini Girls at The Fillmore",
+      "venue": "The Fillmore",
+      "city": "San Francisco, CA",
+      "date": "2027-04-09",
+      "dateLabel": "Fri, Apr 9, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Flambrini-girls-no-refunds-tour-with-san-francisco-california-04-09-2027%2Fevent%2F1C00651BB18A9959&utm_medium=affiliate&utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:16323234",
+      "artist": "SiM",
+      "title": "SiM at August Hall",
+      "venue": "August Hall",
+      "city": "San Francisco, CA",
+      "date": "2027-04-18",
+      "dateLabel": "Sun, Apr 18, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-world-tour-san-francisco-california-04-18-2027%2Fevent%2F1C0064AF09A75C9E&utm_medium=affiliate&utm_source=jambase"
     },
     {
       "id": "seatgeek-18557005",
@@ -391,7 +443,7 @@
       "url": "https://seatgeek.com/armin-van-buuren-tickets/san-francisco-california-pier-48-2026-11-07-8-pm/concert/18650407"
     }
   ],
-  "artistCount": 133,
-  "at": 1792331601264,
+  "artistCount": 141,
+  "at": 1792937588214,
   "source": "github-actions"
 }
