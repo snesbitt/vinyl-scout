@@ -21,8 +21,9 @@ name: Weekly catalog sweep
 # checked against production. Retire it, and the Blobs store, once that check
 # is done.
 #
-# Scheduled Sundays 10:00 UTC -- an hour clear of backup-catalog.yml's daily
-# 09:05 UTC run and the old Netlify job's own weekly cadence, so the two
+# Scheduled Sundays 19:00 UTC (moved from 10:00 on 2026-10-28 so no run starts
+# before 10 am Pacific all year) -- about an hour clear of backup-catalog.yml's
+# daily 18:05 UTC run and the old Netlify job's own weekly cadence, so the two
 # don't race on anything during the transition window.
 #
 # 2026-09-14: backup-watching.yml (same shape as this file) was found
@@ -31,7 +32,7 @@ name: Weekly catalog sweep
 
 on:
   schedule:
-    - cron: "0 10 * * 0"
+    - cron: "0 19 * * 0"
   workflow_dispatch: {}
 
 permissions:

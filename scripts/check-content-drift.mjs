@@ -262,11 +262,11 @@ if (latest) {
     { page: "guide.html", phrase: "the Sunday sweep", workflow: "scheduled-sweep.yml", claims: "Sunday" },
     { page: "about.html", phrase: "the Sunday sweep", workflow: "scheduled-sweep.yml", claims: "Sunday" },
     // Backups — .github/workflows/backup-catalog.yml, backup-watching.yml
-    { page: "guide.html", phrase: "nightly catalog and watching-list backups", workflow: "backup-catalog.yml", claims: "every day" },
-    { page: "guide.html", phrase: "nightly catalog and watching-list backups", workflow: "backup-watching.yml", claims: "every day" },
-    { page: "about.html", phrase: "Nightly catalog and watching backups", workflow: "backup-catalog.yml", claims: "every day" },
-    { page: "about.html", phrase: "Nightly catalog and watching backups", workflow: "backup-watching.yml", claims: "every day" },
-    { page: "about.html", phrase: "A nightly job commits the whole", workflow: "backup-catalog.yml", claims: "every day" },
+    { page: "guide.html", phrase: "daily catalog and watching-list backups", workflow: "backup-catalog.yml", claims: "every day" },
+    { page: "guide.html", phrase: "daily catalog and watching-list backups", workflow: "backup-watching.yml", claims: "every day" },
+    { page: "about.html", phrase: "Daily catalog and watching backups", workflow: "backup-catalog.yml", claims: "every day" },
+    { page: "about.html", phrase: "Daily catalog and watching backups", workflow: "backup-watching.yml", claims: "every day" },
+    { page: "about.html", phrase: "A daily job commits the whole", workflow: "backup-catalog.yml", claims: "every day" },
   ];
 
   // Phrases are matched against whitespace-collapsed source: these pages wrap

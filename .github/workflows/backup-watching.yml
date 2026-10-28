@@ -42,9 +42,11 @@ name: Daily watching-list backup
 # read rather than a push race -- both are cheap, safe things to retry
 # since this whole job is a pure read plus a single-file commit.
 
+# 2026-10-28: moved from 09:10 UTC to 18:10 UTC so no run starts before 10 am
+# Pacific all year (18:10 UTC is 10:10 PST and 11:10 PDT).
 on:
   schedule:
-    - cron: "10 9 * * *"
+    - cron: "10 18 * * *"
   workflow_dispatch: {}
 
 permissions:

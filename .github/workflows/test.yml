@@ -12,7 +12,9 @@ on:
     # changes at all. Runs the same job as a normal push, so no separate
     # workflow file or new failure mode. Also drives the deploy-freshness
     # job below, which only runs on this trigger.
-    - cron: "0 13 * * 1"
+    # 2026-10-28: moved from 13:00 UTC to 19:00 UTC so no run starts before
+    # 10 am Pacific all year (19:00 UTC is 11:00 PST and 12:00 PDT).
+    - cron: "0 19 * * 1"
 
 jobs:
   test:

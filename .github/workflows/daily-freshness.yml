@@ -14,20 +14,21 @@ name: Daily freshness check
 # when backup-watching.yml lost a push race and left no file. Nothing went red.
 # The first two holes were found weeks later by reading the directory; the third
 # was found the same way. With this job, a missing backup fails a scheduled run
-# the next morning and GitHub's own failure email says so.
+# the next day and GitHub's own failure email says so.
 #
 # Deliberately a separate workflow from the two backup jobs it watches: a
 # backup job reporting on its own backup never reports when it never runs.
 # Same reasoning as The Fitness Log's daily-health.yml.
 #
-# 09:30 UTC: after backup-catalog.yml (09:05) and backup-watching.yml (09:10),
+# 18:30 UTC (moved from 09:30 on 2026-10-28 so no run starts before 10 am Pacific
+# all year): after backup-catalog.yml (18:05) and backup-watching.yml (18:10),
 # with enough slack for GitHub's scheduling delay to land them. check-freshness
 # allows a backup to be a day old, so a late run is tolerated rather than
 # flapping.
 
 on:
   schedule:
-    - cron: "30 9 * * *"
+    - cron: "30 18 * * *"
   workflow_dispatch: {}
 
 permissions:

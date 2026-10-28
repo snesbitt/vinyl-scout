@@ -28,9 +28,11 @@ name: Daily catalog backup
 # the push step here has the identical latent bug, so it gets the identical
 # fix rather than waiting for its own future collision to prove it out.
 
+# 2026-10-28: moved from 09:05 UTC to 18:05 UTC so no run starts before 10 am
+# Pacific all year (18:05 UTC is 10:05 PST and 11:05 PDT).
 on:
   schedule:
-    - cron: "5 9 * * *"
+    - cron: "5 18 * * *"
   workflow_dispatch: {}
 
 permissions:

@@ -76,7 +76,7 @@
       <strong>Scheduled tasks</strong> repeat what no one should have to
       remember, like the weekly price refresh. The jobs that need no browser
       moved on to GitHub Actions, so they don't wait on a machine being
-      awake: the nightly backup, the Monday health check.
+      awake: the daily backup, the Monday health check.
     </p>
 
     <div class="mode-grid">
@@ -112,7 +112,7 @@
         <p class="mode-card__role">Repeat</p>
         <ul>
           <li>Weekly price refresh</li>
-          <li>Nightly backup, in Actions</li>
+          <li>Daily backup, in Actions</li>
           <li>Monday health check, in Actions</li>
         </ul>
       </div>
@@ -122,7 +122,7 @@
       <em>Where</em> the work happens is one decision. <em>Which version of
       Claude does it</em> is another. Claude comes in a few strengths at
       different prices, and the point is to match strength to stakes. Some
-      jobs need no model at all: the nightly backup is plain code on a timer
+      jobs need no model at all: the daily backup is plain code on a timer
       with nothing to judge. Ordinary building work gets the standard
       version. Reach for the strongest available only when a wrong answer
       costs real data or real money, which is why the Monday health check
@@ -193,7 +193,7 @@
       listing, once. The fix holds.
     </p>
 
-    <h2 id="step-04"><span class="article__num">04</span>Back it up automatically, every night</h2>
+    <h2 id="step-04"><span class="article__num">04</span>Back it up automatically, every day</h2>
     <p>
       A GitHub Actions workflow saves the complete catalog as a dated file,
       into the same GitHub repository that holds the code. This isn't
@@ -253,7 +253,7 @@
       Ordinary <strong>GitHub</strong> repository. Push triggers the whole
       deploy. <strong>Netlify</strong> rebuilds in under a minute, hosts the
       site, and serves the API the pages read from. The background jobs run
-      in <strong>GitHub Actions</strong> instead: the nightly catalog and
+      in <strong>GitHub Actions</strong> instead: the daily catalog and
       watching-list backups, the Sunday sweep that caches upcoming shows,
       the Monday health check. None of them holds a credential of its own,
       and none waits on anyone's computer being switched on. Only the weekly
@@ -310,7 +310,7 @@
 
           <path d="M350 198 Q420 198 448 117" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
           <path d="M410 128 Q340 172 300 178" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
-          <text x="352" y="150" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">nightly backup → GitHub</text>
+          <text x="352" y="150" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">daily backup → GitHub</text>
 
           <path d="M620 164 Q628 141 632 117" fill="none" stroke="#bcb3a3" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
           <text x="662" y="140" text-anchor="middle" font-size="12" fill="#8a8172" font-family="'IBM Plex Mono', monospace">reads the site</text>
@@ -328,7 +328,7 @@
     <h2 style="margin-top:0;">Copy this prompt to start</h2>
     <p>
       This system started from one written request to Claude, then grew in
-      stages: a live pricing feed, nightly backups, a weekly health
+      stages: a live pricing feed, daily backups, a weekly health
       check, every irreversible step held for approval along the way.
       Below is a version of that starting request. Copy it, adapt it to
       your own collection, and paste it into a new Claude conversation.
@@ -355,7 +355,7 @@ Please help me scope this into a first small version we can finish today, tell m
       <div class="next-card"><div class="next-card__n">01</div><h4>Claude asks first</h4><p>Expect questions about what's actually worth tracking before anything gets built.</p></div>
       <div class="next-card"><div class="next-card__n">02</div><h4>A first version, same session</h4><p>A working, if small, catalog is realistic to see before the conversation ends.</p></div>
       <div class="next-card"><div class="next-card__n">03</div><h4>You approve real-world steps</h4><p>Connecting an account, spending money, or publishing something public always waits for your yes.</p></div>
-      <div class="next-card"><div class="next-card__n">04</div><h4>It grows in later passes</h4><p>The domain, the nightly backups, the weekly check: all arrived after the first version, not in it. See the <a href="/roadmap.html">Roadmap</a> for the real order.</p></div>
+      <div class="next-card"><div class="next-card__n">04</div><h4>It grows in later passes</h4><p>The domain, the daily backups, the weekly check: all arrived after the first version, not in it. See the <a href="/roadmap.html">Roadmap</a> for the real order.</p></div>
     </div>
 
     <p class="article__kicker" style="margin-top:8px;">How this actually gets maintained</p>
@@ -371,7 +371,7 @@ Please help me scope this into a first small version we can finish today, tell m
 
     <div class="field-note">
       <p class="field-note__kicker">Worth knowing before you start</p>
-      <p>Build in nightly backups and a scheduled health check from day one. They're the cheapest insurance you can add to a project like this, and far easier to set up before you need them than after. This exact catalog's own backup and check have already turned what could have been a real loss into a ten-minute fix.</p>
+      <p>Build in daily backups and a scheduled health check from day one. They're the cheapest insurance you can add to a project like this, and far easier to set up before you need them than after. This exact catalog's own backup and check have already turned what could have been a real loss into a ten-minute fix.</p>
     </div>
 
     <div class="article__divider"></div>
