@@ -1355,7 +1355,7 @@ async function tryYouTube(artist, title, debugInfo) {
 
 export default async (req) => {
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — preview is read-only" }, 405);
+    return json({ error: "Method not allowed, preview is read-only" }, 405);
   }
 
   const url = new URL(req.url);

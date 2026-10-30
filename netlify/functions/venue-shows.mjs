@@ -500,7 +500,7 @@ var MANUAL_SHOWS = [
     venue: "Sweetwater Music Hall",
     city: "Mill Valley, CA",
     date: "2026-09-13",
-    source: "Manual entry — verified 2026-08-04",
+    source: "Manual entry, verified 2026-08-04",
     priceLow: null,
     priceHigh: null,
     url: "https://www.etix.com/ticket/p/93358603/black-uhuru-mill-valley-sweetwater-music-hall?partner_id=100",
@@ -512,7 +512,7 @@ var MANUAL_SHOWS = [
     venue: "The Guild Theatre",
     city: "Menlo Park, CA",
     date: "2026-10-24",
-    source: "Manual entry — verified 2026-08-04",
+    source: "Manual entry, verified 2026-08-04",
     priceLow: null,
     priceHigh: null,
     url: "https://www.guildtheatre.com/shows/easy-star-all-stars-24-oct",
@@ -528,7 +528,7 @@ var MANUAL_SHOWS = [
     // own comment above for why. Flagged in the source string itself so
     // this one entry's slightly weaker verification is visible in the
     // actual data, not just a comment nobody reading the response sees.
-    source: "Manual entry — verified 2026-08-04 (Songkick, not venue-confirmed)",
+    source: "Manual entry, verified 2026-08-04 (Songkick, not venue-confirmed)",
     priceLow: null,
     priceHigh: null,
     url: "https://www.songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley",
@@ -540,7 +540,7 @@ var MANUAL_SHOWS = [
     venue: "Freight & Salvage",
     city: "Berkeley, CA",
     date: "2026-09-22",
-    source: "Manual entry — verified 2026-08-19 (added while Freight & Salvage's own scraper is disabled, see CLAUDE.md's 2026-08-19 entry)",
+    source: "Manual entry, verified 2026-08-19 (added while Freight & Salvage's own scraper is disabled, see CLAUDE.md's 2026-08-19 entry)",
     priceLow: null,
     priceHigh: null,
     url: "https://secure.thefreight.org/16042/16043",
@@ -578,7 +578,7 @@ var MANUAL_SHOWS = [
 
 export default async (req) => {
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — venue-shows is read-only" }, 405);
+    return json({ error: "Method not allowed, venue-shows is read-only" }, 405);
   }
 
   var results = await Promise.all(

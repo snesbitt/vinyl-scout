@@ -171,7 +171,7 @@ async function fetchWithRetry(url, options) {
 export default async (req) => {
   // Read-only endpoint: only GET is allowed.
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — tour-dates is read-only" }, 405);
+    return json({ error: "Method not allowed, tour-dates is read-only" }, 405);
   }
 
   const clientId = process.env.SEATGEEK_CLIENT_ID;
@@ -239,7 +239,7 @@ export default async (req) => {
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).message || ""; } catch (e) {}
-      const err = new Error("SeatGeek returned HTTP " + res.status + (detail ? " — " + detail : ""));
+      const err = new Error("SeatGeek returned HTTP " + res.status + (detail ? ", " + detail : ""));
       err.status = res.status;
       if (res.status === 401 || res.status === 403) err.code = "AUTH_FAILED";
       else if (res.status === 429) err.code = "RATE_LIMITED";

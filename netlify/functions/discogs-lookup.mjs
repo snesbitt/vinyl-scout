@@ -38,7 +38,7 @@ function json(body, status) {
 export default async (req) => {
   // Read-only endpoint: only GET is allowed.
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — lookup is read-only" }, 405);
+    return json({ error: "Method not allowed, lookup is read-only" }, 405);
   }
 
   const token = process.env.DISCOGS_TOKEN;
@@ -73,7 +73,7 @@ export default async (req) => {
   const q = (url.searchParams.get("q") || "").trim();
 
   if (releaseBad) {
-    return json({ error: "That doesn't look like a Discogs release. Paste a release ID (just the number) or a release URL ending in /release/NNNN — a search-results link won't work." }, 400);
+    return json({ error: "That doesn't look like a Discogs release. Paste a release ID (just the number) or a release URL ending in /release/NNNN. A search-results link won't work." }, 400);
   }
   if (!artist && !title && !id && !releaseId && !q) {
     return json({ error: "Provide at least one of: artist, title, id, release_id, q" }, 400);
@@ -97,7 +97,7 @@ export default async (req) => {
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).message || ""; } catch (e) {}
-      const err = new Error("Discogs returned HTTP " + res.status + (detail ? " — " + detail : ""));
+      const err = new Error("Discogs returned HTTP " + res.status + (detail ? ", " + detail : ""));
       err.upstream = true;
       throw err;
     }
@@ -128,7 +128,7 @@ export default async (req) => {
     if (!res.ok) {
       let detail = "";
       try { detail = (await res.json()).message || ""; } catch (e) {}
-      const err = new Error("Discogs returned HTTP " + res.status + (detail ? " — " + detail : ""));
+      const err = new Error("Discogs returned HTTP " + res.status + (detail ? ", " + detail : ""));
       err.upstream = true;
       throw err;
     }

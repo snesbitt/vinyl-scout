@@ -16,7 +16,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=33" />
+  <link rel="stylesheet" href="/style.css?v=34" />
   <style>
     .roadmap { max-width: 860px; margin: 8px auto 0; padding: 16px 32px 32px; display: flex; flex-direction: column; gap: 26px; }
     .phase { display: grid; grid-template-columns: 64px 1fr; border: 1px solid var(--rule); background: var(--surface); border-radius: 3px; overflow: hidden; }
@@ -28,7 +28,7 @@
     .phase__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 9px; border-radius: 2px; white-space: nowrap; }
     .phase__status--live { color: var(--good); border: 1px solid var(--good); }
     .phase__status--future { color: var(--ink-faint); border: 1px solid var(--rule); }
-    .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin: 10px 0 0; }
+    .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-text); margin: 10px 0 0; }
     .phase__covers { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 8px 0 0; }
 
     .roadmap-note { max-width: 860px; margin: 26px auto 0; padding: 0 32px 90px; font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.03em; color: var(--ink-faint); }
@@ -127,27 +127,15 @@
     </div>
   </section>
 
-  <section class="phase phase--live" id="phase-9">
-    <div class="phase__rail">9</div>
+  <section class="phase phase--live" id="phase-6">
+    <div class="phase__rail">6</div>
     <div class="phase__body">
       <div class="phase__head">
-        <h3 class="phase__name">Wishlist priority</h3>
+        <h3 class="phase__name">Editorial polish pass</h3>
         <span class="phase__status phase__status--live">Live</span>
       </div>
-      <p class="phase__focus">Sort the hunt list by price</p>
-      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist opens cheapest first. One chip flips it to most expensive first, and a separate toggle goes back to A to Z. Whichever sort is on, every row shows how far below the historical median the current ask sits. The first version scored each item on a blend of discount and waiting time, with three presets for weighting one against the other. It was replaced the next day. Two sorts that each do exactly what their label says turned out to be worth more than one that needed explaining.</p>
-    </div>
-  </section>
-
-  <section class="phase phase--live" id="phase-11">
-    <div class="phase__rail">11</div>
-    <div class="phase__body">
-      <div class="phase__head">
-        <h3 class="phase__name">Concert radar</h3>
-        <span class="phase__status phase__status--live">Live</span>
-      </div>
-      <p class="phase__focus">See who&rsquo;s touring, and who&rsquo;s touring near you</p>
-      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA. Coming Soon sweeps them automatically through three sources at once: SeatGeek by artist, JamBase Data as a geo-scoped sweep of the metro area (added 2026-08-13, filtered down to your own artists before it merges in), and a direct scrape of six hand-picked Bay Area venue calendars for the box-office-only shows the other two never carry (a seventh, Freight &amp; Salvage, was dropped 2026-09-01 after its site turned out to block Netlify's IP range regardless of request headers; real shows there are added by hand via the &ldquo;+ Add a show&rdquo; fallback). When the same artist plays the same venue on several nights, those group into one card with a date range instead of one row per night. Watch an artist to track it before a confirmed date exists. Its shows then appear in the Watching panel with a real date, price, and ticket link, and drop out of Coming Soon rather than showing up twice. A manual &ldquo;+ Add a show&rdquo; fallback covers whatever none of the three sources find. Ticketmaster signup is still stuck on an account issue with their support. Bandsintown, Songkick, Eventbrite, Dice.fm, and PredictHQ were all researched and are tracked but not viable right now (see PROJECT.md&rsquo;s Feeds roadmap for why). A Spotify layer stays parked, and gets added only if a real coverage gap shows up, the same discipline that put YouTube last in audio preview. Two more pieces shipped 2026-08-07. A &ldquo;Traveling?&rdquo; panel sweeps every artist in your collection, wishlist, and watching list against a destination city and date range, so a trip elsewhere surfaces shows you&rsquo;d otherwise never see. Watching rows also gained a &ldquo;Going&rdquo; toggle that carries across devices once you&rsquo;ve actually got tickets. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
+      <p class="phase__focus">Sharpen the voice; leave the palette alone</p>
+      <p class="phase__covers">An outside design review confirmed the type, color, and spacing rules are holding, so this pass left them alone. Shipped 2026-08-07: navigation spacing tightened (22px&rarr;18px), the Audit page got darker row rules and 5px tighter padding so it reads as a working table rather than a magazine spread, and wishlist prices now stand taller than the rest of each row (11px&rarr;16px, bold). A small recurring catalog-index stamp (&ldquo;&#8470;001&rdquo;) and an inline instructional note were also tried on the Audit page, then pulled at the owner&rsquo;s request the same week. Both read as clutter once they were live. The Guide&rsquo;s prose was trimmed earlier in the same pass.</p>
     </div>
   </section>
 
@@ -163,18 +151,6 @@
     </div>
   </section>
 
-  <section class="phase phase--live" id="phase-6">
-    <div class="phase__rail">6</div>
-    <div class="phase__body">
-      <div class="phase__head">
-        <h3 class="phase__name">Editorial polish pass</h3>
-        <span class="phase__status phase__status--live">Live</span>
-      </div>
-      <p class="phase__focus">Sharpen the voice; leave the palette alone</p>
-      <p class="phase__covers">An outside design review confirmed the type, color, and spacing rules are holding, so this pass left them alone. Shipped 2026-08-07: navigation spacing tightened (22px&rarr;18px), the Audit page got darker row rules and 5px tighter padding so it reads as a working table rather than a magazine spread, and wishlist prices now stand taller than the rest of each row (11px&rarr;16px, bold). A small recurring catalog-index stamp (&ldquo;&#8470;001&rdquo;) and an inline instructional note were also tried on the Audit page, then pulled at the owner&rsquo;s request the same week. Both read as clutter once they were live. The Guide&rsquo;s prose was trimmed earlier in the same pass.</p>
-    </div>
-  </section>
-
   <section class="phase phase--live" id="phase-8">
     <div class="phase__rail">8</div>
     <div class="phase__body">
@@ -187,6 +163,18 @@
     </div>
   </section>
 
+  <section class="phase phase--live" id="phase-9">
+    <div class="phase__rail">9</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Wishlist priority</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">Sort the hunt list by price</p>
+      <p class="phase__covers">Shipped 2026-07-29, pulled forward at the owner&rsquo;s request the same way Phase 4 was. The wishlist opens cheapest first. One chip flips it to most expensive first, and a separate toggle goes back to A to Z. Whichever sort is on, every row shows how far below the historical median the current ask sits. The first version scored each item on a blend of discount and waiting time, with three presets for weighting one against the other. It was replaced the next day. Two sorts that each do exactly what their label says turned out to be worth more than one that needed explaining.</p>
+    </div>
+  </section>
+
   <section class="phase phase--live" id="phase-10">
     <div class="phase__rail">10</div>
     <div class="phase__body">
@@ -196,6 +184,18 @@
       </div>
       <p class="phase__focus">Cross-reference your trips with your music</p>
       <p class="phase__covers">A small, explicit hand-off between Vinyl Scout and <a href="https://travelintelligence.org/">travelintelligence.org</a>, the owner&rsquo;s other project. Travel Intelligence&rsquo;s watched trips get checked against the artists you like here, within about 25 miles of the destination. That means your collection, your wishlist, and everyone you&rsquo;re watching. Only the destination city and the date range cross over. No fares, no points data. A real match surfaces on both sides: &ldquo;playing where you&rsquo;ll be&rdquo; here on the Watching panel, and a note against the relevant watched trip over on Travel Intelligence. Built 2026-08-05, the day after the technical plan (see PROJECT.md for the full design, including one deliberate deviation from it for scalability). Both ends are best-effort. If either site is briefly unreachable, the rest of the page works exactly as it always did.</p>
+    </div>
+  </section>
+
+  <section class="phase phase--live" id="phase-11">
+    <div class="phase__rail">11</div>
+    <div class="phase__body">
+      <div class="phase__head">
+        <h3 class="phase__name">Concert radar</h3>
+        <span class="phase__status phase__status--live">Live</span>
+      </div>
+      <p class="phase__focus">See who&rsquo;s touring, and who&rsquo;s touring near you</p>
+      <p class="phase__covers">A page matching artists from your collection and wishlist against real upcoming tour dates near Berkeley, CA. Coming Soon sweeps them automatically through three sources at once: SeatGeek by artist, JamBase Data as a geo-scoped sweep of the metro area (added 2026-08-13, filtered down to your own artists before it merges in), and a direct scrape of six hand-picked Bay Area venue calendars for the box-office-only shows the other two never carry (a seventh, Freight &amp; Salvage, was dropped 2026-09-01 after its site turned out to block Netlify's IP range regardless of request headers; real shows there are added by hand via the &ldquo;+ Add a show&rdquo; fallback). When the same artist plays the same venue on several nights, those group into one card with a date range instead of one row per night. Watch an artist to track it before a confirmed date exists. Its shows then appear in the Watching panel with a real date, price, and ticket link, and drop out of Coming Soon rather than showing up twice. A manual &ldquo;+ Add a show&rdquo; fallback covers whatever none of the three sources find. Ticketmaster signup is still stuck on an account issue with their support. Bandsintown, Songkick, Eventbrite, Dice.fm, and PredictHQ were all researched and are tracked but not viable right now (see PROJECT.md&rsquo;s Feeds roadmap for why). A Spotify layer stays parked, and gets added only if a real coverage gap shows up, the same discipline that put YouTube last in audio preview. Two more pieces shipped 2026-08-07. A &ldquo;Traveling?&rdquo; panel sweeps every artist in your collection, wishlist, and watching list against a destination city and date range, so a trip elsewhere surfaces shows you&rsquo;d otherwise never see. Watching rows also gained a &ldquo;Going&rdquo; toggle that carries across devices once you&rsquo;ve actually got tickets. Pulled forward ahead of Phase 10 at the owner&rsquo;s request, the same way Phases 4 and 9 were. <a href="/concert-radar.html">Open Concert Radar &rarr;</a></p>
     </div>
   </section>
 

@@ -299,7 +299,7 @@ async function fetchAllEvents(apiKey, lat, lon, perPage, allPages) {
     if (!res.ok) {
       let detail = "";
       try { detail = JSON.stringify(await res.json()); } catch (e) {}
-      const err = new Error("JamBase returned HTTP " + res.status + (detail ? " — " + detail : "") + " on page " + page);
+      const err = new Error("JamBase returned HTTP " + res.status + (detail ? ", " + detail : "") + " on page " + page);
       err.status = res.status;
       if (res.status === 401 || res.status === 403) err.code = "AUTH_FAILED";
       else if (res.status === 429) err.code = "RATE_LIMITED";
@@ -332,7 +332,7 @@ async function fetchAllEvents(apiKey, lat, lon, perPage, allPages) {
 
 export default async (req) => {
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — jambase-shows is read-only" }, 405);
+    return json({ error: "Method not allowed, jambase-shows is read-only" }, 405);
   }
 
   const apiKey = process.env.JAMBASE_API_KEY;

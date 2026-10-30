@@ -16,7 +16,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=33" />
+  <link rel="stylesheet" href="/style.css?v=34" />
   <style>
     .audit-toolbar {
       max-width: 1100px;
@@ -39,6 +39,7 @@
       border-radius: 2px;
     }
     .audit-toolbar__search:focus { outline: none; border-color: var(--accent); }
+    @media (max-width: 720px) { .audit-toolbar__search { font-size: 16px; } } /* iOS zooms inputs under 16px */
     .audit-toolbar__count {
       font-family: var(--mono);
       font-size: 11px;
@@ -191,7 +192,7 @@
       padding: 4px 10px 0;
       line-height: 1.5;
     }
-    .audit-row__pressing .catno { color: var(--gold); }
+    .audit-row__pressing .catno { color: var(--gold-text); }
     .audit-row__pressing:empty { display: none; }
     .audit-row__actions {
       grid-area: actions;
@@ -398,7 +399,7 @@
       font-family: var(--mono);
       font-size: 11px;
       letter-spacing: 0.03em;
-      color: var(--gold);
+      color: var(--gold-text);
       padding: 4px 0 14px;
       line-height: 1.5;
       border-bottom: 1px solid var(--rule-soft);
@@ -440,7 +441,7 @@
       line-height: 1.5;
       display: block;
     }
-    .lookup-candidate__meta .catno { color: var(--gold); }
+    .lookup-candidate__meta .catno { color: var(--gold-text); }
     @media (max-width: 640px) {
       .audit-toolbar { padding: 0 18px; }
       .audit-list { padding: 12px 18px 60px; }
@@ -528,7 +529,7 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 19 (paired with style.css?v=33)
+// version: 19 (paired with style.css?v=34)
 // v19 (2026-10-24): accepting a pressing now saves the auto-fetched cover_url
 // to the record (single upsert). Before, the image file was committed but the
 // record kept no cover_url, so the cover was gone after a reload.

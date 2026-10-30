@@ -17,14 +17,14 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=33" />
+  <link rel="stylesheet" href="/style.css?v=34" />
 </head>
 <body>
 
 <header class="masthead">
   <a class="brand" href="/">
     <span class="brand__mark">⦿</span>
-    <h1>Vinyl Scout</h1>
+    <span class="brand__title">Vinyl Scout</span>
   </a>
   <nav class="masthead__nav" aria-label="Primary">
       <a href="/seed.html">Add</a>
@@ -82,7 +82,7 @@
   <p>
     Each record is enriched with Discogs data: accurate pressing ID, marketplace prices
     (low, median, high from sales history), community ownership and wishlist counts,
-    and ratings. The lowest price refreshes on demand, one record at a time — there's
+    and ratings. The lowest price refreshes on demand, one record at a time. There's
     no bulk button on the page. A weekly automated pass calls that same single-record
     refresh across the whole catalog, so every record still reprices at least once a
     week without a visit. Median and high prices come from a browser-based lookup, since
@@ -139,10 +139,10 @@
         <li><strong>Concert Radar.</strong> <code>/api/tour-dates</code>, public, read-only. SeatGeek-backed; it resolves an artist to a real performer before querying events near Berkeley, CA. An optional <code>city</code> override (2026-08-07) lets the &ldquo;Traveling?&rdquo; panel sweep a different destination.</li>
         <li><strong>Concert Radar, JamBase feed.</strong> <code>/api/jambase-shows</code>, public, read-only, added 2026-08-13. One geo-scoped sweep of real ticketing data, not per-artist, resolved to the containing metro area. The browser then filters it down to catalog, wishlist, and watching artists before anything merges into Coming Soon.</li>
         <li><strong>Concert Radar, reverse lookup.</strong> <code>/api/artists-playing</code>, public, read-only, CORS-enabled for <code>travelintelligence.org</code>. Give it a destination and a date window and it returns real nearby events cross-referenced against this catalog, wishlist, and watching list. This is the query Travel Intelligence's watched trips run.</li>
-        <li><strong>Watching.</strong> <code>/api/watching</code>, POST, ungated &mdash; deliberately, and reviewed again on 2026-08-21 when the wishlist&rsquo;s own gate went in. What it stores is artist, optional city, and a going flag: a notification preference, not a shopping list, in its own isolated store. The catalog, covers, and wishlist all stay gated. The <code>going</code> flag (2026-08-07) carries a confirmed-ticket toggle across devices.</li>
+        <li><strong>Watching.</strong> <code>/api/watching</code>, POST, ungated on purpose. Reviewed again on 2026-08-21 when the wishlist&rsquo;s own gate went in. What it stores is artist, optional city, and a going flag: a notification preference, not a shopping list, in its own isolated store. The catalog, covers, and wishlist all stay gated. The <code>going</code> flag (2026-08-07) carries a confirmed-ticket toggle across devices.</li>
         <li><strong>Concert Radar, weekly cache.</strong> <code>/api/catalog-cache</code>, public, read-only. Serves the merged show list the Sunday sweep commits to <code>data/catalog-cache.json</code>, so Concert Radar&rsquo;s first paint doesn&rsquo;t wait on three live feeds. Since 2026-08-19 it reads that committed file rather than Blobs, which means its data refreshes on deploy. Carries <code>artistCount</code> and an <code>at</code> timestamp; a freshness check watches that timestamp.</li>
         <li><strong>Concert Radar, venue scrape.</strong> <code>/api/venue-shows</code>, public, read-only. Six hand-picked Bay Area venues, scraped by venue rather than by artist, for the box-office-only shows SeatGeek and JamBase don&rsquo;t carry. Returns every show at those venues; the client filters down to catalog, wishlist, and watching artists before merging.</li>
-        <li><strong>Scheduled work.</strong> The Sunday sweep runs in GitHub Actions, not as a Function &mdash; it reads the same public endpoints and commits its merged result, holding no credential of its own. Daily catalog and watching backups run the same way. A Monday health check reads the live site; when it finds a Concert Radar problem it opens a pull request rather than writing to <code>main</code>.</li>
+        <li><strong>Scheduled work.</strong> The Sunday sweep runs in GitHub Actions, not as a Function. It reads the same public endpoints and commits its merged result, holding no credential of its own. Daily catalog and watching backups run the same way. A Monday health check reads the live site; when it finds a Concert Radar problem it opens a pull request rather than writing to <code>main</code>.</li>
       </ul>
     </div>
     <div class="stack-item">
@@ -231,8 +231,8 @@
     matches every artist in the collection and wishlist against real upcoming
     tour dates near Berkeley, CA. Three sources feed it: SeatGeek, JamBase
     Data, and a direct scrape of six hand-picked Bay Area venue calendars
-    (a seventh, Freight &amp; Salvage, is excluded as of 2026-09-01 — its
-    site blocks Netlify's IP range regardless of headers; real shows
+    (a seventh, Freight &amp; Salvage, is excluded as of 2026-09-01. Its
+    site blocks Netlify's IP range regardless of headers, so real shows
     there are added by hand).
     Coming Soon refreshes on its own. When the same artist plays the same
     venue on several nights, those group into one card with a date range

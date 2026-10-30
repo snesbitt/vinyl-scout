@@ -105,6 +105,7 @@
   --rule-soft:   #e3ddca;
   --accent:      #b53026;
   --gold:        #a8801c;
+  --gold-text:   #7a5c0e; /* gold darkened for text, AA on cream. --gold stays for borders and fills. */
   --good:        #4a6b3b;
 
   --sans:  "IBM Plex Sans", system-ui, -apple-system, sans-serif;
@@ -199,7 +200,8 @@ main#main:focus-visible { outline: none; }
   top: -2px;
   flex-shrink: 0;
 }
-.brand h1 {
+.brand h1,
+.brand .brand__title {
   font-family: var(--serif);
   font-style: italic;
   font-weight: 500;
@@ -1059,7 +1061,7 @@ main {
 @media (max-width: 720px) {
   .masthead { padding: 12px 18px; gap: 8px; flex-wrap: wrap; }
   .brand { gap: 8px; }
-  .brand h1 { font-size: clamp(24px, 6.4vw, 32px); }
+  .brand h1, .brand .brand__title { font-size: clamp(24px, 6.4vw, 32px); }
   .brand__mark { font-size: 18px; }
   /* Nav drops to its own full-width row instead of squeezing the brand name
      to nothing or running off-screen: 7 links at 10px never fit beside the
@@ -1083,7 +1085,7 @@ main {
     padding-bottom: 2px;
   }
   .masthead__nav::-webkit-scrollbar { display: none; }
-  .masthead__nav a { white-space: nowrap; flex: 0 0 auto; }
+  .masthead__nav a { white-space: nowrap; flex: 0 0 auto; padding: 17px 0; /* 44px tap target */ }
 
   .controls {
     grid-template-columns: 1fr;
@@ -1283,12 +1285,12 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
 
 .next-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 8px 0 32px; }
 .next-card { border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; padding: 14px 16px; background: var(--surface); }
-.next-card__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--gold); margin-bottom: 4px; }
+.next-card__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--gold-text); margin-bottom: 4px; }
 .next-card h4 { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
 .next-card p { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
 
 .field-note { margin: 0 0 32px; padding: 18px 22px; background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; }
-.field-note__kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin: 0 0 8px; }
+.field-note__kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-text); margin: 0 0 8px; }
 .field-note p { font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
 
 @media (min-width: 640px) {

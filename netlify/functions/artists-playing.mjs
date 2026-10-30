@@ -268,7 +268,7 @@ export function matchVenueShows(venueShows, artistIndex, lat, lon, dateStart, da
 
 export default async (req) => {
   if (req.method !== "GET") {
-    return json({ error: "Method not allowed — artists-playing is read-only" }, 405);
+    return json({ error: "Method not allowed, artists-playing is read-only" }, 405);
   }
 
   const url = new URL(req.url);
@@ -337,7 +337,7 @@ export default async (req) => {
   // Source 1: SeatGeek, location + date window, no performer filter.
   async function fetchSeatGeek() {
     if (!clientId) {
-      return { matches: [], error: "SEATGEEK_CLIENT_ID is not set on the server — SeatGeek source skipped, venue-scrape source still checked below" };
+      return { matches: [], error: "SEATGEEK_CLIENT_ID is not set on the server, SeatGeek source skipped, venue-scrape source still checked below" };
     }
     var clientSecret = process.env.SEATGEEK_CLIENT_SECRET || "";
     var controller = new AbortController();
@@ -357,7 +357,7 @@ export default async (req) => {
       if (!evRes.ok) {
         var detail = "";
         try { detail = (await evRes.json()).message || ""; } catch (e) {}
-        return { matches: [], error: "SeatGeek returned HTTP " + evRes.status + (detail ? " — " + detail : "") };
+        return { matches: [], error: "SeatGeek returned HTTP " + evRes.status + (detail ? ", " + detail : "") };
       }
       var evData = await evRes.json();
       var rawEvents = Array.isArray(evData.events) ? evData.events : [];

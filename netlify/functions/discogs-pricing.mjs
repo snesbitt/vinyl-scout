@@ -245,7 +245,7 @@ function describeTokenShape(token) {
   } else if (len > 0 && len < 40) {
     likely = `is ${len} chars (Personal Access Tokens are 40 chars)`;
   } else if (len > 40) {
-    likely = `is ${len} chars — longer than a Personal Access Token; may include extra wrapping`;
+    likely = `is ${len} chars, longer than a Personal Access Token; may include extra wrapping`;
   } else {
     likely = 'is empty';
   }
@@ -293,7 +293,7 @@ async function discogsFetch(url, token) {
 
     if (res.status === 401) {
       const err = new Error(
-        `Discogs 401 — ${body || 'no body'}`
+        `Discogs 401, ${body || 'no body'}`
       );
       err.status = 401;
       err.discogsBody = body;
@@ -304,7 +304,7 @@ async function discogsFetch(url, token) {
       err.status = 429;
       throw err;
     }
-    const err = new Error(`Discogs ${res.status}${body ? ' — ' + body : ''}`);
+    const err = new Error(`Discogs ${res.status}${body ? ', ' + body : ''}`);
     err.status = res.status;
     err.discogsBody = body;
     throw err;
@@ -383,7 +383,7 @@ export default async (req, context) => {
         error:
           'Discogs identity check failed (401). The token is rejected outright. ' +
           'Discogs said: ' + (err.discogsBody || '(no body)') + '. ' +
-          '(1) If you just updated DISCOGS_TOKEN on Netlify, env var changes require a redeploy to reach the running function — this deploy itself should have triggered one. ' +
+          '(1) If you just updated DISCOGS_TOKEN on Netlify, env var changes require a redeploy to reach the running function, this deploy itself should have triggered one. ' +
           '(2) If you have not yet regenerated, do so at https://www.discogs.com/settings/developers ("Generate new token" under your account), paste, and redeploy. ' +
           'Token shape: ' + tokenShape.classification +
           ' (source: ' + tokenSource + ', length: ' + tokenShape.length + ').',
@@ -462,7 +462,7 @@ export default async (req, context) => {
     const results = (search && search.results) || [];
     if (results.length === 0) {
       return jsonResponse({
-        error: `No Discogs match for "${record.artist} — ${record.title}". Try adjusting the artist or title on /audit.html.`,
+        error: `No Discogs match for "${record.artist}, ${record.title}". Try adjusting the artist or title on /audit.html.`,
         code: 'NO_MATCH'
       }, 404);
     }
