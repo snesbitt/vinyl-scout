@@ -1,0 +1,17 @@
+{
+  "snapshot_at": "2026-10-30T22:15:09.576Z",
+  "item_count": 2,
+  "items": [
+    {
+      "id": "watch_3dac36ef45c652c5",
+      "artist": "Zepparella the Led Zeppelin Powerhouse",
+      "city": "San Francisco, CA"
+    },
+    {
+      "id": "watch_6a8fe9ffd286bc6b",
+      "artist": "Bonobo",
+      "city": "Oakland, CA"
+    }
+  ],
+  "source": "github-actions"
+}
