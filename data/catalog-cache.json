@@ -1,7 +1,20 @@
 {
   "shows": [
     {
-      "id": "venue-sweetwater-11-2026-11-06",
+      "id": "seatgeek-18529143",
+      "artist": "Moby",
+      "title": "Moby with Azzecca and DJ Holographic (18+)",
+      "venue": "Bill Graham Civic Auditorium",
+      "city": "San Francisco, CA",
+      "date": "2026-11-05",
+      "dateLabel": "Thu, Nov 5, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
+    },
+    {
+      "id": "venue-sweetwater-2-2026-11-06",
       "artist": "Southern Culture on the Skids with Frankie & The Pool Boys",
       "title": "Southern Culture on the Skids with Frankie & The Pool Boys",
       "venue": "Sweetwater Music Hall",
@@ -14,7 +27,7 @@
       "url": "https://sweetwatermusichall.org/event/southern-culture-on-the-skids-with-frankie-the-pool-boys/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-gamh-27-2026-11-28",
+      "id": "venue-gamh-20-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -27,7 +40,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-36-2026-12-13",
+      "id": "venue-sweetwater-28-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -40,7 +53,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-18-2026-12-31",
+      "id": "venue-uctheatre-14-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -51,19 +64,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "seatgeek-18529143",
-      "artist": "Moby",
-      "title": "Moby with Azzecca and DJ Holographic (18+)",
-      "venue": "Bill Graham Civic Auditorium",
-      "city": "San Francisco, CA",
-      "date": "2026-11-05",
-      "dateLabel": "Thu, Nov 5, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
     },
     {
       "id": "jambase-jambase:16245484",
@@ -209,6 +209,45 @@
       "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzAzMjIyOjE4/clickthru?utm_source=jambase"
     },
     {
+      "id": "seatgeek-18516208",
+      "artist": "Pink Martini",
+      "title": "Pink Martini with the San Francisco Symphony",
+      "venue": "Louise M. Davies Symphony Hall",
+      "city": "San Francisco, CA",
+      "date": "2026-12-02",
+      "dateLabel": "Wed, Dec 2, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/pink-martini-tickets/san-francisco-california-louise-m-davies-symphony-hall-2026-12-02-7-30-pm/concert/18516208"
+    },
+    {
+      "id": "jambase-jambase:16633412",
+      "artist": "Pink Martini",
+      "title": "Pink Martini at Mondavi Center for the Performing Arts",
+      "venue": "Mondavi Center for the Performing Arts",
+      "city": "Davis, CA",
+      "date": "2026-12-05",
+      "dateLabel": "Sat, Dec 5, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "http://www.mondaviarts.org/?utm_source=jambase"
+    },
+    {
+      "id": "seatgeek-18364139",
+      "artist": "Pink Martini",
+      "title": "Pink Martini",
+      "venue": "Luther Burbank Center for the Arts - Ruth Finley Person Theater",
+      "city": "Santa Rosa, CA",
+      "date": "2026-12-08",
+      "dateLabel": "Tue, Dec 8, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/pink-martini-tickets/santa-rosa-california-luther-burbank-center-for-the-arts-ruth-finley-person-theater-2026-12-08-7-30-pm/concert/18364139"
+    },
+    {
       "id": "jambase-jambase:17060407",
       "artist": "Goldie",
       "title": "Goldie at Public Works (Main Room)",
@@ -248,6 +287,19 @@
       "url": "https://tickets.venuepilot.com/e/fleetwood-macrame-bf9056?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:17327370",
+      "artist": "Thievery Corporation",
+      "title": "Thievery Corporation at The Independent",
+      "venue": "The Independent",
+      "city": "San Francisco, CA",
+      "date": "2026-12-31",
+      "dateLabel": "Thu, Dec 31, 2026",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketweb.com%2Fevent%2Fthievery-corporation-the-independent-tickets%2F14403154&utm_medium=affiliate&utm_source=jambase"
+    },
+    {
       "id": "seatgeek-18532597",
       "artist": "Steel Pulse",
       "title": "Steel Pulse",
@@ -272,6 +324,19 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://tickets.venuepilot.com/e/the-9th-annual-fleetwood-macrame-new-years-eve-party-6b1d6d?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17300631",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at Felton Music Hall",
+      "venue": "Felton Music Hall",
+      "city": "Felton, CA",
+      "date": "2027-01-01",
+      "dateLabel": "Fri, Jan 1, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://www.prekindle.com/promo/id/-2852527948967745074?utm_source=jambase"
     },
     {
       "id": "jambase-jambase:17273915",
@@ -441,9 +506,22 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://seatgeek.com/armin-van-buuren-tickets/san-francisco-california-pier-48-2026-11-07-8-pm/concert/18650407"
+    },
+    {
+      "id": "seatgeek-18690618",
+      "artist": "Pink Martini",
+      "title": "Pink Martini",
+      "venue": "Mondavi Center UC Davis",
+      "city": "Davis, CA",
+      "date": "2026-12-05",
+      "dateLabel": "Sat, Dec 5, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/pink-martini-tickets/davis-california-mondavi-center-uc-davis-1-2026-12-05-7-30-pm/concert/18690618"
     }
   ],
-  "artistCount": 141,
-  "at": 1792937588214,
+  "artistCount": 184,
+  "at": 1793572720480,
   "source": "github-actions"
 }
