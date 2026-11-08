@@ -1,33 +1,7 @@
 {
   "shows": [
     {
-      "id": "seatgeek-18529143",
-      "artist": "Moby",
-      "title": "Moby with Azzecca and DJ Holographic (18+)",
-      "venue": "Bill Graham Civic Auditorium",
-      "city": "San Francisco, CA",
-      "date": "2026-11-05",
-      "dateLabel": "Thu, Nov 5, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/moby-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-11-05-7-pm/concert/18529143"
-    },
-    {
-      "id": "venue-sweetwater-2-2026-11-06",
-      "artist": "Southern Culture on the Skids with Frankie & The Pool Boys",
-      "title": "Southern Culture on the Skids with Frankie & The Pool Boys",
-      "venue": "Sweetwater Music Hall",
-      "city": "Mill Valley, CA",
-      "date": "2026-11-06",
-      "dateLabel": "Fri, Nov 6, 2026",
-      "source": "Venue: Sweetwater Music Hall",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://sweetwatermusichall.org/event/southern-culture-on-the-skids-with-frankie-the-pool-boys/sweetwater-music-hall/mill-valley-california/"
-    },
-    {
-      "id": "venue-gamh-20-2026-11-28",
+      "id": "venue-gamh-14-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -40,7 +14,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-28-2026-12-13",
+      "id": "venue-sweetwater-26-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -53,7 +27,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-14-2026-12-31",
+      "id": "venue-uctheatre-12-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -64,58 +38,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://www.theuctheatre.org/events"
-    },
-    {
-      "id": "jambase-jambase:16245484",
-      "artist": "Southern Culture on the Skids",
-      "title": "Southern Culture on the Skids at Sweetwater Music Hall",
-      "venue": "Sweetwater Music Hall",
-      "city": "Mill Valley, CA",
-      "date": "2026-11-06",
-      "dateLabel": "Fri, Nov 6, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://etix.prf.hn/click/camref:1101lGKCg/destination:https://www.etix.com/ticket/p/59953812/southern-culture-on-the-skids-mill-valley-sweetwater-music-hall?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:17283202",
-      "artist": "Airrica",
-      "title": "Airrica at The Continental Bar Lounge & Patio",
-      "venue": "The Continental Bar Lounge & Patio",
-      "city": "San Jose, CA",
-      "date": "2026-11-06",
-      "dateLabel": "Fri, Nov 6, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.eventbrite.com/e/2003686130153?aff=ebdijbjambase&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:17202102",
-      "artist": "Armin van Buuren",
-      "title": "Armin van Buuren at Pier 48’s Shed A",
-      "venue": "Pier 48’s Shed A",
-      "city": "San Francisco, CA",
-      "date": "2026-11-07",
-      "dateLabel": "Sat, Nov 7, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://www.axs.com/events/1613710/armin-van-buuren-4-hr-set-tickets?cid=usaffjambase&utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16892367",
-      "artist": "Southern Culture on the Skids",
-      "title": "Southern Culture on the Skids at Bottom of the Hill",
-      "venue": "Bottom of the Hill",
-      "city": "San Francisco, CA",
-      "date": "2026-11-07",
-      "dateLabel": "Sat, Nov 7, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://link.dice.fm/yf9c0cb1e3e9?utm_source=jambase"
     },
     {
       "id": "jambase-jambase:17173009",
@@ -287,17 +209,17 @@
       "url": "https://tickets.venuepilot.com/e/fleetwood-macrame-bf9056?utm_source=jambase"
     },
     {
-      "id": "jambase-jambase:17327370",
+      "id": "seatgeek-18740882",
       "artist": "Thievery Corporation",
-      "title": "Thievery Corporation at The Independent",
+      "title": "Thievery Corporation",
       "venue": "The Independent",
       "city": "San Francisco, CA",
       "date": "2026-12-31",
       "dateLabel": "Thu, Dec 31, 2026",
-      "source": "JamBase",
+      "source": "SeatGeek",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketweb.com%2Fevent%2Fthievery-corporation-the-independent-tickets%2F14403154&utm_medium=affiliate&utm_source=jambase"
+      "url": "https://seatgeek.com/thievery-corporation-tickets/san-francisco-california-the-independent-2026-12-31-9-pm/concert/18740882"
     },
     {
       "id": "seatgeek-18532597",
@@ -365,6 +287,19 @@
       "url": "https://app.opendate.io/e/zepparella-february-27-2027-746379?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:17365581",
+      "artist": "Alasdair Fraser",
+      "title": "Alasdair Fraser at The Freight",
+      "venue": "The Freight",
+      "city": "Berkeley, CA",
+      "date": "2027-04-08",
+      "dateLabel": "Thu, Apr 8, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://secure.thefreight.org/16344/16345"
+    },
+    {
       "id": "jambase-jambase:17267978",
       "artist": "Lambrini Girls",
       "title": "Lambrini Girls at The Fillmore",
@@ -376,6 +311,32 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Flambrini-girls-no-refunds-tour-with-san-francisco-california-04-09-2027%2Fevent%2F1C00651BB18A9959&utm_medium=affiliate&utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17348107",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at HopMonk Sebastopol",
+      "venue": "HopMonk Sebastopol",
+      "city": "Sebastopol, CA",
+      "date": "2027-04-09",
+      "dateLabel": "Fri, Apr 9, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzEwMDc3OjE4/clickthru?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17348110",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at HopMonk Sebastopol",
+      "venue": "HopMonk Sebastopol",
+      "city": "Sebastopol, CA",
+      "date": "2027-04-10",
+      "dateLabel": "Sat, Apr 10, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzEwMDc4OjE4/clickthru?utm_source=jambase"
     },
     {
       "id": "jambase-jambase:16323234",
@@ -495,19 +456,6 @@
       "url": "https://seatgeek.com/san-francisco-opera-tickets/opera/2027-07-02-7-30-pm/18557020"
     },
     {
-      "id": "seatgeek-18650407",
-      "artist": "Armin van Buuren",
-      "title": "Armin van Buuren (4 HR Set)(21+)",
-      "venue": "Pier 48 - San Francisco",
-      "city": "San Francisco, CA",
-      "date": "2026-11-07",
-      "dateLabel": "Sat, Nov 7, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/armin-van-buuren-tickets/san-francisco-california-pier-48-2026-11-07-8-pm/concert/18650407"
-    },
-    {
       "id": "seatgeek-18690618",
       "artist": "Pink Martini",
       "title": "Pink Martini",
@@ -522,6 +470,6 @@
     }
   ],
   "artistCount": 184,
-  "at": 1793572720480,
+  "at": 1794177776748,
   "source": "github-actions"
 }
