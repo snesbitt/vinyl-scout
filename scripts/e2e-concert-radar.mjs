@@ -318,6 +318,30 @@ function extractInlineScript(htmlText) {
 
 const scriptText = extractInlineScript(html);
 
+// 2026-11-09 (v21.5 expired-show filter): the page now hides any show dated
+// before "today", and almost every fixture below carries a hardcoded 2026
+// date written in August. Left on the real clock those fixtures silently
+// expire one by one and the whole harness starts failing for a reason that
+// has nothing to do with the code. So every run() below pins the page's
+// clock to FROZEN_NOW, a date earlier than every fixture date here. The
+// separate runPastShowRegression() at the bottom does the opposite on
+// purpose: real clock, dates computed relative to today, so it can never
+// go stale.
+const FROZEN_NOW = new Date(2026, 7, 10, 12, 0, 0).getTime(); // 2026-08-10 12:00 local
+
+function pinClock(window, nowMs) {
+  const RealDate = window.Date;
+  function FakeDate(...args) {
+    if (!(this instanceof FakeDate)) return new RealDate(nowMs).toString();
+    return args.length ? new RealDate(...args) : new RealDate(nowMs);
+  }
+  FakeDate.prototype = RealDate.prototype;
+  FakeDate.now = () => nowMs;
+  FakeDate.UTC = RealDate.UTC;
+  FakeDate.parse = RealDate.parse;
+  window.Date = FakeDate;
+}
+
 // 2026-08-24: Watching rows no longer render in watching[]'s insertion
 // order -- Susan's live-caught fix that day made renderWatchList() sort
 // rows soonest-to-latest by each artist's own confirmed date instead. Every
@@ -383,6 +407,7 @@ async function run(label, watchingList, travelOpts) {
     return { ok: false, json: async () => ({}) };
   };
 
+  pinClock(window, FROZEN_NOW);
   window.eval(scriptText);
 
   // Let the page's init sequence (fetchWatching -> renderList -> sweepCatalog -> ...) settle.
@@ -656,6 +681,108 @@ await run(
   watching,
   { watchedTripsFails: true, expectNoMatchFor: ["Black Uhuru", "Easy Star All-Stars", "Burning Spear"] }
 );
+
+// --- v21.5: expired shows must not render -----------------------------
+// Real clock, dates relative to today, so this can never go stale. Covers
+// every path a show can take onto the page: a fresh sweep (venue-shows), a
+// still-fresh localStorage catalog cache (the exact path that kept an old
+// show on screen), a manually added show, and the Watching panel, which
+// reads the same comingSoonShows() as Coming Soon.
+function isoDaysFromNow(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+}
+
+function relShow(artist, venue, daysFromNow) {
+  const date = isoDaysFromNow(daysFromNow);
+  return {
+    id: "venue-reltest-" + venue.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + date,
+    artist,
+    title: artist,
+    venue,
+    city: "Oakland, CA",
+    date,
+    dateLabel: date,
+    source: "Venue: Relative-date test fixture",
+    priceLow: null,
+    priceHigh: null,
+    url: "https://example.com/" + encodeURIComponent(venue),
+  };
+}
+
+async function runPastShowRegression(label, opts) {
+  const recs = [{ artist: "Thievery Corporation" }, { artist: "Kruder & Dorfmeister" }, { artist: "Herbie Hancock" }];
+  const watchList = [{ id: "rw1", artist: "Poolside" }, { id: "rw2", artist: "Riverside" }];
+  const venueShows = [
+    relShow("Thievery Corporation", "Expired Catalog Hall", -2),
+    relShow("Kruder & Dorfmeister", "Tonight Hall", 0),
+    relShow("Herbie Hancock", "Upcoming Hall", 2),
+    relShow("Poolside", "Poolside Expired Room", -1),
+    relShow("Riverside", "Riverside Expired Room", -5),
+    relShow("Riverside", "Riverside Upcoming Room", 9),
+  ];
+  const dom = new JSDOM(html, { runScripts: "outside-only", resources: "usable", url: "https://vinylscout.org/concert-radar.html" });
+  const { window } = dom;
+  if (opts.seedStorage) opts.seedStorage(window.localStorage);
+  window.fetch = async (url) => {
+    const u = String(url);
+    const ok = (body) => ({ ok: true, json: async () => body });
+    if (u.startsWith("/api/records")) return ok(recs);
+    if (u.startsWith("/api/wishlist")) return ok([]);
+    if (u.startsWith("/api/watching")) return ok(watchList);
+    if (u.startsWith("/api/venue-shows")) return ok({ shows: venueShows, meta: { venues: [] } });
+    if (u.startsWith("/api/jambase-shows")) return ok({ shows: [], meta: {} });
+    if (u.startsWith("/api/catalog-cache")) return ok({ shows: [], artistCount: 0, at: null });
+    if (u.startsWith("/api/tour-dates")) return ok({ shows: [] });
+    return { ok: false, json: async () => ({}) };
+  };
+  window.eval(scriptText);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  let prev = null;
+  for (let i = 0; i < 15; i++) {
+    const cur = (window.document.getElementById("cr-list")?.innerHTML || "") + (window.document.getElementById("cr-watch-list")?.innerHTML || "");
+    if (cur === prev) break;
+    prev = cur;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  const soon = window.document.getElementById("cr-list")?.innerHTML || "";
+  const watch = window.document.getElementById("cr-watch-list")?.innerHTML || "";
+  const both = soon + watch;
+  console.log("=== " + label + " ===");
+  opts.mustNotShow.forEach((v) => {
+    report("  Past show at \"" + v + "\" must NOT render: " + (both.includes(v) ? "FAIL (expired show still on the page)" : "pass"));
+  });
+  opts.mustShow.forEach((v) => {
+    report("  Today/future show at \"" + v + "\" MUST render: " + (both.includes(v) ? "pass" : "FAIL (current show missing)"));
+  });
+  window.close();
+}
+
+// Path 1: cold start, fresh sweep. Past venue shows (catalog + watched).
+await runPastShowRegression("v21.5 expired shows: fresh sweep + Watching panel (real clock, relative dates)", {
+  mustNotShow: ["Expired Catalog Hall", "Poolside Expired Room", "Riverside Expired Room"],
+  mustShow: ["Tonight Hall", "Upcoming Hall", "Riverside Upcoming Room"],
+});
+
+// Path 2: a still-fresh localStorage catalog cache that holds an old show
+// (no re-sweep happens inside CACHE_MAX_AGE_MS, so nothing else would drop
+// it) plus manually added shows, one past and one future.
+await runPastShowRegression("v21.5 expired shows: stale-but-fresh localStorage cache + manually added shows", {
+  seedStorage: (ls) => {
+    ls.setItem("cr_catalog_cache_v4", JSON.stringify({
+      at: Date.now(),
+      artistCount: 3,
+      shows: [relShow("Cache Past Band", "Cached Expired Hall", -3), relShow("Cache Future Band", "Cached Future Hall", 4)],
+    }));
+    const added = (artist, venue, n) => Object.assign(relShow(artist, venue, n), { id: "manual-reltest-" + venue.toLowerCase().replace(/[^a-z0-9]+/g, "-"), source: "Manual entry" });
+    ls.setItem("cr_added_shows_v1", JSON.stringify([added("Added Past Band", "Added Expired Room", -3), added("Added Future Band", "Added Future Room", 3)]));
+  },
+  mustNotShow: ["Cached Expired Hall", "Added Expired Room"],
+  mustShow: ["Cached Future Hall", "Added Future Room"],
+});
 
 if (failCount > 0) {
   console.log("\n" + failCount + " assertion(s) FAILED — see FAIL lines above.");

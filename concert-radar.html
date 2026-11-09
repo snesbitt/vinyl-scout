@@ -19,7 +19,15 @@
 </style>
   <link rel="stylesheet" href="/style.css?v=34" />
   <style>
-    /* Concert Radar — version: 21.4 (2026-08-19).
+    /* Concert Radar — version: 21.5 (2026-11-09).
+       v21.5: expired shows no longer render. comingSoonShows() only ever
+       sorted by date, it never filtered by it, so a show stayed in Coming
+       Soon AND in the Watching panel (which reads the same function) until
+       a later data sweep happened to drop it. New isPastShowDate() drops
+       any show dated before today (local time) from both the catalog and
+       the manually-added lists, at read time only. Nothing is deleted from
+       storage. A show dated today still renders.
+
        v21.4: JamBase attribution is now actually compliant, not a
        placeholder. The blocker across three prior sessions was that
        https://data.jambase.com/api/docs/attribution is client-side
@@ -1198,10 +1206,30 @@
   // live search (minus any the user's since removed). Every item carries
   // which kind it is (`_kind`) so delete can tell a re-computed catalog
   // match from a one-off pinned one apart.
+  // v21.5: today's date as YYYY-MM-DD in the BROWSER's local timezone,
+  // built from local Y/M/D parts (not toISOString(), which is UTC and can
+  // already be "tomorrow" on a Pacific evening).
+  function todayISOLocal() {
+    var d = new Date();
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  // v21.5: true only for a well-formed YYYY-MM-DD strictly BEFORE today. A
+  // show dated today still renders (the doors may not have opened yet). A
+  // missing or malformed date is NOT treated as past, so a show with no
+  // parseable date is never silently dropped. Read-time filter only: it
+  // never deletes or rewrites anything in storage.
+  function isPastShowDate(iso) {
+    if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+    return iso < todayISOLocal();
+  }
+
   function comingSoonShows() {
-    var fromCatalog = catalogShows.filter(function (s) { return hidden.indexOf(s.id) === -1; })
+    var fromCatalog = catalogShows.filter(function (s) { return hidden.indexOf(s.id) === -1 && !isPastShowDate(s.date); })
       .map(function (s) { return Object.assign({ _kind: 'catalog' }, s); });
-    var fromAdded = addedShows.map(function (s) { return Object.assign({ _kind: 'added' }, s); });
+    var fromAdded = addedShows.filter(function (s) { return !isPastShowDate(s.date); })
+      .map(function (s) { return Object.assign({ _kind: 'added' }, s); });
     // De-dupe: a manually-added show that the catalog sweep also finds
     // shouldn't render twice.
     var seen = {};
