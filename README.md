@@ -4,7 +4,7 @@ Susan's personal vinyl record cataloging app. Single-user, hosted on Netlify at 
 
 ## Scope
 
-All eleven roadmap phases are live: catalog, Discogs enrichment, wishlist, audio preview, reliability work, the editorial pass, iOS home-screen launch, the wishlist edit-key gate, wishlist sorting, the Travel Intelligence hand-off, and concert radar. `PROJECT.md` is the canonical charter: hard rules, and what is and isn't in scope. It's the source of truth. This README isn't.
+Ten of eleven roadmap phases are live, and phase 7 is partly live (the native camera flow is not built): catalog, Discogs enrichment, wishlist, audio preview, reliability work, the editorial pass, iOS home-screen launch, the wishlist edit-key gate, wishlist sorting, the Travel Intelligence hand-off, and concert radar. `PROJECT.md` is the canonical charter: hard rules, and what is and isn't in scope. It's the source of truth. This README isn't.
 
 ## Deploy
 

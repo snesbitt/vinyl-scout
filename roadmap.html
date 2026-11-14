@@ -27,6 +27,7 @@
     .phase__name { font-family: 'Lora', Georgia, serif; font-style: italic; font-weight: 400; font-size: 26px; color: var(--ink); line-height: 1.1; margin: 0; }
     .phase__status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 9px; border-radius: 2px; white-space: nowrap; }
     .phase__status--live { color: var(--good); border: 1px solid var(--good); }
+    .phase__status--partial { color: var(--ink-soft, var(--ink)); border: 1px solid var(--ink-faint); }
     .phase__status--future { color: var(--ink-faint); border: 1px solid var(--rule); }
     .phase__focus { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-text); margin: 10px 0 0; }
     .phase__covers { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 8px 0 0; }
@@ -144,7 +145,7 @@
     <div class="phase__body">
       <div class="phase__head">
         <h3 class="phase__name">iOS app</h3>
-        <span class="phase__status phase__status--live">Live</span>
+        <span class="phase__status phase__status--partial">Partly live</span>
       </div>
       <p class="phase__focus">Easy-start mobile cataloguing</p>
       <p class="phase__covers">Home-screen icons launch Vinyl Scout and each of the owner&rsquo;s four other Claude-built projects directly, with no browser chrome and no URL to type. That part is live today, through iOS&rsquo;s own &ldquo;Add to Home Screen.&rdquo; Still ahead is a native, camera-first record-adding flow to replace the current Safari photo upload. It hasn&rsquo;t been built, and stays parked until it&rsquo;s scoped.</p>

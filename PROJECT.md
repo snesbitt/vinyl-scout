@@ -591,7 +591,7 @@ surface from the now-fixed pipeline rather than pinned in by hand.
 
 ## Phases 5 through 10: LIVE
 
-All 11 phases are live. This charter documents Phases 1 through 4 and Phase
+Ten of 11 phases are live. Phase 7 (iOS app) is partly live: home-screen launch works, the native camera flow is not built. This charter documents Phases 1 through 4 and Phase
 11 in full. Phases 5 through 10 are lighter-touch additions, documented
 primarily in roadmap.html and in this file's own changelog entries above,
 which is why they share one section here instead of each getting their own.
