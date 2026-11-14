@@ -99,7 +99,7 @@
   --surface:     #f7f2e4;
   --ink:         #1c2018;
   --ink-soft:    #3a3d33;
-  --ink-faint:   #6f6b58;
+  --ink-faint:   #66624f; /* 2026-11-14: darkened from #6f6b58, which was 4.22:1 on --bg-soft. Now 4.84:1 there, 5.16:1 on --bg. */
   --ink-mute:    #9c977f;
   --rule:        #d9d2bf;
   --rule-soft:   #e3ddca;
@@ -314,7 +314,7 @@ main#main:focus-visible { outline: none; }
   border-radius: 0;
 }
 .controls__search input::placeholder {
-  color: var(--ink-mute);
+  color: var(--ink-faint);
   letter-spacing: 0.04em;
 }
 .controls__search input:focus { border-bottom-color: var(--ink); }
@@ -573,7 +573,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4vh 4vw;
+  padding: max(4vh, env(safe-area-inset-top)) max(4vw, env(safe-area-inset-right)) max(4vh, env(safe-area-inset-bottom)) max(4vw, env(safe-area-inset-left));
 }
 .detail[hidden] { display: none; }
 .detail__backdrop {
@@ -1286,7 +1286,7 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
 .next-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 8px 0 32px; }
 .next-card { border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; padding: 14px 16px; background: var(--surface); }
 .next-card__n { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--gold-text); margin-bottom: 4px; }
-.next-card h4 { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
+.next-card h3 { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 16px; margin: 0 0 4px; color: var(--ink); }
 .next-card p { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
 
 .field-note { margin: 0 0 32px; padding: 18px 22px; background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 2px; }
@@ -1303,3 +1303,7 @@ footer.site-footer .wrap { font-size: 10px; letter-spacing: 0.05em; text-transfo
   .mode-grid { grid-template-columns: repeat(4, 1fr); }
   .next-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Text wrapping (2026-11-14) ---------- */
+h1, h2, h3, h4 { text-wrap: balance; }
+p, li, figcaption { text-wrap: pretty; }

@@ -21,7 +21,7 @@
 The site is **publicly viewable but not advertised**: it's excluded from search engines (noindex), and the only people who edit it are those who hold the edit secret. It is not a private/login-walled site — anyone with the URL can view the gallery.
 
 Aesthetic: editorial / record-shop / library catalog card.
-- Fraunces italic display serif · IBM Plex Sans body · IBM Plex Mono for catalog numbers
+- Lora display serif (swapped from Instrument Serif, 2026-07-29) · IBM Plex Sans body · IBM Plex Mono for catalog numbers
 - Cream `#f1ebdc` ground · ink `#1c2018` text · vinyl-red `#b53026` accent · gold `#a8801c` for metadata
 - Subtle paper-noise radial gradients
 - No emoji in UI chrome (the camera 📷 icon is the only exception)

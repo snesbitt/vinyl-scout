@@ -16,7 +16,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=34" />
+  <link rel="stylesheet" href="/style.css?v=35" />
   <style>
     .audit-toolbar {
       max-width: 1100px;
@@ -501,6 +501,7 @@
   <input
     type="search"
     id="filter-input"
+    aria-label="Search artist, title or genre"
     class="audit-toolbar__search"
     placeholder="Search artist, title, genre…"
     autocomplete="off"
@@ -529,7 +530,7 @@
 
 <script>
 // Vinyl Scout — Audit page
-// version: 19 (paired with style.css?v=34)
+// version: 19 (paired with style.css?v=35)
 // v19 (2026-10-24): accepting a pressing now saves the auto-fetched cover_url
 // to the record (single upsert). Before, the image file was committed but the
 // record kept no cover_url, so the cover was gone after a reload.

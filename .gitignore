@@ -42,3 +42,4 @@ vs-enrich-batch.py
 # removed). Never part of the repo. Added 2026-08-21 after an `add -A`
 # swept 100+ of these in; travel-intelligence has ignored it since July.
 _to_delete/
+_to_delete_locks/

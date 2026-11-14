@@ -174,3 +174,9 @@
   to = "/index.html"
   status = 404
   force = true
+
+[[redirects]]
+  from = "/CLAUDE_DATED_NOTES_ARCHIVE.md"
+  to = "/index.html"
+  status = 404
+  force = true

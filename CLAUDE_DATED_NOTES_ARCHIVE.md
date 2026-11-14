@@ -1,0 +1,1919 @@
+# Vinyl Scout — CLAUDE.md dated-notes archive (2026-07-26 to 2026-09-14)
+
+Moved out of `CLAUDE.md` on 2026-11-14 to keep that file small for every future session. Verbatim text, moved as-is, nothing altered. Read on demand. `CLAUDE.md` keeps the current operating rules; this file is the narrative of how each rule was earned.
+
+## 2026-07-26 — self-hosted fonts
+
+Fonts live in `/fonts` (Fraunces variable latin-full normal — covers the
+SOFT axis the old Google URL requested — plus IBM Plex Sans/Mono 400–600,
+official Fontsource/IBM releases). The Google Fonts link tags are gone;
+`@font-face` is inline in index.html's head and netlify.toml serves
+`/fonts/*` immutable for a year. Don't reintroduce a Google Fonts request.
+
+## 2026-07-29 — Wishlist priority (Phase 9, pulled forward)
+
+wishlist.html now defaults to a Priority sort instead of pure alphabetical,
+with an A-Z toggle to go back. Priority combines two signals that already
+existed on every item — discount from current_ask vs price_median, and
+age since created_at (capped at 180 days) — via a weight chosen from three
+presets (Discount first / Balanced / Longest waiting), since how much a
+discount should outweigh waiting time is a taste call, not something to
+compute. No server/schema change: no new fields, no new endpoint. State
+(sort mode + weight choice) lives in localStorage only. Rows also show a
+discount badge (e.g. "▼18%") when current_ask sits meaningfully below
+price_median. Still open: no Discogs want/have scarcity data on wishlist
+items, so that third signal from the original roadmap copy isn't in v1.
+
+## 2026-07-29 — serif swap: Instrument Serif to Lora
+
+Portfolio-wide taste call: Lora replaces Instrument Serif across all 7
+pages + style.css, including the two direct 'Instrument Serif' refs
+(audit.html's edit-mode style block, roadmap.html's .phase__name). Same
+self-hosted pattern, files at /fonts/lora-latin-400-{normal,italic}.woff2.
+
+## 2026-07-30 — Wishlist sort clarity + automatic Discogs cover art
+
+- Wishlist sort presets replaced: "Discount first / Balanced / Longest
+  waiting" (a blended weighted score) is now "Cheapest / Most expensive /
+  Longest waiting" (literal sorts on current price or age, no blend). The
+  "Balanced" preset tested unclear — a blend of two signals with no visible
+  ratio isn't something a person can reason about. The per-row discount %
+  badge is unchanged and still shows regardless of sort mode.
+- New `netlify/functions/discogs-cover.mjs`: when a pressing match is
+  accepted in Audit (`acceptPressing()`), if the record has no `cover_url`
+  yet, the accepted release's cover art is now fetched from Discogs and
+  committed to `covers/<id>.jpg` automatically — same GitHub-contents-API
+  commit path as `save-cover.mjs`, just server-initiated instead of a manual
+  upload. Gated by the same `X-Edit-Key`; reuses the existing `DISCOGS_TOKEN`
+  and `GITHUB_TOKEN` env vars, no new secrets. Best-effort: a failed fetch
+  doesn't block the pressing apply, it just leaves cover_url unset with a
+  toast telling Susan to upload one manually.
+
+## 2026-07-31 — Security audit fixes + Discogs token rotation
+
+- `wishlist.html`: `esc()` escaped `&<>` but not quotes, so the cover/data-*
+  attributes built from wishlist items (artist, title, cover URL — all
+  attacker-writable via the deliberately ungated `POST /api/wishlist`)
+  could break out of their attribute and inject arbitrary HTML. Replaced
+  with an explicit `&<>"'` character-map escaper. No functional change —
+  every legitimate wishlist item renders identically. Committed `ef65e79`,
+  landed on `main` at `7ffa854` after a same-day git-merge detour (stray
+  `tmp_obj_*`/lock debris in `.git/objects`, unrelated to the fix itself;
+  resolved via reset + cherry-pick).
+- `enrich-release-info.py` (gitignored, not tracked in git): dropped the
+  hardcoded Discogs Personal Access Token in favor of reading
+  `DISCOGS_TOKEN` from the environment, with a clear error if unset.
+- Discogs token rotated end to end: the old token had been hardcoded in a
+  tracked commit before this file was gitignored (recoverable from git
+  history, commit `8818453`), so treated as compromised. New Personal
+  Access Token generated at discogs.com/settings/developers, `DISCOGS_
+  TOKEN` updated in Netlify (Site configuration → Environment variables),
+  site redeployed so `discogs-lookup.mjs` / `discogs-pricing.mjs` /
+  `discogs-cover.mjs` all pick up the new value.
+- Leftover `safety-backup` branch (an insurance branch from the git-merge
+  detour above, same diff as `7ffa854`, fully incorporated) — Susan to
+  run `git branch -D safety-backup` locally; the device bridge's lock
+  handling can't reliably do ref deletes.
+
+## 2026-08-03 — Concert Radar (Phase 11): mock → real, live, SeatGeek-backed
+
+`concert-radar.html` started the day as a static sample-data mock (v1) and
+ended it as a **real, live feature** — same day, several rounds of direct
+feedback against the deployed site. Full blow-by-blow (each bug, each
+fix, each live-verification step) lives in `PROJECT.md`'s Phase 11
+section; this note is the current-state summary for a session picking
+this file up cold.
+
+**Current state (as of `concert-radar.html` v12 / `tour-dates.mjs` v4):**
+- **Coming Soon** is real data, not a mock. On load (and every 12h after,
+  or on demand via Refresh), the page collects every distinct artist name
+  across the catalog (`/api/records`) and wishlist (`/api/wishlist`), and
+  looks each one up through `GET /api/tour-dates?artist=…` (SeatGeek
+  Platform API, concurrency-capped at 5 in flight). Results are cached in
+  `localStorage` (`cr_catalog_cache_v1`) so a normal visit is instant. An
+  artist with no confirmed match is silently omitted — same
+  graceful-degradation rule as audio preview.
+- **Artist resolution is strict, not loose text search.** `tour-dates.mjs`
+  resolves the queried name to a real SeatGeek *performer* first (exact
+  normalized match, then a guarded fuzzy fallback only if every query
+  token is present and no tribute/cover keyword matches), then queries
+  events scoped to that performer's slug — never a free-text search
+  across events, which is what let a tribute act slip through early on.
+  **Every event's own title is additionally checked against a
+  tribute/cover-act blocklist**, regardless of which tier matched the
+  performer — added after Susan directly challenged a "Sade" listing
+  ("is that real or are you hallucinating?") and it turned out to be
+  "Ultimate Sade Tribute Concert," registered on SeatGeek under the bare
+  artist name with no qualifier anywhere except the event title itself.
+  Never trust a match without checking what actually got matched — same
+  lesson as the audio-preview matching saga.
+- **Same-artist/same-venue multi-date shows group into one card** with a
+  date range (e.g. "Feb 6–20, 2027 · 7 dates") instead of one row per
+  date — a 7-night Buena Vista Social Club residency was rendering as 7
+  near-identical cards before this.
+- **Watching and Coming Soon are mutually exclusive ("either/or"), per
+  Susan's explicit rule.** Watching an artist removes its card(s) from
+  Coming Soon immediately; the Watching panel shows that artist's real
+  date/price/ticket-link inline instead, so nothing renders twice.
+  Un-watching brings the card(s) back. The Watching panel layout stacks
+  artist+delete-button on one row and date/price/ticket-link on a second
+  full-width row below, specifically so a long date range doesn't strand
+  the × delete button on its own orphaned line.
+- **Price data is a known, verified gap, not a bug.** Every currently
+  matched real show returns `priceLow`/`priceHigh: null` straight from
+  SeatGeek's own API (live-checked directly, not assumed) — `stats.
+  lowest_price`/`stats.highest_price` are the documented, correct fields
+  and the code already renders them whenever populated (confirmed working
+  via the Watching panel's price line). Most likely cause: these
+  particular shows are far enough out that secondary-market listings
+  haven't opened yet, or the API key's access tier doesn't include
+  pricing/stats — not independently confirmed which. Left as-is per
+  Susan's "put aside for now" (2026-08-03); don't fabricate a number here
+  if asked again without new information.
+- Home location is hardcoded to **Berkeley, CA** (`HOME_LAT`/`HOME_LON` in
+  `tour-dates.mjs`) per Susan's explicit 2026-08-03 choice — not an env
+  var yet.
+- As of 2026-08-04, SeatGeek (`tour-dates.mjs`) and a 7-venue direct scrape
+  (`venue-shows.mjs`, see the 2026-08-04 section below) are both wired up.
+  Ticketmaster signup is in progress separately. A Spotify layer stays
+  parked — add later only if a real coverage gap shows up.
+
+roadmap.html's Phase 11 card status is now **Live**, not Future — see
+that file directly for the current phase description.
+
+## 2026-08-04 — Concert Radar: manual-add fallback, verified a real SeatGeek gap, mobile nav fix
+
+Susan named 3 real shows missing from Coming Soon: Easy Star All-Stars at
+Cornerstone (Berkeley), Black Uhuru, and Burning Spear (both also Bay
+Area). Investigated each against live data before touching any code —
+PROJECT.md's "honesty over confidence" rule means verify, don't guess:
+
+- **Easy Star All-Stars** and **Burning Spear** are both already in the
+  catalog, so both are already swept by Coming Soon. `/api/tour-dates`
+  resolves an exact SeatGeek performer for each but returns zero events
+  within 60mi of Berkeley — confirmed live, not assumed. Independent web
+  research found no real 2026 Bay Area date for either act (Easy Star's
+  closest hit was "School of Rock AllStars," an unrelated act, also
+  playing Cornerstone — likely what got conflated; Burning Spear's only
+  2026 CA date found was Reggae on the River in Piercy, well north of the
+  Bay Area). Flagged back to Susan rather than added as if confirmed.
+- **Black Uhuru** is real and verified: Feb 21, 2026, The Freight &
+  Salvage, Berkeley (checked across 6 independent sources). Not in the
+  catalog or wishlist, so never swept — and separately, SeatGeek's own API
+  returns zero events for this exact performer in range too, meaning even
+  watching it wouldn't have surfaced the show. This is the real "SeatGeek
+  coverage gap" this file's 2026-08-03 entry said would justify a second
+  ticket source (Ticketmaster) someday. Logging it here rather than
+  quietly wiring up Ticketmaster, since that's a bigger build (slower
+  manual-approval signup, per the 2026-08-03 note) Susan hasn't asked for.
+
+**Shipped instead**, scoped to the actual gap: a "+ Add a show Radar can't
+find" form on `concert-radar.html` (v14) under Coming Soon — Artist, Date,
+and a ticket URL required; venue/city optional. Reuses the existing
+`addedShows`/`cr_added_shows_v1` pin mechanism a Live Results "+ Add to
+Coming Soon" click already writes to, just without requiring a SeatGeek
+hit first. Tagged "Manual entry" (never "SeatGeek") so sourcing stays
+honest — same discipline as the Live/Sample tag distinction this page has
+kept since v3. Nothing was auto-added on Susan's behalf; she enters real
+shows herself, same "propose and confirm, nothing automatic" spirit as
+every other write path in this app.
+
+Also addressed, same pass: mobile masthead nav (7 links wrapping to a
+cramped second row on a phone — reported live via screenshot) switched to
+a single horizontally-scrollable row (`style.css` v28), reusing the
+`.controls__chips` pattern. And a reported "copyright looks off-center/cut
+off" issue on Concert Radar got a defensive `overflow-wrap: anywhere` on
+the venue/artist/watch-row text classes (a long unbroken venue string is
+the most likely cause, given html/body's global `overflow-x: hidden`)
+— **not independently reproduced** in this pass (no true narrow-viewport
+render was available), so this is a best-effort fix flagged for Susan to
+confirm after deploy, not a claimed-certain fix.
+
+## 2026-08-04 — Concert Radar Phase 12: venue scraper (`venue-shows.mjs`), Ticketmaster signup in progress, weekly feed health check
+
+Susan pushed back on the 2026-08-04 manual-add fallback above: "that's an
+ok feature but i'd rather expand my free feeds for full coverage so that
+you id it and naturally add all the relevant upcoming shows to my feed" —
+she wants automatic detection, not a manual workaround. Two threads of
+work followed, both same day:
+
+**Ticketmaster Discovery API** — self-serve and instant when it works, but
+Susan's account signup "stalled out" on a prior attempt. Diagnosed by
+walking the live signup/login/password-reset flow directly: the generic
+"if this is a valid account, an email will be sent" message on Ticketmaster's
+own reset page doesn't confirm or deny an account exists, and no reset
+email arrived even after checking spam — consistent with the account never
+having actually finished being created. Susan has since contacted
+Ticketmaster developer support directly; this remains open. Per this
+project's hard rule on account creation, no attempt was made to create,
+log into, or complete a signup for Susan's Ticketmaster account on her
+behalf at any point — only navigation/diagnosis, with every credential/
+form-submission step left for her to do herself.
+
+**Every other free option was researched and ruled out** before landing on
+a scraper: Eventbrite's public event-search API has been dead since Feb
+2020 (confirmed still 403ing on request in 2026, not assumed from stale
+knowledge); Dice.fm only exposes a partner API for ticket-holder
+management, not event discovery; PredictHQ has no free/hobby tier;
+Bandsintown was already known to refuse hobby API access; Songkick's own
+API application page currently reads "we are unable to process new
+applications for API keys" — fully closed, not merely a slow manual
+review as earlier assumed. No viable second ticketing API exists today
+beyond Ticketmaster.
+
+**Shipped: `netlify/functions/venue-shows.mjs` (v1)**, a direct
+server-side scrape of 7 hand-picked Bay Area venues' own public event
+pages — no API key needed for any of them. Susan named the venue list
+(Cornerstone, Fox Theater, Sweetwater Music Hall, "all Another Planet
+venues," UC Theatre, the Greek, etc.); every candidate venue was
+individually verified live before being added, per PROJECT.md's "honesty
+over confidence" rule — a same-origin `fetch()` of each live URL was
+checked for a real, currently-listed show's name in the RAW response text
+(i.e., what a Netlify function actually sees, with no JavaScript
+execution, as opposed to what a browser renders). Two of Susan's requested
+venues failed this check and were deliberately left out rather than
+silently wired up to return nothing:
+- **Ashkenaz** (Berkeley) — calendar renders via client-side JS/AJAX; raw
+  HTML has no show data at all.
+- **The New Parish** (Oakland) — calendar loads through a lazy iframe with
+  an empty `src` in the initial HTML.
+
+Both are documented in `venue-shows.mjs` itself as a follow-up: revisiting
+either means finding the actual JSON/XHR endpoint each site's widget calls
+client-side, not scraping the page shell.
+
+The 7 that ARE live, and how each is parsed (full detail in the file's own
+header comment):
+- **Cornerstone** (Berkeley) — clean schema.org Event JSON-LD.
+- **Another Planet Entertainment**'s own listing page — one fetch covers
+  **six** venues at once (Fox Theater Oakland, Greek Theatre Berkeley,
+  Bill Graham Civic Auditorium SF, The Castro SF, Bimbo's 365 Club SF, The
+  Independent SF), since APE promotes all of them through one site.
+  Non-Bay-Area / merely-co-promoted listings on that same page (Levi's
+  Stadium, Channel 24 Sacramento, The Bellwether LA, Golden Gate Park
+  festivals, Rickshaw Stop) are filtered out by an explicit venue
+  allowlist.
+- **Freight & Salvage** (Berkeley) — WordPress theme markup, no JSON-LD.
+- **Sweetwater Music Hall** (Mill Valley) — the "RHP Events Calendar"
+  WordPress plugin's markup.
+- **Great American Music Hall** and **The Chapel** (both SF) — confirmed
+  to run the identical "See Tickets" embedded calendar widget; one parser
+  covers both.
+- **UC Theatre** (Berkeley) — a Webflow site on the Opendate venue
+  platform; flagged in the code as the most fragile of the seven, since
+  Webflow's auto-generated class names carry no semantic meaning and will
+  break silently if the venue ever redesigns via Webflow's visual editor.
+
+Every parser runs in its own try/catch so one venue's markup changing
+doesn't take the others down — a per-venue failure surfaces in the
+response's `meta.venues[].error` instead of silently vanishing, per this
+project's "no silent failures" rule. Two correctness bugs were caught and
+fixed during this build, both worth remembering for future scraper work:
+(1) parsing a date string that still has a time-of-day attached (e.g.
+"August 5, 2026 7:00pm") and round-tripping it through `Date`/UTC can land
+on the WRONG calendar day for an evening show — fixed by always stripping
+time-of-day before parsing, since only the date is needed; (2) the same
+"See Tickets" widget uses a different wrapping CSS class per venue
+(`event-title seetickets-calendar-event-title` on GAMH vs.
+`title seetickets-calendar-event-title` on The Chapel) even though the
+platform is identical — the shared parser matches on the common
+`seetickets-calendar-event-title` class fragment rather than either
+venue's exact full class string.
+
+**Concrete validation, not just theory**: this build's own reconnaissance
+found a real, previously-unknown second Black Uhuru date — **Sep 13, 2026,
+Sweetwater Music Hall, Mill Valley** — distinct from the Feb 21 Freight &
+Salvage date already logged above. Neither SeatGeek nor a manual pin had
+ever surfaced this one. That's direct proof the venue-scraper approach
+catches real gaps the artist-based SeatGeek sweep structurally cannot.
+
+**`concert-radar.html` bumped to v15.** The Coming Soon sweep now runs the
+existing per-artist `/api/tour-dates` sweep and one call to
+`/api/venue-shows` in parallel (`Promise.all`) and merges both into the
+same list before the existing de-dupe-by-id step — no schema change was
+needed since `venue-shows.mjs` deliberately returns shows in the exact
+shape `tour-dates.mjs` already used. `roadmap.html`'s Phase 11 description
+updated to match (was still saying "backed by SeatGeek" and "Ticketmaster
+...deliberately parked," both stale the moment this shipped).
+
+**New weekly scheduled task**: Susan asked to "schedule a refresh on all
+the inbound feeds weekly." This repo's own automation section above
+documents a `weekly-vinyl-median-refresh` external scheduled task with
+Jobs A-E — but as previously noted in this file's Job C bug-fix entry
+(2026-07-29), a live session could not actually locate a trigger by that
+name among Susan's current scheduled tasks; that gap is still unresolved
+as of this pass (checked again — still not found under that name or
+close to it). Rather than guess and edit the wrong existing trigger (risk:
+"Weekly full-site review — five sites," a broader UI/UX review across all
+five of Susan's projects, is semantically different work and was left
+alone), a **new, separate weekly scheduled task** was created:
+"Vinyl Scout — Concert Radar feed health check," Mondays. Scope is
+deliberately narrow and honest about what's actually achievable
+server-side: it verifies `/api/venue-shows` and `/api/tour-dates` are
+still returning real data (catches a venue silently redesigning its site,
+an expired SeatGeek/Ticketmaster credential, etc.) and reports any broken
+venue or regression against the known Black Uhuru canaries. It does
+**not** and cannot refresh Susan's own browser's `localStorage` cache
+remotely — that stays automatic client-side (12h staleness check, or her
+own Refresh click) since each browser's local storage is private to that
+browser. *(Superseded in part by the 2026-08-04 "v18" entry below: the
+manual Refresh click no longer exists — removed the same day — and a real
+weekly server-side refresh now does exist, via
+`netlify/functions/scheduled-sweep.mjs`. This task still can't reach into
+an already-populated browser's local storage, which is the actual claim
+this note was making; see the v18 entry for what changed.)* If the
+`weekly-vinyl-median-refresh` trigger is ever actually located, folding
+this check into it as a new Job (matching the existing A-E lettering)
+would be tidier than two separate vinyl-related scheduled
+tasks — flagged here for whoever finds it next.
+
+## 2026-08-04 — v16: live crash, Refresh coverage gap, Watching moved server-side
+
+Three issues, all found or requested in one live-review pass right after
+v15 (the venue-shows.mjs build above) deployed — reported directly by
+Susan, investigated and fixed in the same session rather than queued up.
+
+**(1) Crash, reported within minutes: "you broke this... fix it."**
+`concert-radar.html`'s Coming Soon panel was stuck showing a stale cached
+list under the error text `Could not check your collection & wishlist:
+Cannot read properties of null (reading 'trim')`. Root cause, traced
+rather than guessed: `venue-shows.mjs`'s shape normalizer sets
+`artist: s.artist || null` for every scraped show, but only the Another
+Planet Entertainment parser (`parseApe`) ever populates `artist` — the
+other six parsers (Cornerstone, Freight & Salvage, Sweetwater, both See
+Tickets venues, UC Theatre) only ever extract a `title`. So 6 of 7 venues'
+shows reached the client with `artist: null`. v15's new merge step concats
+those directly into the same list `renderCard()` walks, and `renderCard()`
+calls `isWatching(s.artist)` — which did `artist.trim()` with **no null
+guard**, unlike `isShowWatched()` right next to it in the same file, which
+already did `(artist || '').trim()`. First render after the sweep resolved
+threw, the outer `.catch()` on the sweep chain caught it and overwrote the
+status line with the raw error message, and because the throw happened
+inside `renderList()` itself, the list underneath never got the chance to
+update past whatever was cached.
+Fixed at the actual source, not just where it threw: the sweep's merge
+step now maps every venue show through `s.artist = s.artist || s.title`
+before it's concatenated with the SeatGeek results, so a card always has a
+real display name (previously it would've rendered the literal string
+`"null"`, since `esc()` just calls `String()` on whatever it's given).
+`isWatching()` and `findWatchMatches()` also picked up the same
+`(x || '')` defensive guard `isShowWatched()` already had — belt and
+suspenders, not a single-point fix, matching this file's own repeated
+lesson (audio-preview matching saga, the Sade tribute-act bug) that a fix
+should hold generally, not just patch the one call site that happened to
+throw first.
+
+**(2) Refresh gap, reported the same pass:** "the Refresh link should also
+scrape the sites you set up this morning." The `/api/venue-shows` fetch
+lived inside the sweep's `if (!artists.length) return …` early-return
+branch, so a zero-artists edge case would skip the venue scrape entirely —
+and, since the crash above was firing on every sweep including
+Refresh-triggered ones, Refresh looked broken for the venue feeds even
+though the fetch itself was already wired into the same `Promise.all` as
+the SeatGeek sweep. venue-shows.mjs owes the catalog/wishlist nothing
+(fixed venue list, not an artist lookup), so the fetch now kicks off
+immediately in `sweepCatalog()`, in parallel with the artist lookup, and
+merges in on both the empty-artists path and the normal path.
+
+**(3) Data loss, reported by screenshot minutes later:** the Watching
+panel (4 real artists — Thievery Corporation, Kruder & Dorfmeister, Steel
+Pulse, Buena Vista Social Club) had gone completely empty in the same
+Chrome window/profile Susan always uses, confirmed by a live read-only
+screenshot of that exact browser roughly 10 minutes earlier showing all 4
+still there — "the page should retain info between sessions, today it
+seems to remove everything." Checked the code directly rather than
+guessing: no path in `concert-radar.html` ever called
+`localStorage.clear()` or overwrote `cr_watching_v1` with `[]` — every
+write only ever pushes/splices the in-memory array before saving.
+Whatever actually cleared it (a private window, a browser/OS-level storage
+eviction, a tracking-prevention purge) was outside this app's control,
+which is exactly the risk of keeping the only copy of real data in one
+browser's local storage with nothing durable behind it. Susan confirmed
+directly this was her regular browser/profile (not a different one) and
+asked to move Watching server-side, same pattern the wishlist already
+uses.
+New `netlify/functions/watching.mjs` (ungated, same rationale + same
+exception as `wishlist.mjs` v2 — casual state added from mobile, no
+passphrase friction; separate `watching` Blobs store so a bug here can
+never touch the catalog or wishlist stores) now owns Watching. `GET
+/api/watching` returns all watched artists; `POST` upserts one by `id`;
+`DELETE /api/watching/:id` removes one — same shape as `wishlist.mjs`.
+`concert-radar.html` now loads `watching` via `GET /api/watching` on page
+init instead of `loadJSON(LS_WATCH)`, and `addWatch()` / the Watching
+panel's delete button now `POST`/`DELETE` against the endpoint instead of
+writing localStorage — both surface a failure as visible, persistent text
+in the Watching panel itself (a new `watchError` var rendered by
+`renderWatchList()`) rather than failing silently, per this project's "no
+silent failures" rule. The old `cr_watching_v1` localStorage key is left
+alone rather than actively cleared, in case any browser's copy of it
+somehow survived and is worth recovering by hand later.
+
+**Same pass, a separate ask, now durable:** Susan named 3 artists from her
+own list that fell outside every automated match this page runs
+(SeatGeek's per-artist sweep from 2026-08-03, the venue scrape from
+earlier today) — Easy Star All-Stars, Black Uhuru, Burning Spear — and
+asked for them to be remembered as artists to follow. With Watching now
+server-side, `watching.mjs`'s `GET` handler seeds these in itself on the
+very first call ever made against the store: a `_meta_seed_v16_done`
+sentinel record (filtered out of every response, never rendered as a card)
+gates a one-time add of all three, so it fires exactly once regardless of
+which browser or device makes that first request — and, being a
+server-side gate rather than a per-browser localStorage flag, it can't
+re-add one Susan deletes later from a different browser than whichever one
+happened to trigger the seed. Black Uhuru seeds with city "Berkeley, CA"
+(its verified Freight & Salvage date, logged 2026-08-04 above); Easy Star
+All-Stars and Burning Spear seed with no city, since that same
+investigation found no confirmed current Bay Area date for either — a
+city would be a guess this project's "verify, don't assume" rule doesn't
+allow.
+
+`npm run check` passed; the inline `<script>` block in `concert-radar.html`
+was also extracted and `node --check`'d directly as an extra syntax gate
+before pushing, since there's no build step to catch a mistake here
+otherwise. `concert-radar.html` bumped to v16 (in-file version comment;
+one version bump covers all three fixes above, plus the new endpoint, in a
+single deploy).
+
+## 2026-08-04 — v16.1: poisoned cache showing "null" cards, movie screenings in Coming Soon
+
+Reported live, minutes after v16 deployed: Coming Soon cards showing the
+literal word "null" as the artist name, several of them grouped into one
+card spanning dozens of "dates" (The Chapel: "Aug 6, 2026 – Jan 23, 2027 ·
+77 dates"; Cornerstone: "19 dates") — "you pushed lots of null and lame
+artists." Diagnosed by reasoning through the caching code rather than by
+inspecting live data (this session's tools can't reach the live site
+directly — robots.txt blocks WebFetch site-wide and the sandboxed shell has
+no outbound network — so this was verified with a standalone Node
+reproduction against the actual `groupCatalogShows()`/`esc()` logic instead,
+included below).
+
+**Root cause:** v1 of `venue-shows.mjs` (this morning's build) returned
+`artist: null` for every show from 6 of its 7 venue parsers (only
+`parseApe()` ever extracts a distinct artist — the rest only ever have a
+`title`). Some browsers ran a sweep in the window between v15/v1 shipping
+and v16's crash fix landing: that sweep successfully *fetched* real venue
+data and called `saveCache()` — which happens **before** `renderList()` in
+`sweepCatalog()` — and only crashed afterward, on render. So the browser's
+`cr_catalog_cache_v1` genuinely held that raw, never-normalized shape.
+`normalizeVenueShows()` (v16's client-side fix) only runs inside a live
+sweep's own merge step, never when a cached snapshot is loaded straight off
+localStorage — so every subsequent page load kept redisplaying the
+poisoned cache, crash and all data quality issues included, until either
+12h passed or Refresh was clicked. `esc(null)` stringifies to the literal
+text `"null"` (confirmed with a one-line Node check), which is exactly what
+rendered. And `groupCatalogShows()` keys each card on
+`(artist||'').toLowerCase() + '|' + venue` — every null-artist show from
+the same venue collapsed onto the identical `''` key, which is why *every
+distinct real show* at a venue merged into one mega-card instead of one
+card each. Reproduced standalone: assembling 5 distinct real Chapel shows
+the way v1 did (`artist: s.artist || null`) produces exactly 1 grouped
+card; assembling them the way v2 now does (`artist: s.artist || s.title`)
+produces 5 separate cards, one per show — confirms the mechanism, not just
+a plausible story.
+
+**Fixed at the actual source this time, not just defensively client-side:**
+`venue-shows.mjs` bumped to v2 — the final response shape now sets
+`artist: s.artist || s.title || null` itself, so the API contract never
+requires a caller to separately guess a display name (v16's client-side
+`normalizeVenueShows()` guard stays in place too, belt and suspenders).
+`concert-radar.html`'s cache key bumped `cr_catalog_cache_v1` ->
+`cr_catalog_cache_v2` — the clean, deterministic fix for "some unknown
+subset of browsers have a poisoned snapshot already sitting in
+localStorage": every browser's stale cache is simply ignored on next load
+instead of trusted, forcing exactly one fresh sweep through the
+now-fully-fixed pipeline. No attempt was made to detect/repair the old
+cache in place — bumping the key is simpler and certain to work regardless
+of what's actually in any given visitor's storage.
+
+**Second bug, same report:** "Aliens (Special Edition)" rendered as a
+Coming Soon card. The Castro — one of the 6 venues `parseApe()` covers
+through Another Planet Entertainment's shared listing page — is primarily
+a repertory movie theater that also hosts concerts; its calendar mixes
+film screenings in with real shows, and nothing filtered by event type,
+only by venue name. New `NON_MUSIC_WORDS` blocklist (`special edition`,
+`anniversary screening`, `screening`, `double feature`, `film festival`,
+`movie night`, `q&a`) — same pattern as the existing `TRIBUTE_WORDS`
+blocklist, kept as a separate list since this isn't a wrong-performer-match
+problem, it's a not-music-at-all problem — filters every venue's results,
+not just The Castro's. Verified against the actual regex: matches "Aliens
+(Special Edition)", doesn't false-positive on a real act name.
+
+Susan also asked to add real Watching detail (venue/date/ticket link) for
+Black Uhuru, Easy Star All-Stars, and Burning Spear rather than leave them
+on "Check live →". Investigated rather than complied blindly: Easy Star
+All-Stars and Burning Spear still have zero confirmed current Bay Area date
+per the 2026-08-04 research logged above — adding one now would be
+fabricating data this project's "verify, don't assume" rule explicitly
+forbids, so that was declined and flagged rather than done. Black Uhuru's
+one *confirmed* date (Feb 21, 2026, Freight & Salvage) is now in the past
+as of today (Aug 4, 2026); the *second*, still-upcoming date this morning's
+venue-shows.mjs build claimed to find (Sep 13, 2026, Sweetwater Music Hall)
+should surface automatically now that the cache-poisoning bug above is
+fixed and a fresh sweep can run cleanly — not hand-added, since letting the
+real pipeline surface it (or not) is more honest than pinning it in without
+re-confirming it's still accurate.
+
+## 2026-08-04 — v17: "Check live →" and manual Search only ever checked SeatGeek
+
+Asked directly to "fix the Watching card and all its contexts." The
+Watching panel's card display itself was already correct — `findWatchMatches()`
+reads `comingSoonShows()`, which already includes venue-shows results from
+the last sweep, so a confirmed match from either source renders inline
+date/price/ticket-link the same way. The real gap was the *other* context
+sharing this file's UI: `runLiveSearch()` — which powers both the manual
+Search panel and the Watching row's own "Check live →" button — only ever
+queried `/api/tour-dates` (SeatGeek). That's precisely backwards for Black
+Uhuru, Easy Star All-Stars, and Burning Spear: those are exactly the
+artists SeatGeek returns zero events for, which is the entire reason
+`/api/venue-shows` was built this morning. Clicking "Check live →" for any
+of them always came back "No SeatGeek performer found," even after the
+venue scraper shipped and even once the cache-poisoning bug above was
+fixed — because that code path never looked at venue-shows.mjs at all.
+
+Fixed: `runLiveSearch()` now fires `/api/tour-dates` and `/api/venue-shows`
+in parallel (same pattern the Coming Soon sweep already uses) and filters
+the venue-shows results to whatever substring-matches the searched artist
+— same loose match `findWatchMatches()` uses elsewhere in this file. If
+SeatGeek resolves no performer but a venue show matches, the search still
+renders that result instead of reporting "not found" — the searched name
+becomes the display/watch target rather than requiring a SeatGeek
+performer match first. Verified with a standalone Node reproduction:
+simulated SeatGeek returning zero results for "Black Uhuru" alongside a
+mock venue-shows response containing the real Sweetwater date, confirmed
+the merge surfaces it instead of reporting not-found.
+`concert-radar.html` bumped to v17.
+
+## 2026-08-04 — v18: Watching venue detail, Coming Soon decluttered, real weekly server-side refresh
+
+Two requests right after v17 deployed.
+
+**(1) Watching panel missing venue/city.** The matched-show branch in
+`renderWatchList()` already showed date, price, and a "Get tickets" link
+for a confirmed match, but never *where* — asked directly to add "venue =
+city, state" for every listing, explicitly including Black Uhuru, Easy
+Star All-Stars, and Burning Spear. Added a venue line above the existing
+date/price/tickets row, using the earliest match (`matches[0]`, already
+sorted ascending — same convention the ticket link already used) and the
+exact same "Venue — City, State" format `renderCard()` uses on Coming Soon
+(`esc(s.venue || 'Venue TBA') + (s.city ? ' — ' + esc(s.city) : '')`), so a
+watched artist's row reads consistently with the rest of the page. New
+`.cr-watch-venue` CSS rule, sized between the artist name and the existing
+`.cr-watch-info` badge row. Verified with a standalone Node reproduction of
+`renderWatchList()` using a fake `findWatchMatches()`: Black Uhuru (real
+Freight & Salvage match) renders venue+city+date+price+tickets correctly;
+Burning Spear (no real match) still honestly falls back to the "Check
+live →" button rather than fabricating a venue — this project doesn't
+guess at data it doesn't have.
+
+**(2) Coming Soon header decluttered.** Susan asked to remove the manual
+"Refresh" link, the "Checked N artists · N minutes/hours ago" status line,
+and the "+ Add a show Radar can't find" form entirely — HTML, CSS, and
+every bit of JS that drove them (`els.soonRefresh`, `els.soonStatus`,
+`els.manualToggle`/`manualForm`/`manualCancel`/`manualError`/`manualArtist`/
+`manualDate`/`manualVenue`/`manualCity`/`manualUrl`, and every listener
+attached to any of them — `resetManualForm()` and `fmtAgo()` removed
+entirely as now-dead code). `sweepCatalog()` still runs exactly the same
+background sweep it always did (triggered automatically on page load when
+the local cache is missing or older than the existing 12h staleness
+window) — it just no longer writes status text to an element that no
+longer exists; a failed sweep now logs to the console instead of
+displaying an error, since there's nowhere left to show one. Previously
+manually-pinned shows (if any still exist in a browser's
+`cr_added_shows_v1`) still display and can still be dismissed via the
+existing per-card delete button — only the ability to add *new* ones
+through the form is gone, since that's what was actually asked for.
+
+Removing the Refresh button removed the only way to force fresh data
+without waiting for a visit, and Susan asked directly for a weekly
+scheduled refresh to replace it. Rather than lean on the existing
+"Vinyl Scout — Concert Radar feed health check" scheduled task (which
+explicitly documented, when it was created, that it "cannot refresh
+Susan's own browser's localStorage cache remotely" — true, and still true
+today, since a Claude-app scheduled task has no way to write into a
+specific browser's local storage), built the real thing: a genuine
+**Netlify Scheduled Function**.
+
+New `netlify/functions/scheduled-sweep.mjs` (`export const config = {
+schedule: '@weekly' }`) runs weekly on Netlify's own infrastructure,
+independent of any visit or any Claude session. It deliberately does NOT
+reimplement any matching logic — it calls this site's own already-public
+endpoints (`/api/records`, `/api/wishlist`, `/api/tour-dates`,
+`/api/venue-shows`) exactly the way the client's `sweepCatalog()` already
+does, using `process.env.URL` (Netlify's own site-URL env var, with the
+production domain hardcoded as a fallback) to build absolute URLs, so
+`tour-dates.mjs`'s four rounds of hard-won tribute-act/exact-match fixes
+never get a second, drifting copy. Merges and de-dupes the same way the
+client does, and writes `{ shows, artistCount, at }` to a new
+`catalog-cache` Blobs store. New `netlify/functions/catalog-cache.mjs`
+(`GET /api/catalog-cache`, pure read) serves that back out.
+`concert-radar.html` now calls this endpoint, but ONLY as a first-paint
+fallback when a browser has no local cache of its own yet (new device,
+cleared profile) — it renders that instantly, then still kicks off its own
+live `sweepCatalog()` regardless, so the weekly job is a floor, not a
+replacement for live freshness on an actual visit. Verified the
+merge/dedupe logic (identical in shape to the client's own
+`normalizeVenueShows`/`dedupeById`) with a standalone Node reproduction
+using fake tour-dates and venue-shows responses, including a
+co-headline-bill-style duplicate `id` shared across both sources, and
+confirmed `npm run check` (`node --check` on every `.mjs` function,
+including the two new ones) passes clean.
+
+Also updated the existing "Vinyl Scout — Concert Radar feed health check"
+weekly scheduled task (Mondays, unchanged cadence) with a new step 2.5:
+fetch `/api/catalog-cache` and confirm its `at` timestamp is no more than
+~9 days old, as a way of catching scheduled-sweep.mjs silently failing to
+fire or erroring on Netlify's side — that check has no ability to trigger
+or repair Netlify's own scheduler, only to flag it in its weekly report if
+the job looks dead. The task's own "what this does NOT do" note was
+updated to stop implying no real weekly refresh exists at all — one does
+now, it just isn't this trigger.
+
+`concert-radar.html` bumped to v18.
+
+## 2026-08-04 — v18.1: stale cache + no fallback for genuinely-unmatched watched artists
+
+Live-caught via a screenshot Susan sent hours after v18 deployed: Black
+Uhuru, Easy Star All-Stars, and Burning Spear were all still stuck showing
+"Check live →" in the Watching panel, despite v18's own changelog entry
+above documenting a real, confirmed Black Uhuru match (Sweetwater Music
+Hall, Sep 13, 2026). Asked directly to either fix the 3 artists' missing
+info or give a way to add it manually. Two distinct problems, both
+introduced by v18 itself, not by this build's earlier work:
+
+**(1) Stale cache with no way left to force a refresh.** v18 removed the
+manual Refresh button in the very same pass that shipped the Black Uhuru
+match — a browser whose `cr_catalog_cache_v2` localStorage cache predated
+that match being found had no way left to force a re-sweep short of
+waiting out the 12h staleness window (`CACHE_MAX_AGE_MS`) or clearing site
+data by hand. This is exactly the same failure shape as the v16.1
+poisoned-cache incident, just a different root cause (genuinely-stale data
+this time, not malformed data) — same fix: `LS_CACHE` bumped again,
+`cr_catalog_cache_v2` -> `cr_catalog_cache_v3`, forcing every browser
+(including Susan's) through one fresh sweep on next load.
+
+**(2) No fallback when the automated pipeline is honestly empty.**
+Bumping the cache only helps if a real match actually exists server-side.
+`watching.mjs`'s own seed comment already documents that Easy Star
+All-Stars and Burning Spear have "no confirmed current Bay Area date" —
+for those two, a fresh sweep legitimately finds nothing, same as before.
+Removing the Coming-Soon-wide "+ Add a show Radar can't find" form
+earlier the same day (also part of v18) took away the only way to handle
+that honestly-empty case by hand. Fixed with something narrower than what
+was removed: a scoped "+ Add show details" button now sits next to "Check
+live →" on any Watching row with no automated match. It opens one shared
+form (`#cr-watch-detail-form`, a single instance reused across every row,
+not one form per artist) with the target artist locked in via a
+`watchDetailTarget` variable set on open. On submit it pushes into the
+exact same `addedShows`/`cr_added_shows_v1` mechanism the old Coming-Soon
+form used — deliberately reused rather than reinvented, since
+`findWatchMatches()` already reads `comingSoonShows()`, which already
+folds in `addedShows`. That means a hand-entered show needs no new
+display path at all: it renders in that artist's Watching row immediately
+after save, with the identical venue/date/price/tickets layout an
+automated match gets, tagged `source: 'Manual entry'` same as before.
+
+Verified with a standalone Node reproduction of `renderWatchList()`: (a)
+simulated zero catalog matches for Black Uhuru and confirmed both "Check
+live" and "+ Add show details" render on that row; (b) simulated saving
+Sweetwater Music Hall / Sep 13, 2026 / a real ticket URL for Black Uhuru
+and confirmed the row immediately re-renders with venue "Sweetwater Music
+Hall — Mill Valley, CA" and the ticket link, no stale "Check live" left
+over; (c) confirmed Burning Spear, untouched by the simulated save,
+correctly still shows "Check live" rather than picking up Black Uhuru's
+details or fabricating its own — the either/or substring-match logic in
+`findWatchMatches()` was not touched by this fix, only what feeds it.
+`npm run check` passes clean (no `.mjs` files touched by this fix — it's
+entirely within `concert-radar.html`).
+
+`concert-radar.html` bumped to v18.1.
+
+## 2026-08-04 — v18.2: ambiguous loading state + real shows for the 3 gap artists
+
+Two more things, minutes after v18.1's cache-bump fix deployed.
+
+**(1) "You also killed all the detail in coming soon."** Susan sent a
+screenshot showing "Coming Soon (0)" / "No upcoming shows found for your
+collection & wishlist near Berkeley yet." for the ENTIRE panel — not just
+the 3 gap artists, but Kruder & Dorfmeister and Thievery Corporation too,
+both of which had real matches minutes earlier in an earlier screenshot
+the same session. A follow-up screenshot a minute later showed both back
+to normal, which is the tell: this wasn't real data loss, it was a race
+made visible by v18.1's own fix. v18 removed the last visible sign a
+sweep was in progress ("Checking N of M artists…" status text); v18.1
+then made every browser force a fresh sweep on next load (the `LS_CACHE`
+v2 -> v3 bump). Combine those two and a page load with no local cache had
+*zero* signal while `sweepCatalog()` was still in flight — an empty Coming
+Soon rendered identically whether it was "still loading" or "genuinely
+nothing found," and Susan happened to screenshot during the loading
+window.
+
+Fixed properly rather than just reverting the cache bump: `sweepCatalog()`
+now returns its own promise chain (`return fetchDistinctArtists().then(...)`
+instead of firing it and returning nothing), so a caller can tell when the
+sweep has actually settled, not just when it started. A new
+`initialLoadInFlight` flag starts `true`, clears only once the first real
+load has settled (either "already had a cache, no ambiguity" or "the
+no-cache branch's `fetchServerCatalogCache()` → `sweepCatalog()` chain
+resolved"), and `renderList()`'s empty branch checks it: `true` → a plain
+"Loading…", `false` → the real "nothing found" message. No per-artist
+progress spam brought back — just enough signal that "empty" and "still
+working on it" are never visually identical again. Verified with a
+standalone Node reproduction mocking a slow network (artificial delay on
+`/api/tour-dates` and `/api/venue-shows`): confirmed the very first
+`renderList()` call, before anything resolves, lands with the flag still
+`true` and zero data (the loading window), and that a genuinely-empty
+result (mocked zero records, zero wishlist, zero venue shows) still
+resolves the flag to `false` cleanly afterward rather than hanging.
+
+**(2) "Go out and scrape the details for black u, easy star and burning
+spear. add them to coming soon."** Direct instruction after the fresh
+sweep (v18.1) still came up empty for all three in the Watching panel.
+`vinylscout.org`'s own API is off-limits to WebFetch (site-wide
+`Disallow: /` in `robots.txt`, confirmed again by testing it directly —
+not worked around by any other method, per this project's hard rule), so
+this couldn't be diagnosed by asking the live site anything. Researched
+each artist's real touring status against outside sources instead —
+Songkick, Bandsintown, and a general web search first, then each
+*venue's own official site* for anything promising, same verification
+bar this whole project already holds venue-shows.mjs to (never trust an
+aggregator alone):
+
+- **Black Uhuru** — confirmed for real, directly on
+  `sweetwatermusichall.org`'s own events page: Sunday, Sep 13, 2026,
+  Sweetwater Music Hall, Mill Valley, CA, with a working ticket link.
+  Notable: Sweetwater is already one of venue-shows.mjs's 7 scraped
+  venues (`parseSweetwater`) — this show being real, currently listed on
+  the venue's own site, and STILL not surfacing through the scraper
+  points at an actual bug in `parseSweetwater` or a change to
+  Sweetwater's page since it was last verified. Not root-caused today
+  (no raw HTML access from this session — WebFetch summarizes rather
+  than returning raw markup, and this sandbox's `bash`/`curl` has no
+  general outbound network access at all, confirmed by testing) — flagged
+  here and in venue-shows.mjs's own header for whoever picks up
+  `parseSweetwater` next, ideally the weekly "Concert Radar feed health
+  check" scheduled task, which already has real WebFetch access to fetch
+  and compare against the live page.
+- **Easy Star All-Stars** — confirmed for real, directly on
+  `guildtheatre.com`'s own calendar: Saturday, Oct 24, 2026, The Guild
+  Theatre, Menlo Park, CA, with a working ticket link. A second possible
+  date (Oct 22, Cornerstone Berkeley) showed up on Songkick but is **not**
+  listed on Cornerstone's own site (`cornerstoneberkeley.com/events`) as
+  of this check — left out rather than added on an aggregator-only claim.
+- **Burning Spear** — **not added.** Checked Songkick, Bandsintown, and a
+  general web search; no real Bay Area date exists anywhere right now.
+  The closest real shows are a European tour and "Reggae on the River"
+  (Piercy, CA — roughly 200 miles north of the Bay Area, Aug 14-16, 2026),
+  neither of which is honestly "Bay Area." Reported this plainly rather
+  than stretching the definition or fabricating something to have an
+  answer — Burning Spear's Watching row keeps showing "Check live" / "+
+  Add show details" until a real match exists.
+
+Both real shows added as `MANUAL_SHOWS` entries in `venue-shows.mjs`
+(**v3**) — a small hardcoded array, clearly tagged `"Manual entry —
+verified 2026-08-04"` (never `"Venue: ..."`, so they can never be
+confused with the scraper's own live output), merged into the response
+after the normal per-venue scrape and run through the exact same
+`date >= todayIso` filter everything else gets, so an entry here won't
+linger in the response past its own show date. No `concert-radar.html`
+code change was needed for this half of the fix — `findWatchMatches()`
+already reads whatever `venue-shows.mjs` returns, so both shows appear in
+the Watching panel (venue, date, tickets) the moment a browser's next
+sweep picks them up, same as any scraped match. Verified with a
+standalone Node reproduction of the merge/filter/sort logic added to
+`venue-shows.mjs`: confirmed Black Uhuru and Easy Star All-Stars both
+appear with the correct venue/city/date/URL, confirmed Burning Spear is
+correctly absent (not fabricated), and confirmed both entries carry the
+`"Manual entry"` source tag. `npm run check` passes clean.
+
+`concert-radar.html` bumped to v18.2; `venue-shows.mjs` bumped to v3.
+
+## 2026-08-04 — venue-shows.mjs v4: a second real Easy Star All-Stars show, flagged directly by Susan
+
+Susan pushed back on the v3 entry above: "easy star all stars is at the
+cornerstone." v3 HAD checked this exact date/venue (Oct 22, 2026,
+Cornerstone Berkeley) — it showed up on Songkick's artist-calendar page
+during the original research pass, but got left out because
+Cornerstone's own site (`cornerstoneberkeley.com/events`) didn't confirm
+it, same discipline this whole file already holds itself to. Re-checked
+at Susan's prompt, three more ways: Cornerstone's own site again (full
+listing, July–November 2026, no Easy Star anywhere), Cornerstone's
+SeatGeek venue page (no), Cornerstone's own Songkick venue page (no). But
+Songkick's *specific dated event page* for this show
+(`songkick.com/concerts/43348377-easy-star-allstars-at-cornerstone-berkeley`)
+does exist, names the exact venue and date, and shows "tickets on sale"
+via Prekindle — asked Susan directly where she was seeing it (in case it
+was showing up somewhere I could verify more directly, like the live
+site's own data), and she confirmed the same Oct 22 Cornerstone date.
+
+Given a live, dated, specific third-party event page plus Susan's own
+direct confirmation, added it as a second `MANUAL_SHOWS` entry for Easy
+Star All-Stars — this is a DIFFERENT real show from the Oct 24 Guild
+Theatre one (a band playing two Bay Area dates five days apart on the
+same tour swing is completely ordinary, not a duplicate or a correction).
+Being straight about what's different here versus every other entry in
+this file: no vendor ticket link could be found (Prekindle's own listing
+wasn't reachable from this session), so `url` points at the Songkick
+event page instead of a direct purchase link, and the `source` field
+itself says `"...(Songkick, not venue-confirmed)"` rather than the plain
+`"Manual entry — verified..."` every other entry uses — visible in the
+actual API response, not just a comment. Also worth another mention: this
+is now the SECOND known real show a venue-shows.mjs parser should have
+caught and didn't (Sweetwater/Black Uhuru was the first, per v3's own
+entry above) — Cornerstone is `VENUES[0]` (`parseCornerstone`), so if this
+show is genuinely live and on-sale, that parser has the same kind of gap.
+Not root-caused today, same reason as the Sweetwater one: no raw HTML
+access from this session to compare against the parser's actual regex.
+
+Verified with a standalone Node reproduction of the merge/filter/sort
+logic: confirmed both Easy Star All-Stars entries (Oct 22 Cornerstone,
+Oct 24 Guild Theatre) survive with distinct ids, confirmed Black Uhuru is
+untouched, confirmed Burning Spear is still correctly absent, confirmed
+sort order puts Black Uhuru (Sep 13) first, then Cornerstone (Oct 22),
+then Guild Theatre (Oct 24). `npm run check` passes clean.
+
+`venue-shows.mjs` bumped to v4.
+
+## 2026-08-04 — concert-radar.html v18.3: same stale-cache bug, third time today, fixed at the root
+
+Susan reported "neither show up" after venue-shows.mjs v4 deployed. Same
+underlying bug as v18.1's entry above, recurring for the third time in one
+day: Susan's browser had already run its one v18.1-forced fresh sweep
+BEFORE venue-shows.mjs's v3 (Black Uhuru, first Easy Star date) and v4
+(second Easy Star date) ever existed server-side. With `CACHE_MAX_AGE_MS`
+still at 12h and no manual Refresh left to force a re-check, that stale
+sweep just kept being trusted — the exact same failure shape as v18.1,
+just triggered by a second and third round of server-side data changes
+instead of the first.
+
+v18.1 treated this as a one-time event (bump the cache key, move on).
+Today made clear it isn't one-time — this is an ordinary side effect of
+actively iterating on `venue-shows.mjs`'s `MANUAL_SHOWS` list the same
+day it shipped, and it will keep happening on any day server-side show
+data changes more than once. Bumping `LS_CACHE` a third time (`v3` ->
+`v4`) clears the immediate problem, same as before. This time also fixed
+the actual cause: `CACHE_MAX_AGE_MS` cut from 12h to 1h, so a same-day
+server-data change reaches an already-cached browser within the hour on
+its own, without needing another manual version bump every time. 1h is a
+deliberate middle ground — short enough to match how often this data is
+realistically changing right now, long enough not to multiply live
+SeatGeek/venue-scrape calls on every ordinary page visit (still bounded
+by `SWEEP_CONCURRENCY` regardless).
+
+No new verification needed beyond what v18.1/v18.2/v3/v4 already covered
+— this is a pure timing-constant change, not new logic. `npm run check`
+and the extracted-script `node --check` both still pass clean.
+
+`concert-radar.html` bumped to v18.3.
+
+## 2026-08-04 — v18.4: artist-name normalization fix, real E2E harness, feeds roadmap, Phase 10 plan (unattended, Susan headed out)
+
+Susan reported the v18.3 cache fix still didn't surface Black Uhuru or
+Easy Star All-Stars ("pushed but still don't think its working/showing
+up"), then said she needed to head out for the day and listed five more
+things to do while she was away — ticketmaster/other feeds on the
+roadmap, a full E2E test, a documentation pass covering the whole day,
+and a plan for connecting Concert Radar to Travel Intelligence, to be
+added to both roadmaps. Everything below ran unattended per this
+project's standing "make reasonable judgment calls, proceed" rule for
+when Susan isn't available to answer follow-ups.
+
+**Root-cause re-investigation.** Three stale-cache "fixes" in one day
+(v18.1, v18.3) and the bug still not resolved was itself a signal the
+cache theory was wrong or incomplete — v18.3's `LS_CACHE` bump forces a
+guaranteed-fresh sweep on next load, so if the real data was actually
+there and still didn't render, the bug had to be in the match logic, not
+the cache. Re-read `findWatchMatches()`, `isWatching()`, and
+`isShowWatched()` line by line: all three compare raw-lowercased artist
+strings via substring match, with zero tolerance for punctuation or
+spacing drift. `MANUAL_SHOWS`' own spelling is "Easy Star All-Stars"
+(hyphenated) — a watching-list entry saved any other way ("Easy Star
+Allstars", "Easy Star All Stars") would silently fail to substring-match
+it, with nothing anywhere to flag the mismatch. This is a highly
+plausible real bug, not a guess dressed up as one: band names get typed
+inconsistently across sources constantly, and this project's own watched-
+artist list was seeded at different times from different inputs (see the
+v16 entry above — `watching.mjs`'s one-time seed).
+
+**Fix:** added `normalizeArtistKey()` to `concert-radar.html` — folds
+hyphens and commas to spaces, strips apostrophes/periods, expands "&" to
+"and", collapses whitespace, lowercases. Every artist-name comparison in
+the file (`findWatchMatches`, `isWatching`, `isShowWatched`) now runs
+both sides through it before comparing, instead of comparing raw
+lowercased strings. Verified with a standalone Node unit pass (not the
+E2E harness below, a separate quick check first) against 9 cases
+including "Easy Star All-Stars" vs "Easy Star Allstars" (deliberately
+does NOT match — see the code's own comment on why that boundary was
+chosen: collapsing a hyphenated multi-word name into a single fused word
+is a bigger change than punctuation drift, and matching it risked new
+false positives elsewhere) and "Easy Star All-Stars" vs "Easy Star All
+Stars" (matches). `concert-radar.html` bumped to v18.4.
+
+**Honest limit, stated plainly:** this session had no way to see Susan's
+actual stored `/api/watching` data (no browser, no API access from this
+sandbox), so this fix addresses the single most likely bug class given
+everything else already checked out (the data itself is correct per
+`venue-shows.mjs`'s MANUAL_SHOWS, the merge/dedup logic is correct, the
+cache is now fast-expiring) — but it cannot be verified as THE actual fix
+for Susan's specific case without seeing what her watching list actually
+has stored for these two artists.
+
+**Real end-to-end regression harness, not another reimplementation.**
+Every prior verification pass this project has done for Concert Radar
+(v16.1's poisoned-cache reproduction, v18.1's `renderWatchList()`
+reproduction, v18.2's slow-network reproduction) worked by re-implementing
+the relevant logic in a standalone Node script and testing that
+re-implementation — useful, but it can't catch a bug in the ACTUAL shipped
+code if the reproduction quietly diverges from it. `jsdom` was installed
+(`npm install jsdom`, now a devDependency) and `scripts/e2e-concert-radar.mjs`
+loads the real `concert-radar.html` into a real jsdom document, mocks every
+`fetch()` call the page makes (`/api/records`, `/api/wishlist`,
+`/api/watching`, `/api/venue-shows`, `/api/catalog-cache`, `/api/tour-dates`)
+with fixture data, `window.eval()`s the page's actual extracted inline
+`<script>` (not a copy) against that mocked environment, waits for the DOM to
+settle, then reads the real rendered `#cr-watch-list` HTML. Two runs: one
+with watching-list spellings matching `MANUAL_SHOWS` exactly, one with
+realistic drifted spellings ("Easy Star All Stars", lowercase "black
+uhuru"). Both runs: Black Uhuru and Easy Star All-Stars render with venue
+detail (a real match), Burning Spear still honestly renders "Check live"
+(no fabricated match — confirms the fix didn't introduce a false
+positive). `npm run test:concert-radar-e2e` added to `package.json`. This
+is now the standing regression check for this feature's matching logic
+going forward — prefer extending this harness over writing another
+one-off reproduction script for the next Concert Radar matching bug.
+
+**Feeds roadmap.** Susan asked directly to add Ticketmaster and other feeds
+to the roadmap. Added a consolidated subsection to PROJECT.md's Phase 11
+(full detail there, not repeated here) covering Ticketmaster (in progress,
+blocked on an account issue with their support), Bandsintown (re-researched
+this session per Susan's own "bands in town" suggestion — real API needs a
+non-self-serve `app_id`, not available for hobby use; public pages exist but
+most dates are behind client-side pagination a server fetch can't see, so a
+scrape would be incomplete), Songkick (application page currently closed;
+already a de facto source via specific event-page URLs in two `MANUAL_SHOWS`
+entries even without API access), Eventbrite (dead API, confirmed again),
+Dice.fm and PredictHQ (neither viable, no free/self-serve tier), and Spotify
+Concerts (stays parked, same discipline as YouTube's audio-preview
+last-resort tier — only built if a real gap shows up that nothing else
+closes). `roadmap.html`'s Phase 11 description updated to match.
+
+**Phase 10 (Travel Intelligence hooks) — full technical plan drafted.**
+Susan asked to "plan for our big feature tomorrow" — connecting Concert
+Radar to travelintelligence.org bidirectionally, in her own words: "if i'm
+watching a fare like Chicago you check the feeds to see who i am interested
+in that is also playing in town during those dates when i'll be there."
+Full plan written into PROJECT.md's Phase 5+ section (not duplicated here):
+generalizing `tour-dates.mjs` beyond its hardcoded Berkeley lat/lon and
+adding a date-window filter it currently lacks, a new
+`GET /api/artists-playing?lat=..&lon=..&date_start=..&date_end=..` endpoint
+reusing the existing artist-resolution/tribute-filtering pipeline, and a
+note that Travel Intelligence's own side needs a matching
+`GET /api/watched-trips` read endpoint this repo doesn't own. Recommends a
+live-lookup v1 (mirroring how Concert Radar itself started before
+`scheduled-sweep.mjs` was added later purely for fast first-paint, not
+because live sweeping was too slow to be correct) rather than building a
+cross-site caching layer speculatively. Two open questions flagged for
+Susan rather than guessed at: geographic radius for non-Bay-Area cities,
+and whether a match should draw from the full catalog/wishlist or just the
+curated Watching list (this plan defaults to Watching-only as the more
+literal reading of "artists i am interested in," pending confirmation).
+Since this session's sandbox has no write access to the Travel Intelligence
+repo (only `vinyl-scout-repo` is connected via the device bridge this
+session), a standalone copy of the Travel-Intelligence-side half of this
+plan was written to a file and sent directly to Susan via `SendUserFile`
+for her to drop into that project whenever she opens it next, rather than
+silently only half-writing "both roadmaps" as asked.
+
+**Weekly health-check trigger prompt corrected.** Separately, re-read the
+"Vinyl Scout — Concert Radar feed health check" scheduled task's current
+prompt and found it still claimed "robots.txt explicitly allows a
+'Claude-User' agent" — directly contradicted by this session's own repeated
+direct testing (a fresh `WebFetch` attempt against `vinylscout.org/robots.txt`
+this session returned `ROBOTS_DISALLOWED` again). Corrected via
+`update_trigger`: the prompt now states the block is total and site-wide
+with no agent exception, and instructs going straight to Claude-in-Chrome
+browser tools instead of trying WebFetch first.
+
+**What could not be verified this session, stated plainly rather than
+glossed over:** no live browser (Claude-in-Chrome never connected this
+session) or direct API access (WebFetch blocked, no outbound curl from
+either this sandbox or the device bridge) was available at any point.
+Nothing in this entry — the v18.4 matching fix, the E2E harness's
+fixture-based pass, the feeds/Phase-10 planning — was confirmed against
+the actual deployed site or Susan's actual live data. `npm run check`
+and the extracted-script `node --check` both pass; the jsdom E2E harness
+passes against its own fixtures. The next live session (or the weekly
+health-check task once it next fires) should verify directly against
+the deployed site once Susan has pushed and deployed this commit.
+
+## 2026-08-04 — v18.5: venue-scraped calendars were showing unfiltered in Coming Soon
+
+Susan, back at her screen briefly: "it seems to be putting the entire
+sweetwater calendar in coming soon / use the logic in place to filter for
+relevancy."
+
+**Root cause.** `venue-shows.mjs` deliberately returns every show at its 7
+scraped venues with zero artist filtering server-side — that's by design
+(see that file's own header: "pure read of public event data, no
+catalog/wishlist exposure"). The bug was on the client: nothing ever
+filtered that response back down before merging it into Coming Soon.
+`sweepCatalog()`'s own v16 comment ("has nothing to do with what's in the
+catalog/wishlist") was describing the fetch accurately but nobody noticed
+the display side never applied a relevancy filter either — so every one of
+the 7 venues' full calendars was reaching Coming Soon unfiltered the whole
+time this feature has existed. Susan happened to notice it via Sweetwater
+specifically (probably because that's the venue she was already looking at
+for the Black Uhuru show), but this affected all 7 venues equally.
+
+**"The logic in place," as Susan put it, already existed** — `runLiveSearch()`
+(the ad-hoc Search panel) already filtered `venue-shows.mjs`'s results down
+to whatever substring-matched the one artist name Susan typed in. The fix
+is that same filter, applied to `sweepCatalog()` too, scoped to the full
+list of artists Susan actually cares about instead of one typed name.
+
+**What changed:**
+- New shared `artistIsRelevant(showArtist, relevantNames)` — same
+  normalized substring match `findWatchMatches()`/`isWatching()`/
+  `isShowWatched()` already use (v18.4's `normalizeArtistKey()`), reused
+  rather than a fourth copy of the same logic.
+- `fetchDistinctArtists()` now also fetches `/api/watching`, not just
+  `/api/records`/`/api/wishlist` — a watched-only artist with no
+  catalog/wishlist entry (Black Uhuru) needs to count as "relevant" too,
+  both for this filter and so it finally gets its own direct SeatGeek
+  sweep (a real gap that existed before this fix — watched-only artists
+  never got queried against `/api/tour-dates` at all until now).
+- `sweepCatalog()` now filters `venue-shows.mjs`'s response through
+  `artistIsRelevant()` against that full artist list before merging into
+  `catalogShows` — an irrelevant venue show (the vast majority of any real
+  venue's calendar) never reaches Coming Soon anymore. The old
+  zero-artists early-return branch was removed — `artistIsRelevant`/
+  `mapLimit` both handle an empty artist list safely (matches/queries
+  nothing), so it was redundant and asymmetric with the new filtered path.
+- `runLiveSearch()`'s own venue-match filter upgraded from a raw
+  lowercase substring compare to `artistIsRelevant()` too, closing the
+  same punctuation/spacing gap v18.4 fixed for Watching in this sibling
+  code path (a search for "Easy Star All Stars" with no hyphen now finds
+  a venue show filed as "Easy Star All-Stars," same as Watching does).
+
+**Verification.** Extended `scripts/e2e-concert-radar.mjs` (real DOM, real
+shipped code, not a reimplementation — see v18.4's entry above for why this
+harness exists) with three new fixture shows: two irrelevant Sweetwater
+listings (an unrelated jazz quartet, an open mic night) and one relevant-
+but-unwatched match (Thievery Corporation, already in the `records`
+fixture, at a different scraped venue). Confirmed: both irrelevant shows
+no longer reach `#cr-list`, the relevant-but-unwatched match still does,
+and Black Uhuru/Easy Star All-Stars still match correctly in Watching under
+both exact and drifted spellings — the relevancy filter doesn't over-correct
+into hiding real matches. `npm run check` and the extracted-script
+`node --check` both pass. `concert-radar.html` bumped to v18.5.
+
+**Not verified live** — same standing caveat as v18.4: no browser/API
+access this session, so this is confirmed against the E2E harness's
+fixtures, not the actual deployed site or Susan's real venue-shows/watching
+data. Worth a real look at vinylscout.org/concert-radar next live session.
+
+## 2026-08-05 — Phase 10 live: `/api/artists-playing` shipped without CORS headers, silently broke the whole cross-site feature
+
+Phase 10 (Travel Intelligence hooks, planned 2026-08-04 above) shipped the same day as the plan's write-up, as commit `e3a3815`: `netlify/functions/artists-playing.mjs` (new), `tour-dates.mjs`/`venue-shows.mjs` reused as designed, `concert-radar.html` and Travel Intelligence's own `index.html`/`watched-trips.mjs` wired together. `scripts/test-artists-playing.mjs`'s pure-function tests passed, `node --check` passed, and every direct check of the live endpoint that session (curl-equivalent fetches, this session's own tool calls, even a real browser hitting the URL directly) returned a correct 200 with real JSON. By every test that mattered up to that point, this endpoint was done and working.
+
+**Susan reported the feature doing nothing on the live site** — no `.concert-match` note ever appeared next to her watched Chicago trip, even after an unrelated Travel Intelligence-side bug (a `CITY_COORDS` gap — see that repo's own build log) was found and fixed, and even after Susan confirmed via her own browser that Travel Intelligence's `/api/watched-trips` was returning correct data.
+
+**Root cause: `artists-playing.mjs`'s `json()` helper never set `Access-Control-Allow-Origin`.** This function is called two different ways: (1) directly, server-to-server or via any tool/browser hitting the URL on its own — which is every check that had been run so far, and which never needs a CORS header to succeed; and (2) cross-origin, from inside `travelintelligence.org`'s own client-side JS (`checkConcertMatches()` in that repo's `index.html`), which is the ONLY way this feature is actually used in production. A browser enforces CORS on the *reading* side of a cross-origin fetch: the request still goes out, the server still returns a real 200 with the right data, and then the browser discards it before the calling page's JavaScript ever sees it, specifically because the response never said `travelintelligence.org` was allowed to read it. `checkConcertMatches()` wraps that fetch in a deliberately silent `try/catch` (so a real outage never breaks the watched-trips row) — so this failure produced no visible error anywhere, on either site, for either developer. It looked exactly like "no matches found," which is indistinguishable from "the fetch never even completed" from the UI alone.
+
+**Why every prior verification missed it:** none of curl/WebFetch/a server-side test/Node's own `fetch()`/even a browser hitting the URL directly are cross-origin requests — CORS is a browser-enforced restriction that only applies when the page making the request is a different origin than the page being fetched, and only when JavaScript is doing the reading. Every check run for Phase 10, including "worked fine when I opened it directly in my browser," was structurally incapable of catching this, because none of them were the one specific call pattern (cross-origin `fetch()` from `travelintelligence.org`'s own JS) that actually matters in production.
+
+**Fix:** `json()` now sets `Access-Control-Allow-Origin: https://travelintelligence.org` (the one real caller — allow-listed explicitly rather than `*`, since being precise about the intended consumer costs nothing here; the response body was already public data either way, so this isn't an access-control change) plus `Vary: Origin`. Applies to every response `json()` produces, success and error alike, so a 400/405 during future debugging still carries the header too. `scripts/test-artists-playing.mjs` gained two new asserts that call the exported default handler directly (an invalid-lat/lon 400 and a wrong-method 405, neither of which touch Blobs or SeatGeek) and check `Access-Control-Allow-Origin` on the `Response` object — the header is now under regression test, not just "worked when I looked at it once." Full suite: 20/20 passed (18 original + 2 new).
+
+**Lesson for this project, stated plainly:** for any endpoint whose real caller is a *different origin's browser-side JavaScript* (as opposed to a same-origin page, a server, or a manual/tool check), "I hit the URL directly and got a 200" is not sufficient verification — it structurally cannot catch a missing-CORS-header bug, because that class of bug only manifests for the one call pattern that's hardest to reproduce by hand. The actual test that would have caught this same-day is either a two-origin browser test (a real page on one origin `fetch()`-ing a real endpoint on another, in an actual browser or a tool that enforces CORS) or, more simply, asserting the header exists directly on the `Response` object in a unit test — which is what the fix above now does going forward. Any other cross-origin endpoint this project adds later should get the same header-level assertion from day one, not bolted on after a user reports "it's just not doing anything."
+
+## 2026-08-06 — Concert Radar E2E harness gains real Travel Intelligence coverage; package.json wiring gap closed
+
+Comprehensive verification pass across both this repo and Travel Intelligence's, prompted by Susan asking to confirm everything end-to-end after the CORS fix above went live. Two real, additive findings here (unrelated to the false "bugs" found on the Travel Intelligence side that same night — see that repo's own build log for the correction on those):
+
+**`scripts/e2e-concert-radar.mjs` had no coverage at all for `checkTravelMatches()`** (the Phase 10 function above that fetches `travelintelligence.org/api/watched-trips` then this site's own `/api/artists-playing` and appends a `.travel-match` note to the matching Watching row) — a real gap flagged back in the 2026-08-05 Incident #2 writeup on the Travel Intelligence side ("worth closing next time this file is touched") but never actually closed until now. Note: this file already had a separate, legitimate, *uncommitted* local change sitting in the working tree when this session started — real v18.4/v18.5 regression coverage (documented above) that had apparently been written but never committed. Verified it ran clean (all existing assertions passing) before building on top of it, rather than discarding or overwriting it.
+
+Added three new scenarios to the harness, exercising the real shipped `checkTravelMatches()` code (not a reimplementation) against mocked `fetch()` responses for both cross-site calls:
+1. A real hit — a mocked watched trip to Chicago plus a mocked `/api/artists-playing` response naming a watched artist (Black Uhuru) and an unrelated one. Confirms the `.travel-match` note renders on the correct row only, with the correct destination/date/venue text, and that the unrelated artist and other watched artists get no note.
+2. No watched trips at all — confirms a clean no-op, no notes anywhere, no throw.
+3. `travelintelligence.org` unreachable — confirms `checkTravelMatches()`'s outer `.catch()` swallows the failure silently, matching documented fire-and-forget behavior, with every row rendering exactly as it already did.
+
+Also added lightweight pass/fail tracking (`report()`) so this harness now exits non-zero if any of its self-reporting assertions fail, instead of always exiting 0 regardless of output — makes it usable as a real gate, not just a printout someone has to read. Deliberately left the original v18.4 MATCHED/NO MATCH/unclear watch-list lines as plain diagnostic output, unchanged — collapsing those into a binary pass/fail risked asserting something the harness's original author never actually claimed (Burning Spear correctly getting "NO MATCH" is expected behavior, not a failure).
+
+**`package.json` never wired `scripts/test-artists-playing.mjs` into anything runnable by name** — it existed, passed 20/20 assertions (see the CORS entry above), and was even referenced in this file's own history, but the only way to run it was typing the full `node scripts/test-artists-playing.mjs` command by hand; nothing in `package.json` pointed at it. Added `"test:artists-playing"` (matching the existing `test:audio-preview`/`test:concert-radar-e2e` naming) plus a new combined `"test"` script (`check` + all three named test scripts) so `npm test` runs everything in one command, the same pattern Travel Intelligence's `package.json` already uses.
+
+**Verified:** `npm test` (the new combined script) runs clean — `check` (all functions `node --check`), 17/17 audio-preview, 20/20 artists-playing, and the extended E2E harness's 37 self-reporting assertions all pass, exit code 0.
+
+## 2026-08-06, later — real Chicago show entered; concert-radar.html gains a deep-link entry point
+
+Live-verified via a real browser round trip (Claude-in-Chrome) that the
+whole cross-site feature above genuinely works: Ziggy Marley (Hunter
+Pavilion, Highland Park IL, Sep 17 2026 — a real Songkick-sourced show,
+not indexed by SeatGeek) was added to the Watching panel's "+ Add show
+details" manual-entry form, and Travel Intelligence's watched-trips card
+picked it up correctly ("🎵 2 artists you follow are playing nearby...
+Ziggy Marley, Santigold"). Confirms Incident #4's CORS fix on the Travel
+Intelligence side and this repo's `/api/artists-playing` are both live and
+actually talking to each other, not just passing unit tests.
+
+Susan then asked for the match note's artist names to link back here.
+Travel Intelligence's `index.html` now wraps each name in a link to
+`concert-radar.html?artist=<name>&city=<city>` (see that repo's own
+2026-08-06 CLAUDE.md entry). This repo's half: a new `initDeepLink()` in
+`concert-radar.html`, wired right after the existing search-button/Enter-
+key listeners — reads `?artist=`/`?city=` on load, pre-fills the same
+`cr-f-artist`/`cr-f-city` fields a manual search would, and calls the
+already-existing `runLiveSearch()` once. No new search logic; this only
+automates what a visitor would otherwise type by hand.
+
+Also, per Susan's request, confirmed a weekly-check gap did NOT already
+exist on the Travel Intelligence side and had one built — full detail in
+that repo's own CLAUDE.md ("Concert Radar match links + weekly server-side
+check"). Nothing new to build on this repo's side for that: the weekly job
+calls this repo's existing `/api/artists-playing` exactly the way the live
+client-side check already does, no new endpoint needed here.
+
+**Verified:** extracted `concert-radar.html`'s inline `<script>` block and
+ran `node --check` against it — syntax-valid. `initDeepLink()` itself
+wasn't added to the jsdom E2E harness (`scripts/e2e-concert-radar.mjs`) —
+it's a thin, low-risk wrapper around `runLiveSearch()`, which that harness
+already exercises indirectly via its existing scenarios; worth a dedicated
+fixture case next time this file is touched, same discipline as every
+other "worth closing next time" note in this doc.
+
+## 2026-08-07 — GitHub Actions CI wired for real, and it caught a genuine Node-version incompatibility
+
+Part of a portfolio-wide push (see Travel Intelligence's own CLAUDE.md,
+2026-08-07 entry, for the shared write-up across all three repos' Actions
+setup) to make every sibling site more GitHub-based rather than relying
+on manual `device_bash`/Netlify-only workflows. `.github/workflows/
+test.yml` ran for real for the first time this session and failed twice,
+for two different reasons layered on top of each other. First, the same
+missing-`package-lock.json` issue as the other two repos — fixed by
+generating one via `npm install`. Regenerating it surfaced the real
+issue: doing that `npm install` under Node 20 reproduced the exact CI
+failure (`webidl.util.markAsUncloneable is not a function`) locally, plus
+surfaced npm's own `EBADENGINE` warning: `jsdom@30.0.1` requires Node
+`^22.14.0 || >=24.0.0`. Node 20, which the workflow was still pinned to,
+cannot run this dependency at all, lockfile or no lockfile.
+
+Rather than downgrade `jsdom` for no functional reason (it's a real,
+current dependency this repo wants), bumped the workflow's `node-version`
+from `'20'` to `'22'` — matching what both Susan's Mac and the cloud
+sandbox used for this fix already run. Confirmed via `netlify.toml` that
+nothing else in this repo's actual deploy stack is pinned to Node 20, so
+this is a CI-only version bump with no production-behavior change.
+Verified clean under Node 22 with zero warnings, full local suite still
+passing. Delivered and committed by Susan as `b299b47`; Actions run #3
+confirmed green (31s).
+
+Nothing user-facing changed — this is CI/dependency-management plumbing
+only (the live site's actual runtime was never on Node 20 to begin with),
+so no front-end (roadmap/about/PROJECT.md feature) update is needed
+alongside this entry.
+
+## 2026-08-08 — second content-drift check: about.html's "records tracked" vs. the latest catalog backup
+
+Same pattern, third instance (after Streaming Scout's services-tracked check and Travel Intelligence's dimension/priority check, both same day). Susan's pick, going slow through the architecture review's recommendation 5 items while recommendation 1 (direct Claude-to-GitHub commits) stays parked on the credential blocker.
+
+`about.html`'s stat strip claims "94 records tracked." The daily scheduled `backup.mjs` function already commits a full catalog snapshot to git as `backups/YYYY-MM-DD.json`, including a `record_count` field — a real, already-existing source of truth, no new infrastructure needed. New `scripts/check-content-drift.mjs` finds the latest dated backup file, cross-checks its own `record_count` against its `records` array length (catching a `backup.mjs` bug distinctly from an `about.html` bug), then compares against the about.html stat tile.
+
+Deliberately did NOT build the same check for the "≈€2,232 collection value" tile — that number is explicitly approximate and tracks live market prices refreshed weekly (see the adjacent "Mon weekly price refresh" tile); summing the latest backup's `price_median` field across all 94 records gives €2,224.72, a few euros off from the page copy purely from ordinary price movement since that copy was last hand-updated. A strict equality check there would fail on completely normal weeks. Left as a note for a future session if a tolerance-band version is ever wanted — not bundled into this check.
+
+Verified both failure modes before shipping: temporarily set the stat tile to 88 (confirmed a clear about.html-drift failure message with the right numbers), separately corrupted the backup file's own `record_count` to 999 (confirmed a distinctly-worded backup.mjs-bug failure, not misattributed to about.html) — both restored and reconfirmed clean afterward. Wired into `package.json`'s `test` script and added the same weekly `schedule:` cron trigger the other two repos got today.
+
+Local verification ran the new check standalone (both passes and both failure modes above, all via real file edits and restores, not simulated) plus a JSON-validity check on `package.json`. Did not attempt a full local `npm test`/`npm install` run this time, having just hit a 45-second command-timeout truncating an install on the travel-intelligence repo minutes earlier — CI's `npm ci` has no such constraint and is the real gate; confirm green after pushing.
+
+## 2026-08-08 — doc alignment pass: a removed design element and two unshipped-on-paper features
+
+Per Susan's "check review align and update as needed all the roadmaps, guides and about pages" request. Three real fixes, all in `roadmap.html` and `about.html`:
+
+`roadmap.html` Phase 6 ("Editorial polish pass") still described the catalog-index stamp ("№001") on Audit rows as "the one small mark this pass settles on" — but that stamp, plus the `.audit-help` instructional text, were removed at Susan's request the same week (commit `9fd5488`). Rewrote the phase to say both were tried and then removed as clutter, rather than leaving a roadmap page actively describing a UI element that no longer exists.
+
+`roadmap.html` Phase 11 (Concert Radar) and `about.html`'s Concert Radar section (07) both predated the "Traveling?" city/date search panel and the "Going" status toggle on Watching rows, both shipped 2026-08-07. Added a paragraph to each describing both features. `about.html`'s API stack list was also missing `/api/watching` entirely — added it, including the `going` field.
+
+Checked `guide.html` against the current `netlify/functions/` directory and the daily-health-check claim in step 5 — found no obvious drift, left unchanged; that page is more a general six-step methodology than a feature-by-feature description, and this session made no changes to the mechanism it describes. Verified: `npm run check` (all functions still syntactically valid) and a manual HTML-parse/div-balance check on both edited pages, both clean.
+
+## 2026-08-08, later still: the manual Search panel's free-text city geocoding gap is closed, no geocoder added
+
+Flagged repeatedly since the 2026-08-06 Santigold+Chicago fix as a known, accepted gap: the single-artist Search panel's City field, when typed by hand with no Travel Intelligence deep link behind it, still fell back to the old Berkeley-radius-plus-client-side-text-filter behavior, since building a real geocoder for arbitrary free-text city input was judged out of scope for that same-session fix.
+
+Turns out the fix already existed, just wired to the wrong panel. `tour-dates.mjs`'s v6 (built 2026-08-07 for the new "Traveling?" panel) added an optional `city` param that SeatGeek resolves server-side against its own `venue.city` field, exactly the missing capability, just never connected to the original single-artist Search panel's own City input. `runLiveSearch()` (`concert-radar.html`) now sends that same `city` param whenever a City is manually typed with no lat/lon override in play, instead of falling back to the Berkeley-radius-plus-text-filter path. No geocoding service was added anywhere; SeatGeek does the real resolution, matching this project's standing rule against ever guessing coordinates from a name.
+
+Also fixed as part of the same change: the venue scrape (Bay Area venues only) and the client-side city-substring filter both now correctly skip themselves for a city-scoped search too, not just a lat/lon-scoped one (previously only the lat/lon case skipped them, since a city-scoped search wasn't a real possibility before this fix). And the "no shows found" message now says "in Chicago" for a city-scoped search rather than the "within [range] of" phrasing that only makes sense for a radius search, since `meta.range` is null when SeatGeek resolved a city directly.
+
+Verified live before delivery: called `/api/tour-dates?artist=Santigold&city=Chicago` directly against the deployed API (already live since v6) and got back a real match, Douglass Park, Chicago, IL, 2026-09-18, status 200, the exact search that used to return "No upcoming Santigold shows found within 60mi of Berkeley matching “Chicago”" before the 2026-08-06 fix and would still have returned nothing useful for Chicago specifically until this change. `node --check` on the extracted inline script passes.
+
+**Delivered:** `concert-radar.html`, this file. Nothing committed or pushed; Susan runs `git add`/`commit`/`push` herself.
+
+## 2026-08-09: watching.mjs reaches v2 — deletions now remembered permanently, closing the exact gap that made tonight's data-loss incident confusing to diagnose
+
+Same night as the Concert Radar data-loss incident (see the "Travel Intelligence Agent" project's own `claude/concert-radar-data-loss-incident-2026-08-09.md` for the full story): after Black Uhuru, Burning Spear, and Ziggy Marley were restored to the live Watching store following the incident, Susan deliberately removed them again herself moments later via the real Remove button on `concert-radar.html` — a legitimate, intentional action, not a repeat of the incident. But nothing in `watching.mjs` recorded that removal anywhere. The new `netlify/lib/run-watching-backup.mjs` daily backup (also added tonight) would have had no way to know those three were removed on purpose rather than lost again — a future restore-from-backup would have silently brought them right back, indistinguishable from the original incident. Susan caught this directly: "remember when i click it."
+
+**Fixed:** `watching.mjs` reaches v2, replicating the exact pattern `wishlist.mjs` has used since v3 (2026-07-29) for its own `sync-state.json`: a `DELETE` now reads the item's artist name before removing it, then best-effort-records it into a new `watching-state.json` (committed via the GitHub Contents API, same as `wishlist.mjs`/`run-backup.mjs`) — a deliberately separate file from wishlist's own `sync-state.json`, so a bug in one feature's no-re-add tracking can never touch the other's. Keyed on normalized artist name only (not city), same normalization convention wishlist already uses.
+
+**What this does and does not change:** Susan can always freely re-add anything herself through the UI, any time she changes her mind — this endpoint never blocks a POST. What it closes is the automated side: any future backup-restore action (a human or a Claude session recovering from `backups/watching/YYYY-MM-DD.json`) must check `watching-state.json`'s `deleted` list first and skip any artist that appears there. This is a documentation/process requirement on whoever performs a future restore, not (yet) code-enforced inside `run-watching-backup.mjs` itself, since that file only ever writes backups today, it has no restore path of its own to gate.
+
+Verified: `node --check` passes on the updated `watching.mjs`. Not live-tested against a real DELETE this session (would require deleting real data again to test the new recording path, judged not worth the risk for a mechanical, low-complexity change that mirrors an already-proven pattern byte-for-byte). Worth a real spot-check the next time Susan removes something from Watching: confirm `watching-state.json` picks up the entry.
+
+**Delivered:** `netlify/functions/watching.mjs`, this file. Nothing committed or pushed; Susan runs `git add`/`commit`/`push` herself, alongside the three new backup files from earlier tonight.
+
+## 2026-08-09, later: catalog backup migrated off Netlify onto GitHub Actions (first move in the weekend cost-reduction plan)
+
+Per `claude/weekend-netlify-github-cost-plan-2026-08-08.md` (in the "Travel Intelligence Agent" Claude project), Susan's request to shift work off Netlify's metered compute and onto GitHub where it's free for a repo this size. Started with the plan's own recommended first candidate: the daily catalog backup, since `netlify/functions/backup.mjs`/`netlify/lib/run-backup.mjs` already proves the commit-to-git pattern works, the only change is where it runs.
+
+**New: `.github/workflows/backup-catalog.yml` + `scripts/backup-catalog.mjs`.** Runs entirely inside a GitHub Actions runner, not inside a Netlify Function — this is the actual credit-saving part, not just moving the trigger. Reads the catalog through the site's own public, unauthenticated `GET /api/records` (same server-to-server pattern `scheduled-sweep.mjs` already uses successfully from inside a Netlify Function), writes `backups/YYYY-MM-DD.json` directly to the checked-out repo, then commits and pushes using Actions' own built-in `GITHUB_TOKEN` — zero new secrets, no Netlify API token needed anywhere. Scheduled 5 minutes after the old job's 09:00 UTC time (`5 9 * * *`) plus a manual `workflow_dispatch` trigger for on-demand testing.
+
+**Deliberately additive, not a swap yet.** The existing Netlify-scheduled `backup.mjs` is untouched and will keep running in parallel until Susan can compare a real Actions run's output against it and confirm both are producing correct, matching snapshots. Once confirmed, removing `backup.mjs`/`run-backup.mjs` and its Netlify schedule is what actually realizes the credit savings — that removal step is intentionally not done yet.
+
+**Honest limitation on verification: this could not be fully tested end-to-end this session.** The script's logic was checked (`node --check` passes) and the fetch pattern is proven elsewhere in this codebase, but a live test run of `scripts/backup-catalog.mjs` against `https://vinylscout.org/api/records` from this session's own cloud sandbox failed with a connection error — the sandbox's own outbound network is allowlisted to a limited set of domains and vinylscout.org isn't on it (confirmed via `curl` failing with a connection-level error, not an HTTP-level rejection from the site itself). This is very likely a sandbox limitation, not a real problem: GitHub Actions runners have full outbound internet access, unlike this restricted sandbox, and the identical pattern already works reliably from inside a real Netlify Function (`scheduled-sweep.mjs`). But this is inference, not confirmation. **The real test is the manual "Run workflow" button in the repo's Actions tab, once this file is pushed** — that will show definitively whether it works, and is the natural next step before removing anything from the Netlify side.
+
+**Also worth checking pre-Actions dashboard usage numbers before doing more of this plan:** attempted to pull Netlify's actual usage/credit breakdown via a live browser check against the team's usage dashboard this session; it's rendered inside an iframe this session's browser tooling couldn't read past a cookie-safety guard. Susan should check `app.netlify.com/teams/susan-nesbitt/usage` herself if she wants the real number before deciding whether to continue this migration further (the plan itself is honest that this is likely a reliability/legibility win more than a large bill reduction either way).
+
+Not committed or pushed; sitting on disk alongside tonight's other uncommitted files.
+
+## 2026-08-11 to 2026-08-13 — Concert Radar Phase 13: JamBase Data wired in as a third feed, plus the venue-scraper attribution gap this surfaced
+
+Susan asked to "improve and expand the live concert look ups" after confirming Ticketmaster's developer signup remains stalled from the venue-shows.mjs (Phase 12) side. Every remaining free option was re-researched before landing on JamBase Data's new self-serve platform (data.jambase.com): Bandsintown, Songkick, Eventbrite, Dice.fm, and PredictHQ were all re-checked and remain non-viable for the same reasons logged in the 2026-08-04 v18.4 entry above (hobby-tier API access closed or nonexistent for all five). JamBase's "Developer" tier is genuinely free and permanent: $0/mo, 1,000 calls/month, 3,600/hr, non-commercial use only, 6-month future event window — Susan signed up and upgraded to a real `jbd_live_` key over two sessions (2026-08-12 evening, resumed 2026-08-13 morning).
+
+**Two real bugs found via live testing from Susan's own Terminal, not guessed:**
+1. The base URL in JamBase's own prose docs (`data.jambase.com/v3`) is wrong — a real curl against it returns HTTP 200 but `content-type: text/html` (the marketing site's SSR catch-all, not the API). The real base URL, `https://api.data.jambase.com/v3`, was found by fetching JamBase's static OpenAPI spec (`data.jambase.com/openapi.json`, machine-readable unlike the JS-rendered docs pages) and reading its authoritative `servers` field.
+2. `geoRadiusAmount` is broken on this account's Developer-tier key — every value tested (60, 25, 10, 1 miles) failed identically with a templating-bugged JamBase error message ("...too high. Please use a max of  miles" — blank max). Confirmed not a units/scale issue by testing multiple orders of magnitude. Worked around by omitting `geoRadiusAmount`/`geoRadiusUnits` entirely — JamBase resolves a bare lat/lon to its containing metro area automatically (`x-jamBaseMetroId`), which is arguably a better fit for "Bay Area" scoping than an arbitrary radius anyway.
+
+**Shipped: `netlify/functions/jambase-shows.mjs` (v1)** — a third Concert Radar feed, same public-read, no-auth-gate pattern as `tour-dates.mjs`/`venue-shows.mjs`. One geo sweep per invocation (not one call per artist, unlike tour-dates.mjs's SeatGeek pattern) to stay well inside JamBase's 1,000/month budget against Susan's 150+-name artist list. Real pagination added (`fetchAllEvents()`, `MAX_PAGES=25`, `?allPages=true`) after a live unfiltered sweep showed 2,038 total Bay Area events across 680 pages at the default page size — a single page badly undercounts. Field-mapping (`addressCityState()`, `firstUsableOffer()`, `primaryPerformerName()`) was live-verified against a real captured response, not just JamBase's published schema: `addressRegion` is a real object (`{alternateName, name, identifier}` — prefers the 2-letter `alternateName` to match this repo's "City, CA" convention), offer `category` values are `"ticketingLinkPrimary"`/`"ticketingLinkSecondary"` (not the generically-guessed `"primary"`/`"secondary"`), and `priceSpecification` is frequently an empty object on real events. Same `TRIBUTE_WORDS` blocklist and cancelled-event filter as the other two feeds. `scripts/test-jambase-shows.mjs` (new): 46/46 assertions, fixture rebuilt from the real captured response.
+
+**Wired into both the live and scheduled sweep paths, same pass:**
+- `concert-radar.html` (v21): new `fetchJambaseShows()`, added to `sweepCatalog()`'s `Promise.all` alongside the existing venue-shows fetch, filtered through the existing `artistIsRelevant()`/`normalizeArtistKey()` pattern (v18.5) before merging into Coming Soon. Uses the fast single-page default (no `allPages`) to keep every live page visit cheap.
+- `scheduled-sweep.mjs` (v2): fetches with `?allPages=true` — the one place in the app that should pay the full ~21-call cost of a complete Bay Area sweep, since it only runs once a week (well inside the 1,000/month budget). Closed two latent gaps found while wiring this in: (1) this file's artist list was built from `/api/records`+`/api/wishlist` only, never `/api/watching`, unlike the client's `fetchDistinctArtists()` (which picked this up back at v18.5) — a watched-only artist with no catalog/wishlist entry was never part of this file's relevance filtering; (2) `venue-shows.mjs`'s output was being merged into the weekly cache completely **unfiltered** — harmless while venue-shows.mjs's calendars were small, clearly wrong once JamBase's much larger raw sweep needed filtering anyway. Both non-artist-scoped sources (venue-shows.mjs and jambase-shows.mjs) now go through the same relevance filter server-side, matching what the client has done since v18.5.
+
+**Verification:** `scripts/e2e-concert-radar.mjs` (real jsdom harness, real shipped code — see the 2026-08-04 v18.4 entry for why this harness exists over a standalone reproduction) extended with two new fixtures: an irrelevant JamBase show (should be filtered out of Coming Soon) and a relevant-unwatched JamBase show (Kruder & Dorfmeister — should show). One test-only bug found and fixed in the test itself, not the app: the harness's raw fixture string didn't match `esc()`'s HTML-escaped `&`-to-`&amp;` output for "Kruder & Dorfmeister" — fixed the assertion to check both forms. `npm test` (full suite: `check`, artists-playing, wishlist, jambase-shows, and the extended e2e harness) passes clean.
+
+**Still open, flagged rather than guessed at (see jambase-shows.mjs's own TODO block):**
+- JamBase's required attribution credit-line wording hasn't been pulled from their Attribution doc page yet. The free tier's terms mention attribution is required when displaying their data publicly — nothing has been added to concert-radar.html's footer/credit line for this. Do not treat JamBase data as fully compliant-and-shipped until this is closed.
+- `runLiveSearch()` (the manual Search panel / a Watching row's "Check live →" button) still only queries `tour-dates.mjs` + `venue-shows.mjs` — it doesn't query jambase-shows.mjs yet, unlike venue-shows.mjs's own v17 parity treatment. A manual search for an artist JamBase has a show for but SeatGeek/the venue scrape don't will still report "not found."
+- `JAMBASE_API_KEY` needs to be set in Netlify's env var UI before this goes live — not yet done as of this entry (Susan's real key was generated during Terminal testing but never pasted into chat, per this repo's never-echo-a-secret rule; she sets it herself in the Netlify dashboard, same as every other secret here).
+
+**Delivered:** `netlify/functions/jambase-shows.mjs` (new), `scripts/test-jambase-shows.mjs` (new), `concert-radar.html` (v21), `netlify/functions/scheduled-sweep.mjs` (v2), `scripts/e2e-concert-radar.mjs`. Committed locally across 4 commits (`b1bbae7`, `d3b1523`, `6015a53`, and today's wiring commit) but **not pushed** — this session has no GitHub push credentials for `snesbitt/vinyl-scout` (confirmed via `git push --dry-run`), and this repo's standing rule is Susan always pushes herself from her own Terminal, never an agent. She'll need `git pull` (or a fresh clone) plus `git push` to get this live, then set `JAMBASE_API_KEY` in Netlify before the new endpoint will return real data instead of a 500.
+
+## 2026-08-12 — `/api/artists-playing` reaches v2: parallelized store reads and outbound fetches, SeatGeek gets its own timeout
+
+Netlify's request observability for this project showed a recurring pattern: occasional 499s (client-side abort) on `/api/artists-playing`, e.g. two on 2026-08-12 at 09:35:29 (6200ms and 4177ms). These come from Travel Intelligence's `checkConcertMatches()` (that repo's `index.html`), which fetches this endpoint with `AbortSignal.timeout(6000)` and, by design, fails silently — the watched-trips row just doesn't get a concert-match note, with no visible error anywhere. That silent-failure design (deliberate, see the 2026-08-05 Phase 10 entry above) is exactly why this had gone unnoticed: nothing broke visibly, the feature just occasionally didn't fire.
+
+**Root cause:** the handler did everything sequentially that didn't need to be sequential. Three Blobs-store reads (`records`, `wishlist`, `watching`) ran one after another, and within each store, every individual key's `store.get()` call ran in a plain `for`-loop, awaited one at a time — with 94 catalog records + 127 wishlist items, that's up to ~220 individual awaited reads in series before the function even got to SeatGeek. Then the SeatGeek fetch ran with no timeout at all, and only after that completed did the `venue-shows` fetch start — also sequential, also unnecessary, since neither source depends on the other.
+
+**Fix:** all three store reads now run concurrently via `Promise.all`, and each store's own per-key reads are parallelized the same way (`Promise.all(keys.map(k => store.get(k)))` instead of a `for`-await loop). The SeatGeek and venue-shows fetches now also run concurrently via `Promise.all` instead of sequentially. SeatGeek's fetch additionally gets its own `AbortController` with a 4.5s timeout — deliberately shorter than the client's 6s ceiling — so a slow SeatGeek response degrades to `seatgeekError` (venue-scrape source still checked, exactly like the existing missing-`SEATGEEK_CLIENT_ID` degrade path) instead of silently consuming the entire client-side timeout budget by itself. No behavior changed on any existing path: `_meta_` sentinel-skipping in `watching`, per-key JSON-parse-error swallowing, whole-store failure logging and degrading to `[]`, and the downstream dedupe/sort logic are all untouched — this is a concurrency restructuring only.
+
+**Verified:** `node scripts/test-artists-playing.mjs` (20/20) and the full `npm test` chain both passed clean before push. Post-push, live-smoke-tested against the actual deployed endpoint with three real lat/lon/date-window combinations (none previously cached): all three returned 200 with `seatgeek_error: null` and `venue_error: null`, in 875ms, 887ms, and 2368ms — well under the client's 6s ceiling, down from the 4.2–6.2s range that had been producing the 499s. `netlify/functions/artists-playing.mjs` version header bumped 1 → 2. PROJECT.md's changelog reaches v42 with the same narrative, shortened for that file's format.
+
+Not yet independently re-checked against a real SeatGeek response containing actual matches (all three smoke-test requests happened to return zero matches for their date windows) — the concurrency change touches only how the reads/fetches are scheduled, not the matching logic itself (`matchSeatGeekEvents`/`matchVenueShows`, both untouched), so this is low risk, but worth a real match landing naturally in a future session to close the loop.
+
+## 2026-08-13, later — JamBase attribution: partial, honestly flagged as such
+
+Picked up the one item left open from the JamBase entry above: pull the exact required attribution wording from JamBase's own Attribution doc page and add it to `concert-radar.html`. Tried multiple ways to fetch `https://data.jambase.com/api/docs/attribution` (found via the link on their Getting Started page, itself only reachable via search since the docs site's own in-page navigation isn't crawlable by this session's tools) — the bare page, a `.md` suffix, and both `llms.txt`/`llms-full.txt` summary variants. Every attempt returned only page metadata, never the rendered body — this is a client-side-rendered docs page, same structural limitation this project has hit before with JamBase's other reference pages (see the original 2026-08-12 research note). What WAS confirmed, consistently, across all of those fetches: the free "Developer" tier is unambiguously **"Attribution required"** (Pro tier: "appreciated"; Pro+: "whitelisted attribution") — so this isn't a maybe, it's a real, unmet requirement as of this entry.
+
+Rather than leave it fully open a second time, shipped a reasonable interim measure rather than nothing: `concert-radar.html` already renders a small `via {source}` tag on every Coming Soon/Search-result card (existing markup, unchanged) — for JamBase-sourced cards specifically, that tag is now a real hyperlink to `jambase.com` (new `sourceCreditHtml()` helper, `concert-radar.html` v21.1) instead of plain text, since attribution conventionally means a link back to the source, not just a name. This is explicitly **not** claimed to satisfy JamBase's actual required wording or format — the file's own v21.1 header comment says so directly, and this note does too: Susan should open `https://data.jambase.com/api/docs/attribution` in her own browser (which renders it fine, unlike this session's tools) and confirm or correct the exact text next time she's at a computer. Every other source's tag (SeatGeek, the 7 scraped venues) is untouched — no confirmed attribution requirement exists for either of those.
+
+New regression coverage: `scripts/e2e-concert-radar.mjs` gained an assertion that a JamBase card's source tag actually renders as `<a href="https://www.jambase.com/">via JamBase</a>`, not just plain text — passes across all 5 scenarios. `npm test` (full suite) passes clean.
+
+**Delivered:** `concert-radar.html` (v21.1), `scripts/e2e-concert-radar.mjs`, this file. Committed locally, not pushed — same standing reason as every other entry today.
+
+## 2026-08-13, later still — GitHub Actions Phase 1: watching-list backup migrated, deploy now Actions-driven, PR-based workflow starts
+
+Susan asked to lean further into GitHub and less on Netlify, and — separately — to unblock the architecture review's recommendation 1 (direct Claude-to-GitHub commits, parked on the credential blocker per the 2026-08-08 entry above) by giving an agent a scoped, PR-only GitHub token rather than full push access to `main`. Both land together as this entry, scoped deliberately smaller than "migrate everything at once":
+
+**`backup-watching.mjs` migrated off Netlify, same pattern as the catalog backup.** New `scripts/backup-watching.mjs` + `.github/workflows/backup-watching.yml`, mirroring `scripts/backup-catalog.mjs`/`backup-catalog.yml` byte-for-byte in structure. Reads through the site's own public `GET /api/watching` (already filters out the `_meta_seed_v16_done` sentinel server-side, so no client-side sentinel-filtering needed) rather than touching Netlify Blobs directly — zero new secrets, same as the catalog migration. Deliberately does NOT treat a zero-item result as an error the way the catalog script does for an empty catalog — Susan has genuinely cleared the Watching list before (2026-08-09), so empty is a plausible real state here, not a signal of breakage. Scheduled 09:10 UTC — 5 minutes after both the existing Netlify job and the catalog-backup Actions job, so none of the three race on the same GitHub API window during the comparison period. Additive, not a swap: the Netlify-side `backup-watching.mjs`/`run-watching-backup.mjs` keep running until Susan confirms a real Actions run's output matches.
+
+**`scheduled-sweep.mjs` was investigated for the same migration and deliberately NOT moved.** Its whole job is *writing* to the `catalog-cache` Netlify Blobs store, and there's no public endpoint to write that from outside Netlify — unlike the two backup jobs, which only ever *read* public data. Moving it would mean either handing GitHub Actions a Netlify Blobs API token (trades Netlify compute for a Netlify credential living in GitHub — not actually less Netlify dependency) or adding a new gated write endpoint to `catalog-cache.mjs` using this repo's existing shared-secret pattern (`EDIT_SECRET`/`BACKUP_SECRET`) so Actions authenticates the same way every other write in this app already does. The second option is the right one if this gets built, but it's real new surface area (a write endpoint that doesn't exist today) — scoped out of this pass as its own follow-up rather than folded in here.
+
+**Deploys are now also Actions-driven**, not just Netlify's own git-integration auto-deploy. `.github/workflows/test.yml` gained a `deploy` job (`needs: test`, only on an actual push to `main`) that runs `netlify deploy --prod` via the Netlify CLI, authenticated with a new `NETLIFY_AUTH_TOKEN` repo secret (a Netlify Personal Access Token, unrelated to any of the site's own runtime env vars in the table above). **This does not by itself replace Netlify's own auto-deploy** — both fire on a push to `main` until Susan explicitly turns off "auto publishing" in Netlify's site settings (Site configuration → Build & deploy). Until she does, every push to `main` triggers two redundant, harmless deploys of the same content — wasteful, not unsafe, and flagged here rather than left for someone to notice later. `scripts/netlify-ignore.sh`'s docs-only-changes skip logic is Netlify's own git-integration feature and does NOT apply to this new Actions-driven path yet — a docs-only push currently still triggers a real Actions deploy, a known gap, not yet closed.
+
+**Workflow change, not just infrastructure:** going forward, changes land as a PR against `main` rather than a direct push — branch protection on `main` (require a PR + the `Tests` status check before merge) plus a fine-grained GitHub PAT (scoped to just this repo, `Contents: Read and write` + `Pull requests: Read and write`, no merge capability) let an agent open a PR and Netlify's own Deploy Preview show Susan a live before/after, rather than the file-transfer-via-terminal dance this project has relied on until now. This is the actual resolution of the architecture review's "recommendation 1" note above — not "an agent can push to production," but "an agent can open something Susan reviews and merges herself," which is a materially different and safer thing than what was parked in 2026-08-08.
+
+**Verified:** `node --check` on the new script, a Python `yaml.safe_load()` parse of both new/changed workflow files, and the full local `npm test` (unchanged — nothing in this pass touches any tested application logic) all pass clean. **Not yet verified live** — this entry's own PR hasn't merged yet as of this writing, so none of `backup-watching.yml`'s scheduled run, the new `deploy` job, or the branch-protection/PR flow itself has fired for real. Worth confirming all three directly once merged: check the Actions tab for a green `backup-watching` run (or trigger it manually via "Run workflow"), confirm a push to `main` produces exactly one intentional deploy plus one Netlify auto-deploy (both succeeding) rather than either failing, and confirm the PR itself showed a real Deploy Preview link before merge.
+
+**Delivered:** `scripts/backup-watching.mjs` (new), `.github/workflows/backup-watching.yml` (new), `.github/workflows/test.yml` (deploy job added), this file. Opened as a PR rather than pushed directly to `main` — first change in this repo to go through that path.
+
+## 2026-08-14 — deploy job stopped spamming failure emails; JamBase drift fixed in about.html/roadmap.html
+
+Two follow-ups from the Phase 1 entry above, both real, both shipped without waiting for a live session to notice on its own.
+
+**The new `deploy` job failed its first three real runs**, not zero: once the night it was built (8/13, commit `6043446`), then two more the morning of 8/14 — three separate "some jobs were not successful" emails for a job that could never have succeeded, since `NETLIFY_AUTH_TOKEN` was never actually added as a repo secret. Rather than keep flagging this as an open diagnosis item on a punch list while it kept firing (and kept emailing Susan), fixed it directly: `.github/workflows/test.yml`'s `deploy` job now includes `secrets.NETLIFY_AUTH_TOKEN != ''` in its `if:` condition. Unset secret → the job reports **skipped**, not failed — no more noise for a job that was never going to run. The moment Susan adds the real secret, this condition flips true and the job deploys for real on the very next push, no other change needed. Verified: the workflow file parses clean under `yaml.safe_load()`, `node --check` unaffected (no application code touched).
+
+**Documentation review found real drift, not just staleness:** `about.html` and `roadmap.html` never mentioned JamBase Data at all, despite it going live 8/13 — both described Concert Radar as SeatGeek + venue-scrape only. Fixed both (the `/api/jambase-shows` endpoint entry, the Concert Radar prose, Phase 11's roadmap card, which also dropped the now-stale "Ticketmaster in progress as a third source" framing since JamBase is the third source that actually shipped). `README.md`'s one-line deploy description updated to mention the new Actions deploy job and the still-pending Netlify auto-publish overlap. `PROJECT.md` reaches v45 with its own changelog entry for the Phase 1 GitHub Actions work — previously that only lived here in CLAUDE.md, breaking this repo's own convention that shipped changes get a versioned charter entry too.
+
+**Delivered:** `.github/workflows/test.yml`, `about.html`, `roadmap.html`, `README.md`, `PROJECT.md`, this file. Opened as a PR/bundle, not pushed directly — same path the Phase 1 work went out through.
+
+## 2026-08-14, later — corrected the deploy-noise fix; two real cross-source Concert Radar bugs, live-caught by Susan, fixed with regression coverage
+
+**The deploy-noise fix from earlier today (bf59b96) broke the whole workflow.** Putting `secrets.NETLIFY_AUTH_TOKEN != ''` directly in the `deploy` job's own `if:` isn't reliably supported by GitHub Actions — the next push failed with "No jobs were run," meaning even the `test` job never started, worse than the noisy-email problem it was meant to fix. Corrected: `.github/workflows/test.yml`'s `test` job now checks the secret inside a step (secrets are always safely readable in a step's `env:`) and exposes the result as a job output (`has_netlify_token`); `deploy`'s `if:` references that output instead of touching `secrets` directly — job outputs are unambiguously supported there. Verified this time with `action-validator` (a real GitHub Actions workflow schema checker), not just a YAML parse.
+
+**Susan live-caught two real bugs in the Concert Radar cross-source merge, both stemming from the same gap: multiple feeds can name the same real thing slightly differently, and nothing normalized that before today.**
+
+1. **Herbie Hancock at Davies Symphony Hall, Aug 17 2026, rendered as two separate Coming Soon cards** — one via JamBase ("Davies Symphony Hall"), one via SeatGeek ("Louise M. Davies Symphony Hall"). Same real show; `dedupeById()` only catches an exact `id` collision, and each source mints its own id independently. New `normalizeVenueKey()` + `dedupeSameShow()` (added to both `concert-radar.html`'s client-side merge and `scheduled-sweep.mjs`'s weekly server-side merge, so a fresh browser's first-paint fallback via `catalog-cache.mjs` doesn't flash the same duplicate) collapse same-artist/same-date/substring-matching-venue duplicates into one entry, preferring SeatGeek > JamBase > the venue scrape but backfilling a price from any duplicate that has one. Manual entries are never touched by this — Susan's own hand-verified pins keep their own identity even if an automated source later finds the same show.
+2. **The Watching panel showed Thievery Corporation's summary as "The Masonic — San Francisco, CA / Aug 15 – Sep 12, 2026 · 2 dates"** when Susan actually holds a ticket to one date at The Fox in Oakland. `findWatchMatches()`/`renderWatchList()` had no per-venue grouping at all — it flattened every matched show for an artist into one composite date range, using only the earliest match's venue for display. The two matches were two genuinely different real bookings (an artist playing more than one Bay Area venue in a season is ordinary) silently merged into one misleading summary that named the wrong venue and implied dates that were never one continuous booking. Fixed by reusing `groupCatalogShows()` — the same artist+venue grouping Coming Soon cards already use — so the Watching panel now renders each distinct real venue as its own line. `groupCatalogShows()` itself was also upgraded to use the new normalized keys (defense in depth, same "fix at the source, but don't rely on one point of failure" pattern this file's own history follows repeatedly).
+
+**Verified:** both fixes have real regression coverage in `scripts/e2e-concert-radar.mjs` (not a reimplementation — the real shipped code, per this harness's own standing purpose), not just a patch-and-hope: a Herbie Hancock cross-source fixture (JamBase + SeatGeek, same date, different venue strings, SeatGeek deliberately missing a price to exercise the backfill path) asserts exactly one Coming Soon card renders with the backfilled price; a "Poolside" fixture (two genuinely different real venues, mirroring Thievery Corporation's exact shape) asserts the Watching panel renders both venue lines separately with no fabricated multi-date range. Full `npm test` (all six groups + `check` + content-drift) passes clean. `concert-radar.html` bumped to v21.2.
+
+**Delivered:** `.github/workflows/test.yml`, `concert-radar.html` (v21.2), `netlify/functions/scheduled-sweep.mjs`, `scripts/e2e-concert-radar.mjs`, this file. Opened as a PR/bundle, not pushed directly — same path every change has gone out through today.
+
+## 2026-08-14, later still — "Going" and dismiss are now per-venue, not per-artist
+
+Same-day follow-up to the Thievery Corporation venue-grouping fix above. Susan looked at the fixed Watching row and pushed back directly: she's only going to the Fox Oakland show, not the Masonic SF one — and the single artist-level "I'm going" toggle plus the newly-separated venue lines had no way to say that. She also wanted the Masonic show gone from her view of it entirely: "i don't want the other show included."
+
+**Fixed both, reusing existing mechanisms rather than inventing new ones:**
+
+- **"Going" is now per-venue-group.** `w.goingShowId` (new field, same no-schema-change POST pattern `going` itself used) holds the specific matched show's `id` she confirmed. Each venue block in the Watching panel renders its own "I'm going" button, active only when `goingShowId` matches a show in that specific group. The artist-name-row "Going" badge stays keyed off the plain `going` boolean, which is now set/cleared together with `goingShowId` on every toggle, so it needs no separate source of truth.
+- **A per-venue "not going to this one" dismiss** reuses the exact same `hidden` array Coming Soon's own per-card × already writes to (same `LS_HIDDEN` localStorage key, same `saveJSON`/`renderList()` call) — no new hide mechanism. `findWatchMatches()` already reads through `hidden`-filtered `comingSoonShows()`, so dismissing a venue here removes it from the Watching row for the same reason it removes a card from Coming Soon. The one new piece of plumbing: `els.watchList`'s own click listener didn't previously handle `data-del` at all (that branch lived only on `els.list`, Coming Soon's container) — added the same branch there too, since a click inside the Watching panel never reaches the other listener.
+
+**Migration note, not code:** Susan's existing stored record for Thievery Corporation already has `going: true` from before this shipped, with no `goingShowId` — neither venue button will render as active until she clicks "I'm going" on the Fox Oakland line again, which sets `goingShowId` correctly going forward. Not worth a server-side migration for one record.
+
+**Verified:** two new render-level assertions in `scripts/e2e-concert-radar.mjs` (Poolside fixture, the same one covering the venue-grouping fix) confirm each of two distinct real venues gets its own "I'm going" button (distinct `data-watch-going-show` ids) and its own dismiss control, not one shared pair for the row. `npm test` passes clean. This harness doesn't simulate clicks (never has, for any of this file's handlers) — the click/POST behavior itself is unverified against a live browser, same standing caveat as every other interactive handler in this file.
+
+**Delivered:** `concert-radar.html`, `scripts/e2e-concert-radar.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — the new per-venue dismiss × was rendering as a stray, disconnected control
+
+Susan caught this within minutes of the per-venue "Going"/dismiss fix going live: on both Easy Star All-Stars and Thievery Corporation's Watching rows, a bare `×` was appearing alone on its own line below the ticket/going row — "stray x i think for both."
+
+**Root cause:** the new dismiss button lived inside `.cr-watch-info` alongside the date, price, ticket link, and going button — on the actual real render, that row had too much in it and the dismiss button wrapped onto its own line with nothing else beside it, reading as unattached debris rather than a control tied to anything.
+
+**Fixed by moving it, not just restyling it:** the dismiss `×` now sits inline with the venue name itself (`.cr-watch-venue-row`, a simple two-item flex row — name left, `×` right), not in the crowded action-button row. A two-item row has far less to wrap around, and even if it does wrap on a narrow screen, the `×` stays visually anchored to the specific venue it dismisses rather than floating near a Get Tickets/Going button pair for a different reason entirely.
+
+**Verified:** the existing Poolside render assertions (both venues get their own going button and dismiss control) still pass — this was a layout-only change, the underlying data-attributes and click handling from the prior commit are untouched. `npm test` passes clean.
+
+**Delivered:** `concert-radar.html`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — the per-venue dismiss stopped looking like a second, redundant delete button
+
+Susan's next catch, same session: "why do you have 2 deletion x's per concert??" Fair question — the per-venue dismiss button (previous entry, just fixed for layout) was still rendering as a bare `×`, the identical glyph `.cr-watch-del` (the artist-level "stop watching entirely" control) already uses one row above it. Fixing where it sat fixed the stray-line problem; it didn't fix that two identical-looking icons doing two different things is confusing regardless of position.
+
+**Fixed by making it read as what it does, not another delete icon.** Switched from a bare `×` to a small text pill, "Hide this show," matching the exact visual convention the row's other controls already use (Get tickets / I'm going are both small mono-uppercase pills, not icon-only) — so this reads as its own distinct action instead of a second copy of the artist-level delete.
+
+**Verified:** existing render assertions (each of Poolside's two venues gets its own dismiss control) still pass — selector unchanged (`class="cr-watch-dismiss"`), only the button's visible content and styling changed. `npm test` passes clean.
+
+**Delivered:** `concert-radar.html`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-15 — netlify-ignore.sh parity for Actions deploy; JamBase wired into manual search; going-state UI simplified
+
+Three real items closed off the punch list in one pass.
+
+**1. `netlify-ignore.sh` parity for the Actions `deploy` job (punch-list item, not a bug report).** Netlify's own build already skips a deploy for docs-only pushes via `scripts/netlify-ignore.sh`; the Actions-driven `deploy` job (added 2026-08-13) never had the equivalent, so a docs-only push still ran a real `netlify deploy` there even while Netlify's own build correctly skipped itself for the same push. Fixed by literally reusing the existing script rather than writing a second copy of its path list (which would inevitably drift) — a new step sets `CACHED_COMMIT_REF`/`COMMIT_REF` (the script's own expected env vars, matching Netlify's build environment) to `github.event.before`/`github.sha` (the direct GitHub Actions equivalent for a push event) and gates the actual `netlify deploy` step on the script's exit code via a step output, not a job-level `if:` (learned that lesson the hard way on 2026-08-14 — step-level `if:` on a step output is unambiguously safe). Verified against two real commit ranges before shipping, not just reasoned about: a docs-only range (`d9c593a`..`bf59b96`) correctly returned "skip" (exit 0), a real `concert-radar.html`-touching range (`d4a805a`..`9952765`) correctly returned "deploy" (exit 1). `action-validator` confirms the workflow file's own schema is still valid.
+
+**2. JamBase wired into the manual Search panel / "Check live →" — the gap flagged in jambase-shows.mjs's own TODO block since 2026-08-13.** `runLiveSearch()` now fires JamBase alongside SeatGeek and the venue scrape, filtered through the same `artistIsRelevant()` normalization the Coming Soon sweep already uses. Unlike venue-shows.mjs (fixed 7-venue Bay Area list, always skipped once geo-scoped elsewhere), JamBase resolves a real lat/lon anywhere — so it follows a location override (deep-link lat/lon) the same way SeatGeek's own query does, but still can't follow a typed city (jambase-shows.mjs has no city param, same geocoder-free constraint the rest of this codebase holds to). The combined SeatGeek+venue+JamBase result also now runs through `dedupeSameShow()` (added 2026-08-14 for the Coming Soon merge) — a manual search combining JamBase and SeatGeek is exactly as exposed to the same-show-different-venue-name class of duplicate as the automated sweep was.
+
+**3. Going-state UI simplified, direct request: "if i'm going to a show, remove hide this show and get tickets / be way smarter."** Once a specific venue booking is confirmed going (`isGoingThisShow`), that venue's block now omits both "Hide this show" (actively dangerous once confirmed — the one show she'd least want to accidentally lose is the one she's going to) and "Get tickets" (dead weight — going means she already has them). The "I'm going" button itself stays, still toggleable if she was wrong or plans change. A not-going venue on the same watched artist is untouched — keeps both controls, exactly as before.
+
+**Verified:** full `npm test` passes clean. New regression coverage for item 3: a "Riverside" fixture (two real venues, `goingShowId` pre-set to one) confirms the going venue's block drops both controls while the still-not-going venue keeps both — sliced strictly between the two venues' own markup so a check can't accidentally read the wrong venue's controls. Item 2 has no new automated fixture yet (`runLiveSearch()` isn't covered by the jsdom harness at all — it's driven by a live button click, same standing gap `initDeepLink()` was flagged with back on 2026-08-06) — worth a real live-browser spot-check once deployed: search for an artist JamBase has a show for that SeatGeek/venue-shows don't, confirm it now surfaces instead of "not found."
+
+**Delivered:** `.github/workflows/test.yml`, `concert-radar.html`, `scripts/e2e-concert-radar.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later — retired the old Netlify-scheduled `backup-watching.mjs` now that the Actions equivalent is confirmed matching
+
+Punch-list item, closing a loop opened by the `backup-watching.yml` Actions migration (see its own entry above): that entry deliberately left the old Netlify-side scheduled function running alongside the new Actions job "until Susan confirms a real Actions run's output matches" — done earlier this session by diffing real backup commits from both paths, no code needed for that part.
+
+**What was actually retired, and what wasn't.** Only `netlify/functions/backup-watching.mjs` — the Netlify Scheduled Function that ran `5 9 * * *`, now fully redundant with `backup-watching.yml`'s `09:10 UTC` Actions run. `netlify/lib/run-watching-backup.mjs` (the shared backup logic) and `netlify/functions/backup-watching-http.mjs` (the manual `X-Backup-Key`-gated HTTP trigger at `/api/backup-watching`) were deliberately kept — deleting the lib would have broken the still-live manual trigger, and the records side of this same pattern (`backup.mjs`/`backup-http.mjs`/`run-backup.mjs`) still has all three in place too, despite `backup-catalog.yml` having replaced its scheduled duplicate much earlier. Retiring only the redundant scheduled half keeps this consistent with that existing precedent rather than inventing a new one. Whether the manual HTTP triggers (records and watching both) are worth retiring too is a separate call Susan hasn't made — not done here.
+
+**Verified:** confirmed no other file imports `netlify/functions/backup-watching.mjs` specifically (the two remaining hits for the filename were both comments referencing it for context, in `watching.mjs` and `backup-catalog.yml`) before deleting. `netlify.toml`'s `[functions]` block just points at the directory (`node_bundler = "esbuild"`, auto-discovery) — no explicit function list to update. Full `npm test` passes clean.
+
+**Delivered:** deletion of `netlify/functions/backup-watching.mjs`, this file. Opened as a PR/bundle, not pushed directly.
+
+## 2026-08-14, later still — fixed a stale smoke-test assertion (false "title text missing" failure)
+
+Susan ran `npm run smoke` against production for the first time in a while and got a real-looking failure: `FAIL home page — title text missing`. Investigated before assuming the live site was actually broken, since everything else in the same run passed (records API, wishlist, write protection, audio preview, security headers, robots.txt — 8 of 9 checks green).
+
+**Root cause: the test was checking for copy that hasn't existed since July.** `scripts/smoke.mjs` asserted `html.includes('The Vinyl Scout')` — but commit `5a23f79` (2026-07-29, Susan's own change, "Drop redundant 'The' from the wordmark/title/aria-labels") renamed the site's own copy to just "Vinyl Scout" everywhere, and never touched this assertion. The live site has been correctly titled "Vinyl Scout" (no "The") for over two weeks; the smoke test just never ran against production in that window to catch its own staleness.
+
+**Fixed:** assertion now checks for `'Vinyl Scout'` (matches what's actually on the page, and would have passed against every deploy since 5a23f79). Not a site bug — confirmed by the other 8 checks in the same run passing clean, and by reading the actual live copy's own rename commit.
+
+**Delivered:** `scripts/smoke.mjs`, this file. Bundled with the other 2026-08-14 fixes, not pushed directly.
+
+## 2026-08-19, later still: the scheduled-sweep migration was blocked on a question that had already been answered
+
+Picked this up as the hardest open item, framed the way it has been framed
+since 2026-08-13: `scheduled-sweep.mjs` writes to the `catalog-cache`
+Netlify Blobs store, Actions has no public write path for that, so pick
+one of two bad options. Either hand GitHub Actions a Netlify Blobs API
+token, which trades Netlify compute for a Netlify credential living in
+GitHub and is not actually less Netlify, or build a new `EDIT_SECRET`-gated
+write endpoint for Actions to POST to, which is real new surface area. The
+2026-08-13 entry above calls the second one "the right option if this gets
+built."
+
+Neither is needed. The premise stopped being true on 2026-08-14, in this
+repo, and nobody went back and re-read the item afterward.
+`scripts/scheduled-sweep.mjs` and `.github/workflows/scheduled-sweep.yml`
+shipped that day. That job runs entirely in Actions, reads the same public
+endpoints, and commits its merged output to `data/catalog-cache.json` using
+nothing but the workflow's own built-in `GITHUB_TOKEN`. It writes a git
+file, not a blob. It has been running on its Sunday 10:00 UTC cron and the
+committed file is real: `source: "github-actions"`, 36 shows across 132
+artists, `at` 2026-08-16 10:30 UTC, which is that cron firing.
+
+So the write side was migrated five days ago and the item stayed open
+because the *read* side was never moved. `netlify/functions/catalog-cache.mjs`
+was still calling `getStore('catalog-cache')`. That is a read change, and
+it adds zero secrets, which is strictly better than either option the
+decision was framed around. Its own workflow file had said exactly this
+since 2026-08-14, in the "TRANSITION PERIOD" comment, which named the
+follow-up precisely and was then not read again.
+
+**What shipped.** `catalog-cache.mjs` v2 serves the committed JSON via a
+static import, which esbuild inlines into the function bundle at build
+time. `publish = "."` already puts the repo root in the deploy, so there is
+no `included_files` config to keep in sync and a missing or malformed file
+fails the build rather than every request. Response shape is unchanged
+apart from an additive `source`. `scripts/test-catalog-cache.mjs` (new, 21
+assertions, wired into `npm test`) pins the contract, including two things
+that would otherwise fail silently: that `at` stays a number, because
+`concert-radar-health-check.mjs`'s 9-day freshness check reads it and a
+reshaped value would disable that check rather than trip it, and that no
+`@netlify/blobs` import survives in the file, which is the actual point of
+the change. Verified by mutation: dropping `at`, weakening the 405, and
+truncating the shows array each fail the suite.
+
+**Deliberately left alone, at the time.** `netlify/functions/scheduled-sweep.mjs`
+still existed and still wrote the Blobs store, now with no reader. Harmless, and
+a working fallback while the read side was unverified. Retire it, and the
+store, in a follow-up.
+
+**Follow-up done, 2026-08-25 (`bd65e35`).** The read side (`catalog-cache.mjs`
+v2, above) had run cleanly for a week, including real unattended scheduled
+firings, so `netlify/functions/scheduled-sweep.mjs` was deleted for real —
+the GitHub Actions version (`scripts/scheduled-sweep.mjs` +
+`.github/workflows/scheduled-sweep.yml`) is now the only one. It no longer
+"still exists"; see the Repo layout section above, which has been updated
+to match.
+
+**The one thing local tests cannot prove.** This is a bundler-boundary
+change, and the standing rule at the top of this file says an import across
+a deployment boundary can pass everything locally and still fail in the
+real bundle. Node resolves the JSON from disk here; Netlify inlines it at
+build. After deploy, hit `https://vinylscout.org/api/catalog-cache` and
+confirm a non-empty `shows` array with `source: "github-actions"`. The
+empty placeholder means the JSON did not make the bundle, and the fix is
+`included_files` plus a runtime read, not a revert.
+
+**Worth generalising.** This item sat open for six days as an architecture
+decision, and it was never an architecture decision, it was a stale
+premise. Two other punch-list items closed today the same way: Babylon
+Berlin's missing art had been sourced on 2026-08-14, and MGM+/Paramount+'s
+missing Coming Soon source had been found on 2026-08-16. Three of the
+hardest-looking items were all already done. Re-deriving whether an item is
+still true costs minutes; the two options debated here would have cost a
+day and added a credential.
+
+**Delivered:** `netlify/functions/catalog-cache.mjs`,
+`scripts/test-catalog-cache.mjs`, `package.json`,
+`.github/workflows/scheduled-sweep.yml`, `PROJECT.md`, this file.
+Committed locally, not pushed.
+
+## 2026-08-19, after the push: the cutover quietly broke the deploy trigger, and nothing would have said so
+
+The v50 catalog-cache cutover shipped and pushed clean. Then the live check
+came back wrong in an informative way: `/api/catalog-cache` had no top-level
+`source` field, and its `at` read 2026-08-16T00:02Z while the committed
+`data/catalog-cache.json` says 2026-08-16T10:30Z. Two different vintages,
+which is conclusive. The endpoint was still the old Blobs-backed v1, because
+Netlify had not deployed yet.
+
+That is expected lag, not a bug. Checking why led to the actual bug.
+
+`scripts/netlify-ignore.sh` decides whether a push earns a deploy, and it
+watches `*.html`, `*.js`, `*.css`, `covers`, `netlify`, `netlify.toml`,
+`robots.txt` and `package.json`. Not `data`. That was correct for as long as
+`data/catalog-cache.json` was inert, which it was: the Actions sweep wrote it
+purely so its output could be compared against what Blobs served. v50 made it
+input to a function bundle, so refreshing it now requires a deploy, and
+nothing in the deploy path knew that.
+
+`.github/workflows/scheduled-sweep.yml` commits that one file and nothing
+else. So the next Sunday sweep would have matched no watched path, the ignore
+script would have exited 0, the deploy would have been skipped, and
+`/api/catalog-cache` would have gone on serving the JSON bundled at whatever
+unrelated deploy happened last. Every part reports success in that scenario.
+The sweep runs green, the commit lands, the cache freezes. The only alarm is
+`concert-radar-health-check.mjs`'s 9-day freshness check, and when it finally
+fired it would have pointed at the sweep, which was working fine.
+
+Fixed by adding `data` to the watched paths, and `scripts/test-netlify-ignore.mjs`
+(new, 6 assertions, wired into `npm test`) now runs the real script against a
+throwaway git repo and asserts its actual exit codes, rather than anyone
+reading the path list and being satisfied. Removing the `data` line fails
+exactly the sweep-only assertion and nothing else.
+
+Two things worth keeping.
+
+First, the ignore script's own header had already written this down, in a
+paragraph about `backups/`: "if backups/ is live data your site or functions
+read at runtime, change the exclude line below so changes there trigger a
+deploy instead." A past session had reasoned the general case correctly and
+left the note. `data/` became that case, and the note was not re-read at the
+moment it applied. That is the third time today a correct note existed and the
+work was done as though it did not.
+
+Second, this is a class of bug that only exists at a seam. Every local test
+passed. The pushed code was right. The workflow was right. What broke was the
+relationship between a file's new role and a deploy heuristic written when it
+had a different role, and no single component was wrong. The live check is
+what surfaced it, which is the argument for the standing rule about verifying
+against production rather than against a green suite.
+
+**Delivered:** `scripts/netlify-ignore.sh`, `scripts/test-netlify-ignore.mjs`,
+`netlify/functions/catalog-cache.mjs` (comment only), `package.json`,
+`PROJECT.md`, this file.
+
+## 2026-08-21 — Outside-in audit follow-up (PROJECT v52)
+
+Four items were raised against this repo by an audit that read only the public
+sites, not the code. Three were wrong. Recording which, because the wrong ones
+cost more to re-litigate than to write down.
+
+- **`PROJECT.md` vs `CLAUDE.md`** — not an inconsistency. The Guide names one,
+  the Roadmap names the other, and both are right; it's the deliberate split this
+  file's own header describes. Nothing to fix.
+- **`concert-radar-autofix/N` branches** — already the correct shape.
+  `concert-radar-health-check.yml` runs read-only and opens a PR
+  (`permissions: pull-requests: write`), never pushing to `main`. But "autofix"
+  appeared **zero times** in PROJECT.md and zero times here, so a job holding
+  write permission had its write behaviour recorded nowhere. Now in PROJECT.md's
+  endpoints section, with the note that the PR gate is what keeps it inside Hard
+  Rule 1's "no background mutation".
+- **`/api/watching` ungated** — real, but not as raised. The endpoint is
+  deliberate and well-reasoned; the problem was that its reasoning was
+  *inherited*: "same rationale + same exception as `wishlist.mjs` (v2,
+  2026-07-11)". Phase 8 gated the wishlist on 2026-08-06. The cited precedent had
+  been reversed for over two months. Susan re-decided it on its own terms and kept
+  it ungated — artist + city + a `going` boolean is a notification preference, the
+  store is isolated, deletions are already recorded, and a key prompt would land
+  exactly on the phone action the feature exists for. The header now argues that
+  directly and names what should reopen it.
+- **`about.html` incomplete** — the only item that landed as raised.
+  `/api/catalog-cache`, `/api/venue-shows`, and the Actions-based scheduled work
+  were missing from the public page, though all three were already right in
+  PROJECT.md.
+
+Nothing executable changed. `npm test` clean.
+
+**Note for the next session:** this repo's own standing rules (top of this file)
+warn that `git status`/`git diff` via device_bash reliably strand a
+`.git/index.lock`. That happened again today, in travel-intelligence, before the
+rule was read. Read the standing rules before running git here.
+
+## 2026-08-21, later — the Guide had been describing a system that stopped existing in early August
+
+Yesterday's audit follow-up fixed what a reader of the public sites could see
+was missing. This pass went the other way: what the sites still assert that the
+repo no longer does. `guide.html` was the worse of the two, and every one of its
+wrong claims was true when it was written.
+
+The load-bearing one. Step 05 said the daily check "reads and never writes" and
+"has no authority to change anything itself," and the architecture SVG labelled
+it "reads only." `concert-radar-health-check.yml` holds `contents: write` and
+`pull-requests: write`, creates a branch, commits `venue-shows.mjs` and this
+file, pushes, and opens a PR — and `concert-radar-health-check.mjs` writes the
+replacement parser with the Claude API. None of that is a violation of anything;
+it is exactly the hybrid gate yesterday's entry recorded in PROJECT.md. But the
+Guide was teaching a principle ("a checker shouldn't silently mutate live data")
+with a mechanism the repo had replaced with a better one. `about.html:135`
+already said it correctly. The page teaching the method was the page describing
+it wrong. Step 05 now names the PR gate as the thing that keeps it honest,
+rather than a read-only rule that hasn't held since 2026-08-19.
+
+The rest were straightforward staleness, listed because the count is the point:
+
+- The architecture SVG credited "Claude scheduled tasks" with "weekly prices ·
+  daily read-only check" and the nightly backup. Backups, sweep and health check
+  are all Actions now. Only the price pull is still a Claude scheduled task, and
+  the SVG caption now says so, since that distinction is the interesting part.
+- Step 06 had Netlify running "the Discogs price pull, the nightly backup."
+  Netlify runs neither. It still has one legacy scheduled `backup.mjs` alongside
+  the Actions one during the comparison window — said plainly now rather than
+  omitted.
+- Step 03 claimed the weekly price pull runs "unattended" and prices "every
+  item." It needs a live browser session (Discogs 403s server-side scrapes for
+  sale history), and 93 of 94 records have a median, not 94.
+- The "fast & cheap" model tier was illustrated with the nightly backup, which
+  passes no `ANTHROPIC_API_KEY` and calls no model at all. The only scheduled job
+  that uses a model uses the strongest one, to rewrite a parser. The tier rule
+  said "step down for anything scheduled," which is precisely backwards here.
+- Cadence: the "daily health check" is Mondays only, and the sweep is Sundays,
+  not Mondays. Fixed in eight places across both pages.
+- Three different collection values — `≈€2,232`, "about €2,230", `€2,234` inside
+  an SVG label — against a real €2,219.77. All three now read €2,220.
+- `about.html` said "v47 charter." PROJECT.md is v52.
+
+**The number is the reason this needed automating rather than fixing.** Three
+figures, three values, none more than 0.7% off. Nobody typed them wrong; each was
+right once. `scripts/check-content-drift.mjs`'s own header had explicitly ruled
+out checking the value, reasoning that it drifts weekly and only a wide tolerance
+band would be fair — and a wide band would have passed all three. That header has
+been rewritten to say so, because the reasoning was sound and the conclusion was
+still wrong.
+
+The script now runs four checks instead of one: records-tracked (unchanged),
+every four-figure euro amount on both pages against the newest backup summed by
+app.js's own `price_median`-then-`price_low` rule (±€10, chosen and justified
+in-file), `about.html`'s charter kicker against PROJECT.md's `**Version:**`, and
+every day-of-week either page claims for a scheduled job against the real cron in
+`.github/workflows/`. The cadence check names the workflow each sentence is a
+claim about, and fails if the sentence disappears — a rewrite has to update the
+claim list on purpose rather than quietly dropping coverage. It also fails if any
+workflow starts mentioning Discogs, since two sentences now depend on the price
+pull staying outside this repo.
+
+Verified by breaking each check in turn — the About tile, the guide's SVG label,
+the guide's prose figure, the charter kicker, the health-check cron flipped to
+Sunday, and a cadence sentence reworded — confirming each failed with a message
+naming the fix, and restoring. `npm test` clean before and after.
+
+**Delivered:** `guide.html`, `about.html`, `scripts/check-content-drift.mjs`,
+this file. No functional code touched.
+
+## 2026-08-21 (later still) — deploy-freshness check
+
+vinylscout.org had been serving a **2026-08-14** deploy for 8 days. The cause was
+`locked: true` on the published deploy — Netlify pins a locked deploy as the live
+one, so builds run and never publish over it. Auto-publishing had been turned off
+on 2026-08-13 so the new Actions deploy wouldn't double-deploy, and that Actions
+deploy never worked because `NETLIFY_AUTH_TOKEN` was never added. Both publish
+paths were off at once, and PROJECT.md v45 had flagged the second half as "first
+item on tomorrow's punch list" 8 days earlier.
+
+What made it invisible: every check here watches whether **data** is fresh. None
+watched whether the deployed **site** matches the repo. Netlify's own API said
+`state: "ready"` throughout, and it was right — that deploy was ready, it simply
+wasn't the one being served.
+
+`scripts/check-deploy-fresh.mjs` closes that. It fetches each page in
+`scripts/deploy-fresh.config.json` and compares it byte-for-byte with the file on
+disk; these sites publish the repo root as-is, so any mismatch means the live site
+is not this commit. It reads what a visitor reads rather than asking the API,
+because the API answer is what hid this.
+
+Not in `npm test` — that suite is offline by design. `npm run check:deploy`, or
+`--wait` to poll for three minutes right after a push.
+
+## 2026-08-25: Freight & Salvage is not broken, it is blocked, and the health check could not tell the difference
+
+The Concert Radar health check has now opened two branches proposing the
+same change, `concert-radar-autofix/1` (08-19) and `/2` (08-24): disable
+Freight & Salvage, with the error text "HTML structure changed and an
+automated fix could not be confidently verified." Neither was merged. Both
+should be closed rather than merged, because the diagnosis is wrong.
+
+What is actually true, verified today rather than inferred:
+
+- `/api/venue-shows` reports `freight: { count: 0, error: "HTTP 403" }`.
+  The other six venues are healthy, returning 16 / 14 / 64 / 66 / 68 / 30
+  shows.
+- `https://thefreight.org/shows/` loads perfectly in a real browser, with
+  upcoming shows listed through late August.
+
+So the venue is up and its markup is fine. Freight's server is refusing
+this specific caller. `venue-shows.mjs`'s `fetchText()` sends
+`User-Agent: Mozilla/5.0 (compatible; VinylScoutConcertRadar/1.0)`, a
+self-identifying bot signature and exactly what a WAF blocks.
+
+**The bug this exposed.** `fetchText()` throws `HTTP <status>` for any
+non-2xx, and `checkVenueShows()` treated every non-null error as a parser
+fault. But a request that returned 403 never delivered any HTML, so there
+was no parser fault to find and nothing for the repair path to look at. It
+sent the current parser source and an absent page to the Claude API, got
+nothing usable back, and fell through to a disable whose message asserted
+something it had no evidence for. Merging it would have replaced an
+accurate error, "HTTP 403", with a fabricated one about markup, and
+permanently disabled a venue that works.
+
+`classifyVenueFailure()` now splits transport failures from parser faults.
+Unreachable venues are reported, still fail the run so a human sees them,
+and are never repaired, never disabled, and never made into a PR. Leaving
+them alone is the point: `venue-shows.mjs` already surfaces the true cause
+in `meta.venues[].error`, and the old behaviour was overwriting it.
+
+The `HTTP \d{3}` test is anchored on purpose. `fetchText()` throws that
+exact string and nothing else, while a parser could reasonably mention
+"HTTP" inside a longer message, so an unanchored match would misfile real
+parser faults as unreachable and quietly stop repairing them. There is a
+test for that case specifically, and removing the anchor fails it.
+
+**The existing test suite had encoded the same mistake.** Its "broken
+venue" fixture used `error: 'HTTP 500'`, which is a transport failure, not
+a parser fault. That is why the script looked correct and looked covered
+right up until it filed two confident PRs against a working venue. The
+fixture now uses a real parser error and the transport case is tested
+separately. Three mutations were run against the classifier and all three
+fail the suite.
+
+**Not decided here, because it is not a session's call.** What to do about
+the 403 is Susan's:
+
+- Send fuller browser-like headers and see if it passes. Worth saying
+  plainly: the current UA identifies itself honestly, and Freight may be
+  blocking it deliberately. Changing it works around a choice the venue
+  may have made on purpose.
+- Leave Freight out and rely on manual entries, which already happened
+  once (`2ef41ab`, The Meditations, Sep 22).
+- Find a sanctioned feed. This was investigated today and the answer is
+  no, not usefully. thefreight.org is WordPress with a public REST API,
+  and it exposes a Tessitura-backed `wp/v2/tessi_performance` collection
+  (497 records) plus a legacy `wp/v2/events` (72 records, last touched
+  2021). Neither carries a usable performance date: `tessi_performance`
+  returns empty `content`, empty `acf`, and only WordPress's own post
+  dates, so the show dates live in Tessitura and are not in the REST
+  payload. Recorded so nobody spends another hour finding the same dead
+  end.
+
+**Delivered:** `scripts/concert-radar-health-check.mjs`,
+`scripts/test-concert-radar-health-check.mjs`, this file.
+
+## 2026-08-31 — Freight & Salvage: Susan picked an option, and the health check's 3-for-3 losing streak was the reason to ask
+
+`concert-radar-health-check.yml` had run 3 times since it shipped on
+2026-08-19 (one manual, two scheduled) and failed all 3 — every single one
+for the same reason: Freight & Salvage still 403ing `fetchText()`, and the
+script deliberately failing the run whenever a venue is unreachable (see
+2026-08-25 above — that's the point of `classifyVenueFailure()`, a human
+needs to see it, and no PR gets opened for something that isn't a parser
+fault). Susan hadn't picked one of the three options that entry laid out,
+so it kept happening — a real, live-verified `meta.venues[]` HTTP 403 on
+Freight, all 6 other venues healthy, catalog-cache 34 hours old, SeatGeek
+spot check 200 — every Monday, forever, until someone chose.
+
+Asked Susan directly this session (prompted by her GitHub failure-run
+email for run #3). She picked the first option: send fuller browser-like
+headers and see if it passes.
+
+**What changed:** `fetchText()` in `venue-shows.mjs` (v5) now sends a real
+Chrome-on-macOS `User-Agent` plus `Accept`/`Accept-Language` headers
+matching what an actual browser sends, replacing the self-identifying
+`VinylScoutConcertRadar/1.0` UA. This is shared by all 7 venues, not just
+Freight — there's only the one `fetchText()` — but none of the other 6
+were blocked by the old UA, so this should be a pure win for Freight with
+no expected change anywhere else. `npm run check` and
+`npm run test:concert-radar-health-check` both pass clean against the
+patched file (22/22).
+
+**Not verified live** from the cloud session that made this change — no
+network path to `thefreight.org` from there. Applied directly to this
+local clone instead; next step is push and watch the next
+`concert-radar-health-check` run (or `workflow_dispatch` it manually
+rather than waiting for Monday) to see whether HTTP 403 actually clears.
+If Freight is still blocking after this ships, the UA wasn't what it was
+keying on, and the other two options from 08-25 — drop the venue, or
+accept the weekly red run — are back on the table.
+
+**Delivered:** `netlify/functions/venue-shows.mjs` (v5), this file.
+
+## 2026-09-01 — Freight & Salvage: the browser-like headers deployed clean and did not work
+
+v5 deployed to production at 16:04 UTC (Netlify deploy `6a96f762df88670008a94a64`,
+commit `4869152`, confirmed `state: "ready"` and `commit_ref` matching
+exactly). Checked live `/api/venue-shows` immediately after (cache-busted,
+`age: 0`, so this is a genuinely fresh call, not a cached pre-deploy
+response): **Freight & Salvage still comes back `count: 0, error: "HTTP
+403"`.** The header change did not clear the block.
+
+Isolated why, rather than leaving it a mystery for the next session: fetched
+`https://thefreight.org/shows/` with the exact same `User-Agent`/`Accept`/
+`Accept-Language` headers now in `fetchText()`, but from a real browser
+running on Susan's own Mac instead of from Netlify's function. That request
+got **HTTP 200**, `server: cloudflare`, `cf-cache-status: HIT` — same
+headers, same target URL, different origin, different outcome.
+
+That isolates the block to **where the request comes from, not what it
+says.** Cloudflare (thefreight.org is Cloudflare-fronted, Kinsta-hosted
+WordPress underneath) is near-certainly blocking on IP/ASN — Netlify
+Functions run out of AWS Lambda datacenter ranges, which is exactly the
+kind of traffic a WAF's bot-protection rule keys on regardless of what
+`User-Agent` string is attached. No header change from a serverless
+function can pass that kind of rule; the request would need to originate
+from a non-datacenter IP, which isn't something `fetchText()` can do on
+its own.
+
+**v5's header change is left in place** — it's harmless (still a more
+honest, less bot-signaling request) and correct in spirit, it just wasn't
+sufficient on its own, and there's no reason to revert it.
+
+**Where this actually leaves the decision:** the "send browser-like
+headers" option from 08-25 is now closed out, tried and didn't work — not
+still open. What's left is the other two from that entry: drop Freight
+from the venue list (manual entries only, as already done once for The
+Meditations), or accept that this venue reports `HTTP 403` and the health
+check goes red for it every week (which is at least an *honest* red,
+distinct from a fixable bug — see `classifyVenueFailure()`). A residential-
+IP proxy or scraping relay could theoretically get around the ASN block,
+but that's new infrastructure and cost for one of seven venues and hasn't
+been scoped — worth a explicit call from Susan before anyone builds it,
+not a default next step.
+
+## 2026-09-01, later — Freight & Salvage dropped from active scraping
+
+Asked Susan to choose between the three options above, now that "browser
+headers" was confirmed closed out rather than merely untried. **She chose:
+drop Freight from the venue list.**
+
+**What changed (v6):** `netlify/functions/venue-shows.mjs`'s `VENUES`
+array no longer includes Freight — it's moved to `EXCLUDED_VENUES`
+alongside Ashkenaz and The New Parish, with its own reason (IP/ASN block,
+not a client-side-rendering problem like those two) and now appears in
+the API response's `meta.excluded[]` instead of `meta.venues[]`.
+`parseFreight()` itself is untouched and still in the file, just unused —
+deleting a working parser for a venue that might come back later (a
+residential-IP proxy, if that's ever built) seemed like the wrong kind of
+cleanup.
+
+**Practical effect:** `concert-radar-health-check.yml` will no longer see
+Freight in `meta.venues[]` at all, so it can't fail on it — the weekly
+red run this whole two-day thread was about should stop. Real Freight
+shows still reach Concert Radar the way they already do for anything
+outside all three automated sources: the "+ Add a show" manual fallback,
+same path used for The Meditations (`2ef41ab`).
+
+**Docs updated in the same change**, since a scraped-venue count is
+exactly the kind of claim the 2026-08-21 drift audit flagged as going
+stale silently: `about.html` and `guide.html`'s "seven venue
+feeds"/"seven hand-picked venue calendars" language now says six, with a
+short note on why the seventh isn't there. `roadmap.html`'s Concert Radar
+phase body got the same correction rather than being left to quietly
+disagree with About. `check-content-drift.mjs` does not yet assert this
+count itself (it wasn't in scope for this session) — worth adding next
+time that script is open, so this specific staleness can't recur
+silently.
+
+**Delivered:** `netlify/functions/venue-shows.mjs` (v6), `about.html`,
+`guide.html`, `roadmap.html`, this file.
+
+## 2026-09-09 — check:freshness shipped; the Sunday sweep missed a week
+
+The daily portfolio freshness sweep is specified to run
+`npm run check:freshness` here, and no such script existed — its Step 1
+has been a no-op. Shipped scripts/check-freshness.mjs (read-only, zero
+deps, no network): [STALE] when the nightly catalog or watching backup
+is more than 2 days old or data/catalog-cache.json passes 9 days,
+[REVIEW] at 8, exit 1 on [STALE] only. Out of npm test by design —
+these thresholds fail on the calendar, not on the code. Its first run
+flagged the real thing: scheduled-sweep.yml missed Sunday 2026-09-06
+(sweep commits landed 8/16, 8/23, 8/30, then nothing), leaving the
+Concert Radar cache 10 days old. Per the punch-list rule, Actions log
+review before any fix, then a manual workflow re-run:
+https://github.com/snesbitt/vinyl-scout/actions/workflows/scheduled-sweep.yml
+Earlier the same day (802bd88): About/Guide stat tiles caught up to the
+2026-09-08 backup (95 records). PROJECT.md is at v55.
+
+## 2026-09-14, later: the freshness check was wired into nothing, and about.html still said seven venues
+
+Two findings from a portfolio-wide punch list, both of the same kind: work
+that was done correctly and then not connected to anything.
+
+**1. `check-freshness.mjs` ran nowhere.** It asserts that both nightly backup
+jobs left a file and that Concert Radar's weekly cache is inside its window,
+which is precisely the check that would have caught this morning's failed
+`backup-watching` run. It existed in `package.json` as `check:freshness` and
+appeared in no workflow and not in `npm test`. A check that only runs when
+somebody types it runs when somebody already suspects a problem, which is the
+opposite of its purpose.
+
+The cost is measurable: `backups/watching/` is missing 2026-08-28, 2026-08-30
+and 2026-09-14, all to the same lost push race. Nothing went red for any of
+them. The first two were found weeks later by reading the directory; the third
+was found the same way this morning.
+
+New `.github/workflows/daily-freshness.yml` runs it at 09:30 UTC, after both
+backup jobs (09:05 and 09:10) with slack for GitHub's scheduling delay. Read-
+only, no npm install, no network. A missing backup now fails a scheduled run
+and GitHub's own failure email says so, which is a channel with a track record
+of reaching Susan — today's screenshot is the proof.
+
+Deliberately a separate workflow from the jobs it watches, for the reason this
+file already records in another form: a backup job reporting on its own backup
+never reports when it never runs. The Fitness Log's `daily-health.yml` got the
+same treatment today.
+
+**2. `about.html` still claimed "Seven hand-picked Bay Area venues."** Freight
+& Salvage moved to `EXCLUDED_VENUES` on 2026-09-01 and the real count has been
+six ever since. That pass updated `guide.html` and `roadmap.html` and missed
+this line, and the same entry flagged that `check-content-drift.mjs` did not
+assert the count — noting the gap instead of closing it. Two weeks later the
+page was still wrong.
+
+`check-content-drift.mjs` Check 6 now counts the `VENUES` array itself and
+compares it against every number-plus-venue claim in `about.html`,
+`guide.html` and `roadmap.html`. It found the stale line on its first run.
+Counting the array rather than a constant means moving a venue in or out of
+`EXCLUDED_VENUES` is enough to make a stale page fail.
+
+Verified by mutation, all three caught: restoring "Seven" fails; adding a
+seventh venue to `VENUES` fails; renaming `VENUES` fails rather than passing
+vacuously against zero parsed entries.
+
+**Verified:** `npm test` green end to end, exit 0, including the new Check 6.
+`node --check` on the modified script, workflow parsed as YAML,
+`check-freshness.mjs` run against the live tree.
+
+**Note on today's `backup-watching` failure:** the retry fix merged in PR #6
+at 10:41 landed an hour after the 09:39 failure, so nothing has exercised it
+and `backups/watching/2026-09-14.json` is still missing. Running that workflow
+by hand fills the gap and proves the retry in one go.
+
+**Delivered:** `.github/workflows/daily-freshness.yml` (new),
+`scripts/check-content-drift.mjs`, `about.html`, this file. Committed on
+`main`, not pushed.
+

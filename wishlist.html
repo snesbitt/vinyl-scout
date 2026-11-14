@@ -17,7 +17,7 @@
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
 </style>
-  <link rel="stylesheet" href="/style.css?v=34" />
+  <link rel="stylesheet" href="/style.css?v=35" />
   <style>
     /* Wishlist — version: 19. "+ Collection" button on each row (2026-10-12): one click copies the item into the catalog, then removes it from the wishlist. Previous: version: 18. Wishlist Priority (2026-07-29, Phase 9 pulled
        forward at Susan's request; simplified 2026-07-30): sort defaults to
@@ -153,8 +153,8 @@
   <section class="wl-form" aria-label="Add to wishlist">
     <h3>Add a record</h3>
     <div class="row">
-      <input id="f-artist" placeholder="Artist (required)" autocomplete="off" />
-      <input id="f-title" placeholder="Title (required)" autocomplete="off" />
+      <input id="f-artist" aria-label="Artist" placeholder="Artist (required)" autocomplete="off" />
+      <input id="f-title" aria-label="Title" placeholder="Title (required)" autocomplete="off" />
     </div>
     <button id="f-add" class="btn" type="button">Add to wishlist</button>
   </section>
