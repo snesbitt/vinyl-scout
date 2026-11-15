@@ -1,7 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-gamh-13-2026-11-28",
+      "id": "venue-gamh-8-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -14,7 +14,7 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-26-2026-12-13",
+      "id": "venue-sweetwater-21-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -27,7 +27,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-12-2026-12-31",
+      "id": "venue-uctheatre-8-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -40,43 +40,17 @@
       "url": "https://www.theuctheatre.org/events"
     },
     {
-      "id": "jambase-jambase:17173009",
-      "artist": "School Fair",
-      "title": "School Fair at 4 Star Theater",
-      "venue": "4 Star Theater",
+      "id": "venue-gamh-32-2027-01-17",
+      "artist": "Thomas Lennon & Friends Sing The Smiths",
+      "title": "Thomas Lennon & Friends Sing The Smiths",
+      "venue": "Great American Music Hall",
       "city": "San Francisco, CA",
-      "date": "2026-11-12",
-      "dateLabel": "Thu, Nov 12, 2026",
-      "source": "JamBase",
+      "date": "2027-01-17",
+      "dateLabel": "Sun, Jan 17, 2027",
+      "source": "Venue: Great American Music Hall",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://www.eventbrite.com/e/2001417665113?aff=ebdijbjambase&utm_source=jambase"
-    },
-    {
-      "id": "seatgeek-18297395",
-      "artist": "Bonobo",
-      "title": "Bonobo",
-      "venue": "Fox Theater - Oakland",
-      "city": "Oakland, CA",
-      "date": "2026-11-14",
-      "dateLabel": "Sat, Nov 14, 2026",
-      "source": "SeatGeek",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://seatgeek.com/bonobo-tickets/oakland-california-fox-theater-oakland-2026-11-14-8-pm/concert/18297395"
-    },
-    {
-      "id": "jambase-jambase:17247680",
-      "artist": "Bill Evans",
-      "title": "California Bluegrass Reunion",
-      "venue": "The Freight",
-      "city": "Berkeley, CA",
-      "date": "2026-11-14",
-      "dateLabel": "Sat, Nov 14, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://secure.thefreight.org/16170/16171-california-bluegrass-reunion-261114?promo=8815"
+      "url": "https://wl.seetickets.us/event/thomas-lennon-and-friends-sing-the-smiths/710737?afflky=GreatAmericanMusicHall"
     },
     {
       "id": "jambase-jambase:17071618",
@@ -287,6 +261,19 @@
       "url": "https://app.opendate.io/e/zepparella-february-27-2027-746379?utm_source=jambase"
     },
     {
+      "id": "jambase-jambase:17388353",
+      "artist": "Fleetwood Macramé",
+      "title": "Fleetwood Macramé at Mystic Theatre",
+      "venue": "Mystic Theatre",
+      "city": "Petaluma, CA",
+      "date": "2027-02-27",
+      "dateLabel": "Sat, Feb 27, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzEwOTU2OjE4/clickthru?utm_source=jambase"
+    },
+    {
       "id": "jambase-jambase:17365581",
       "artist": "Alasdair Fraser",
       "title": "Alasdair Fraser at The Freight",
@@ -339,7 +326,7 @@
       "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzEwMDc4OjE4/clickthru?utm_source=jambase"
     },
     {
-      "id": "jambase-jambase:16323234",
+      "id": "jambase-jambase:17401288",
       "artist": "SiM",
       "title": "SiM at August Hall",
       "venue": "August Hall",
@@ -349,7 +336,20 @@
       "source": "JamBase",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-world-tour-san-francisco-california-04-18-2027%2Fevent%2F1C0064AF09A75C9E&utm_medium=affiliate&utm_source=jambase"
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fsim-hooman-after-all-world-tour-san-francisco-california-04-18-2027%2Fevent%2F1C0064AF09A75C9E&utm_medium=affiliate&utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17413296",
+      "artist": "Goldie Boutilier",
+      "title": "Goldie Boutilier at Castro Theatre",
+      "venue": "Castro Theatre",
+      "city": "San Francisco, CA",
+      "date": "2027-05-08",
+      "dateLabel": "Sat, May 8, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fgoldie-boutilier-the-godmother-tour-san-francisco-california-05-08-2027%2Fevent%2F1C00656A9518ACAC&utm_medium=affiliate&utm_source=jambase"
     },
     {
       "id": "seatgeek-18557005",
@@ -470,6 +470,6 @@
     }
   ],
   "artistCount": 184,
-  "at": 1794242823801,
+  "at": 1794784857749,
   "source": "github-actions"
 }
