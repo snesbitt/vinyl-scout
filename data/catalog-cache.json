@@ -1,7 +1,7 @@
 {
   "shows": [
     {
-      "id": "venue-gamh-8-2026-11-28",
+      "id": "venue-gamh-2-2026-11-28",
       "artist": "Zepparella the Led Zeppelin Powerhouse",
       "title": "Zepparella the Led Zeppelin Powerhouse",
       "venue": "Great American Music Hall",
@@ -14,7 +14,20 @@
       "url": "https://wl.seetickets.us/event/zepparella-the-led-zeppelin-powerhouse/703222?afflky=GreatAmericanMusicHall"
     },
     {
-      "id": "venue-sweetwater-21-2026-12-13",
+      "id": "seatgeek-18085147",
+      "artist": "The Neighbourhood",
+      "title": "The Neighbourhood",
+      "venue": "Bill Graham Civic Auditorium",
+      "city": "San Francisco, CA",
+      "date": "2026-12-02",
+      "dateLabel": "Wed, Dec 2, 2026",
+      "source": "SeatGeek",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://seatgeek.com/the-neighbourhood-tickets/san-francisco-california-bill-graham-civic-auditorium-2026-12-02-7-30-pm/concert/18085147"
+    },
+    {
+      "id": "venue-sweetwater-14-2026-12-13",
       "artist": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "title": "The Rock and Roll Playhouse plays: Music of Bob Marley + More for Kids",
       "venue": "Sweetwater Music Hall",
@@ -27,7 +40,7 @@
       "url": "https://sweetwatermusichall.org/event/the-rock-and-roll-playhouse-plays-music-of-bob-marley-more-for-kids-3/sweetwater-music-hall/mill-valley-california/"
     },
     {
-      "id": "venue-uctheatre-8-2026-12-31",
+      "id": "venue-uctheatre-6-2026-12-31",
       "artist": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "title": "Steel Pulse (New Years Eve) Reggae Against Racism Tour",
       "venue": "The UC Theatre",
@@ -40,7 +53,7 @@
       "url": "https://www.theuctheatre.org/events"
     },
     {
-      "id": "venue-gamh-32-2027-01-17",
+      "id": "venue-gamh-26-2027-01-17",
       "artist": "Thomas Lennon & Friends Sing The Smiths",
       "title": "Thomas Lennon & Friends Sing The Smiths",
       "venue": "Great American Music Hall",
@@ -51,32 +64,6 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://wl.seetickets.us/event/thomas-lennon-and-friends-sing-the-smiths/710737?afflky=GreatAmericanMusicHall"
-    },
-    {
-      "id": "jambase-jambase:17071618",
-      "artist": "JOA",
-      "title": "JOA at Halcyon",
-      "venue": "Halcyon",
-      "city": "San Francisco, CA",
-      "date": "2026-11-20",
-      "dateLabel": "Fri, Nov 20, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://link.dice.fm/n2df1a3b73aa?utm_source=jambase"
-    },
-    {
-      "id": "jambase-jambase:16643999",
-      "artist": "Agriculture",
-      "title": "Agriculture at August Hall",
-      "venue": "August Hall",
-      "city": "San Francisco, CA",
-      "date": "2026-11-21",
-      "dateLabel": "Sat, Nov 21, 2026",
-      "source": "JamBase",
-      "priceLow": null,
-      "priceHigh": null,
-      "url": "https://ticketmaster.evyy.net/c/252938/271177/4272?u=https%3A%2F%2Fwww.ticketmaster.com%2Fagriculture-san-francisco-california-11-21-2026%2Fevent%2F1C0064D8E4628954%3Futm_content%3Dhotevent&utm_medium=affiliate&utm_source=jambase"
     },
     {
       "id": "jambase-jambase:16662209",
@@ -154,7 +141,7 @@
       "source": "JamBase",
       "priceLow": null,
       "priceHigh": null,
-      "url": "https://www.tixr.com/groups/publicsf/events/metalheadz-goldie-photek-presented-by-stamina-public-works-206157?utm_campaign=jambase&utm_source=jambase"
+      "url": "https://www.eventbrite.com/e/2005057178997?aff=ebdijbjambase&utm_source=jambase"
     },
     {
       "id": "jambase-jambase:16925777",
@@ -272,6 +259,19 @@
       "priceLow": null,
       "priceHigh": null,
       "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzEwOTU2OjE4/clickthru?utm_source=jambase"
+    },
+    {
+      "id": "jambase-jambase:17428748",
+      "artist": "Ash",
+      "title": "Ash at Rickshaw Stop",
+      "venue": "Rickshaw Stop",
+      "city": "San Francisco, CA",
+      "date": "2027-04-04",
+      "dateLabel": "Sun, Apr 4, 2027",
+      "source": "JamBase",
+      "priceLow": null,
+      "priceHigh": null,
+      "url": "https://prod-nts-api.seeticketsusa.us/v1.0.0/promote/YWZmOlNUVVMtNzExMjcxOjE4/clickthru?utm_source=jambase"
     },
     {
       "id": "jambase-jambase:17365581",
@@ -469,7 +469,7 @@
       "url": "https://seatgeek.com/pink-martini-tickets/davis-california-mondavi-center-uc-davis-1-2026-12-05-7-30-pm/concert/18690618"
     }
   ],
-  "artistCount": 184,
-  "at": 1794784857749,
+  "artistCount": 209,
+  "at": 1795392323472,
   "source": "github-actions"
 }
