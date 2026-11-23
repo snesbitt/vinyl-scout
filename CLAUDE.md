@@ -68,14 +68,14 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                          then filters every event's own title against a
                          tribute/cover-act blocklist — see 2026-08-03 note)
       venue-shows.mjs    /api/venue-shows    GET ungated · pure read (Phase
-                         12, 2026-08-04 — scrapes 7 hand-picked Bay Area
+                         12, 2026-08-04 — scrapes 6 hand-picked Bay Area
                          venues' own public event pages server-side, no API
-                         key needed for any of them; one of the 7 fetches
+                         key needed for any of them; one of the 6 fetches
                          covers 6 Another Planet Entertainment venues at
                          once. Catches box-office-only shows SeatGeek's
                          index doesn't carry — see the file's own header
                          comment for the full per-venue platform breakdown
-                         and the 2 venues deliberately left out)
+                         and the 3 venues deliberately left out)
       watching.mjs       /api/watching/:id?  GET public · POST/DELETE
                          UNGATED (Phase 11, 2026-08-04, v16 — Watching
                          panel storage, moved server-side after Susan's
@@ -100,7 +100,7 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
                        the nightly automation moved to
                        scripts/backup-catalog.mjs, below)
     covers/            Album art committed by save-cover
-    backups/           Daily JSON snapshots committed by run-backup
+    backups/           Daily JSON snapshots committed by scripts/backup-catalog.mjs (Actions; run-backup only for the manual /api/backup)
     scripts/           netlify-ignore.sh (deploy gate) + smoke.mjs +
                        scheduled-sweep.mjs (weekly Concert Radar sweep,
                        GitHub-Actions-scheduled) + backup-catalog.mjs
@@ -158,13 +158,13 @@ Susan works mostly from an iPhone in Safari — mobile-first, always.
 
 | Var            | Used by                          | Purpose                                    | Required for           |
 |----------------|----------------------------------|--------------------------------------------|------------------------|
-| EDIT_SECRET    | records.mjs, save-cover.mjs, discogs-pricing.mjs | Gates POST/DELETE writes (X-Edit-Key)      | All writes / covers / pricing refresh |
+| EDIT_SECRET    | records.mjs, save-cover.mjs, discogs-pricing.mjs, discogs-cover.mjs, wishlist.mjs | Gates POST/DELETE writes (X-Edit-Key)      | All writes / covers / pricing refresh |
 | BACKUP_SECRET  | backup-http.mjs                  | Gates manual GET /api/backup (X-Backup-Key)| Manual backup          |
 | DISCOGS_TOKEN  | discogs-lookup, discogs-pricing  | Discogs auth, server-side only             | Pressing/market lookup |
 | GITHUB_TOKEN   | save-cover, run-backup           | Commits covers + backups via GitHub API    | Covers + backups       |
 | GITHUB_REPO    | save-cover, run-backup           | Target repo (default snesbitt/vinyl-scout) | optional               |
 | GITHUB_BRANCH  | save-cover, run-backup           | Target branch (default main)               | optional               |
-| YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview's YouTube tier is a last-resort that is still not configured (`_debug.youtube.configured: false`, rechecked 2026-11-16). As of that run, 97 of 98 owned records resolve via Deezer; the one miss is The Scientist, *Rids the World of the Evil Curse of the Vampires* (`no_match_pending_youtube` since 2026-10-19), so setting this key, or adding a `KNOWN_COMPILATION_TRACKS` override for that record, would close the last gap; get one free from Google Cloud Console if you do need to set it (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, this tier gracefully reports "not configured" with zero effect on the rest of the pipeline. |
+| YOUTUBE_API_KEY       | audio-preview.mjs         | YouTube Data API v3 key, API-key-only (no OAuth) | Audio preview's YouTube tier is a last-resort that is still not configured (`_debug.youtube.configured: false`, rechecked 2026-11-23). As of that run, 97 of 98 owned records resolve via Deezer; the one miss is The Scientist, *Rids the World of the Evil Curse of the Vampires* (`no_match_pending_youtube` since 2026-10-19), so setting this key, or adding a `KNOWN_COMPILATION_TRACKS` override for that record, would close the last gap; get one free from Google Cloud Console if you do need to set it (enable "YouTube Data API v3", create an API key, no OAuth consent screen needed for public search). Until set, this tier gracefully reports "not configured" with zero effect on the rest of the pipeline. |
 | SEATGEEK_CLIENT_ID    | tour-dates.mjs            | SeatGeek Platform API client_id, server-side only | Required for Concert Radar (Phase 11) — without it `/api/tour-dates` returns a 500. Must be scoped to "Functions" (or "All scopes") in Netlify's env var UI; "Builds, Runtime" alone isn't enough for a serverless function to read it at request time (bit us on first deploy, 2026-08-03). Currently set and live. |
 | SEATGEEK_CLIENT_SECRET| tour-dates.mjs            | SeatGeek Platform API client_secret, server-side only | Optional — SeatGeek's docs say client_secret isn't required for read-only calls like `/events`, so `tour-dates.mjs` tries `client_id` alone first and only adds the secret if this var is present. |
 
@@ -220,7 +220,7 @@ outside this repo in Susan's Claude app — see PROJECT.md v20) gained a new
 **Job E — code & data health checks** on 2026-07-12: a cache-bust drift check
 across all 7 static pages, an audio-preview canary re-test of 5
 previously-buggy records, a `YOUTUBE_API_KEY` activation check (auto-runs the
-pending 7-gap-record sweep the moment the key is set), a rotating cover-art
+pending gap-record sweep (now 1 record, The Scientist) the moment the key is set), a rotating cover-art
 link-rot spot check, and full parity with every assertion in
 `scripts/smoke.mjs`. Job D's doc-reconcile step also changed from
 conditional to **unconditional every week** — the full six-doc read above now
@@ -284,13 +284,9 @@ whatever the sync jobs touched to already be current.
   re-added it. `wishlist.mjs` v3 now records every deletion into a new
   `deleted` array in `sync-state.json` (normalized `artist title` key, same
   format as `auto_added`; committed via the GitHub Contents API, same
-  pattern as `save-cover.mjs`/`run-backup.mjs`). **This job's own prompt
-  (external to this repo, in Susan's Claude scheduled tasks) still needs to
-  be updated to actually check `deleted` before adding** — that half of the
-  fix isn't done, since this session couldn't locate the live trigger for
-  this specific job among Susan's current scheduled tasks to edit it. Until
-  that prompt-side check exists, deletions are recorded but not yet
-  enforced.
+  pattern as `save-cover.mjs`/`run-backup.mjs`). The weekly scheduled job
+  now checks both `auto_added` and `deleted` before adding (confirmed
+  2026-11-23), so deletions are recorded and enforced.
 - **Job C2 — Amazon cart sync** (named explicitly in PROJECT.md v9).
   Read-only sweep of Susan's Amazon active cart + saved-for-later, matched
   to the specific pressing each listing names, added to the wishlist the
@@ -322,7 +318,7 @@ whatever the sync jobs touched to already be current.
   (2) **audio-preview canary check** — re-tests a fixed set of 5 records
   that each previously exposed a real `audio-preview.mjs` matching bug (Led
   Zeppelin *IV*, Air *Moon Safari*, Fleetwood Mac *Rumours*, Beethoven's
-  Piano Sonatas, The Scientist), escalating to a full 93-record sweep if
+  Piano Sonatas, The Scientist), escalating to a full-catalog (98-record) sweep if
   any canary fails; (3) **YouTube key activation check** — detects whether
   `YOUTUBE_API_KEY` has been set since the last run and, if so, auto-runs
   the pending gap-record sweep and updates PROJECT.md/CLAUDE.md to close
@@ -381,10 +377,10 @@ in doubt about what's actually live vs. what a phase label says, read the
 repo (or ask Susan) rather than trusting a "parked"/"planned" status by
 itself.
 
-**Current state (as of 2026-11-16 weekly run):** 97 of 98 records resolve to a playable preview, all served via Deezer. Verve // Remixed and the other former gap records now match on Deezer. The one record left pending the YouTube fallback is The Scientist, *Rids the World of the Evil Curse of the Vampires* (no match since 2026-10-19; key still not configured). Spotify and iTunes tiers were tried and
+**Current state (as of 2026-11-23 weekly run):** 97 of 98 records resolve to a playable preview, all served via Deezer. Verve // Remixed and the other former gap records now match on Deezer. The one record left pending the YouTube fallback is The Scientist, *Rids the World of the Evil Curse of the Vampires* (no match since 2026-10-19; key still not configured). Open issue found 2026-11-23, not fixed: Deezer search no longer returns the original albums for some records, and the matcher accepts a same-artist remix album instead. The Air *Moon Safari* canary now plays "Kelly Watch the Stars (Moog Cookbook Remix)" from *Moon Safari Remixes, Rarities and Radio Sessions*; St Germain *Tourist* (Travel Versions), Donna Summer *Bad Girls* (Scandal Remix EP) and Tosca *J.A.C. Reissue* (J.A.C. Remixes) likewise resolve to remix-album tracks. Spotify and iTunes tiers were tried and
 removed — neither ever contributed a single playable preview across the
 whole catalog. A YouTube tier 4 exists in the code as a last-resort
-fallback (needs `YOUTUBE_API_KEY`, confirmed still unset 2026-11-16) and so
+fallback (needs `YOUTUBE_API_KEY`, confirmed still unset 2026-11-23) and so
 cannot serve The Scientist yet: every other record resolves via Deezer directly or via
 `KNOWN_COMPILATION_TRACKS`, a small hand-researched override table for
 records whose canonical release isn't the one Deezer indexes (e.g. The
@@ -396,7 +392,7 @@ full-catalog re-sweep, not just the reported record) is preserved in
 for future sessions. The one durable lesson worth keeping inline: **never
 trust an `available:true` count increase by itself** — verify by tracing
 the actual matched track back to its real Deezer album/artist, and always
-re-run the full 93-record sweep (not just the specific records touched)
+re-run the full-catalog (98-record) sweep (not just the specific records touched)
 after any matching-logic change. Two separate wrong-track bugs and one
 same-session regression were only caught this way.
 
