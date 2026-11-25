@@ -59,7 +59,18 @@ const sha = (buf) => createHash("sha256").update(buf).digest("hex").slice(0, 12)
 // Normalise before hashing. A trailing-newline or CRLF difference in a working
 // copy is not a deploy problem, and a check that cries wolf gets ignored inside
 // a month.
-const normalise = (s) => s.replace(/\r\n/g, "\n").replace(/\s+$/, "") + "\n";
+//
+// 2026-11-25: also drop ".html" from internal link targets, on both sides.
+// Netlify's Pretty URLs post-processing rewrites href="/about.html" to
+// href="/about" in every page it serves, so this check reported drift on all
+// four pages every week from 2026-08-31 to 2026-11-24 while the live site was
+// in fact current. Proof: the live byte counts in issue #5 equal the repo's
+// normalised byte counts minus exactly 5 bytes per internal .html link (index
+// 7 links -35, about 13 -65, guide 10 -50, roadmap 8 -40). Any other change
+// still fails the check.
+const stripHtmlLinks = (s) => s.replace(/(href="[^"#:?]*?)\.html(?=["#?])/g, "$1");
+const normalise = (s) =>
+  stripHtmlLinks(s.replace(/\r\n/g, "\n").replace(/\s+$/, "") + "\n");
 
 async function fetchLive(file) {
   // Always ask for an uncached copy: a stale CDN edge is part of the bug class
